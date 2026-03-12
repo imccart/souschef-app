@@ -41,10 +41,11 @@ export function WelcomeScreen({ onStart }) {
       }
       setPhase(1) // tilt
     }, 100)
-    const t1 = setTimeout(() => setPhase(2), 1100) // drip
-    const t2 = setTimeout(() => setPhase(3), 1960) // lift + text
-    const t3 = setTimeout(() => setPhase(4), 2260) // button
-    return () => { clearTimeout(t0); clearTimeout(t1); clearTimeout(t2); clearTimeout(t3) }
+    const t1 = setTimeout(() => setPhase(2), 1100) // drip starts
+    const t2 = setTimeout(() => setPhase(3), 1490) // splatter on impact
+    const t3 = setTimeout(() => setPhase(4), 1960) // lift + text
+    const t4 = setTimeout(() => setPhase(5), 2260) // button
+    return () => { clearTimeout(t0); clearTimeout(t1); clearTimeout(t2); clearTimeout(t3); clearTimeout(t4) }
   }, [])
 
   useEffect(() => {
@@ -58,14 +59,14 @@ export function WelcomeScreen({ onStart }) {
     return () => { if (cleanup) cleanup() }
   }, [runAnimation])
 
-  const ladleClass = phase >= 3 ? 'welcome-ladle upright' : phase >= 1 ? 'welcome-ladle tilt' : 'welcome-ladle'
-  const moverClass = phase >= 3 ? 'welcome-ladle-mover lift' : 'welcome-ladle-mover'
-  const moverStyle = phase >= 3 ? { '--lift-dy': `${liftDy}px` } : {}
+  const ladleClass = phase >= 4 ? 'welcome-ladle upright' : phase >= 1 ? 'welcome-ladle tilt' : 'welcome-ladle'
+  const moverClass = phase >= 4 ? 'welcome-ladle-mover lift' : 'welcome-ladle-mover'
+  const moverStyle = phase >= 4 ? { '--lift-dy': `${liftDy}px` } : {}
 
   return (
     <div className="welcome">
-      {/* Splatter dots */}
-      {phase >= 2 && (
+      {/* Splatter dots — appear on impact */}
+      {phase >= 3 && (
         <>
           <div className="welcome-splat main" style={{ left: splatPos.x - 9, top: splatPos.y - 4 }} />
           <div className="welcome-splat a" style={{ left: splatPos.x - 18, top: splatPos.y - 3 }} />
@@ -75,20 +76,20 @@ export function WelcomeScreen({ onStart }) {
       )}
       <div className="welcome-content">
         <div className="welcome-logo-slot" ref={logoRef} />
-        <div className={`welcome-wordmark ${phase >= 3 ? 'reveal' : ''}`}>sous<em>chef</em></div>
+        <div className={`welcome-wordmark ${phase >= 4 ? 'reveal' : ''}`}>sous<em>chef</em></div>
         <div className="welcome-tagline-slot">
-          <div className={`welcome-tagline ${phase >= 3 ? 'reveal' : ''}`}>
+          <div className={`welcome-tagline ${phase >= 4 ? 'reveal' : ''}`}>
             because someone has to plan dinner<br />and get groceries
           </div>
           <div className={moverClass} ref={ladleRef} style={moverStyle}>
             <img className={ladleClass} src={ladleImg} alt="" />
-            {phase >= 2 && phase < 3 && <div className="welcome-drip" ref={dripRef} />}
+            {phase >= 2 && phase < 4 && <div className="welcome-drip" ref={dripRef} />}
           </div>
         </div>
-        <button className={`welcome-btn ${phase >= 4 ? 'reveal' : ''}`} onClick={onStart}>
+        <button className={`welcome-btn ${phase >= 5 ? 'reveal' : ''}`} onClick={onStart}>
           Get started
         </button>
-        <div className={`welcome-footer ${phase >= 4 ? 'show' : ''}`}>
+        <div className={`welcome-footer ${phase >= 5 ? 'show' : ''}`}>
           an <a href="https://aletheia.fyi">aletheia</a> project
         </div>
       </div>

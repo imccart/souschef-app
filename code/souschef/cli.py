@@ -527,6 +527,49 @@ def whitelist_remove_cmd(email):
         console.print(f"[red]{email} not found[/red]")
 
 
+@whitelist_group.command("waitlist")
+def whitelist_waitlist_cmd():
+    """Show emails that tried to sign up but weren't on the list."""
+    from souschef.database import get_connection
+    from sqlalchemy import text
+
+    conn = get_connection()
+    rows = conn.execute(text("SELECT email, requested_at FROM waitlist ORDER BY requested_at DESC")).fetchall()
+    conn.close()
+
+    if not rows:
+        console.print("[dim]No waitlist requests yet.[/dim]")
+        return
+
+    for row in rows:
+        console.print(f"  {row['email']}  [dim]{row['requested_at']}[/dim]")
+    console.print(f"\n[dim]{len(rows)} request(s)[/dim]")
+
+
+@whitelist_group.command("approve")
+@click.argument("email")
+def whitelist_approve_cmd(email):
+    """Move an email from waitlist to allowed (approve access)."""
+    from souschef.database import get_connection
+    from sqlalchemy import text
+
+    email = email.strip().lower()
+    conn = get_connection()
+    # Add to allowed
+    conn.execute(
+        text("INSERT INTO allowed_emails (email) VALUES (:email) ON CONFLICT DO NOTHING"),
+        {"email": email},
+    )
+    # Remove from waitlist
+    conn.execute(
+        text("DELETE FROM waitlist WHERE LOWER(email) = LOWER(:email)"),
+        {"email": email},
+    )
+    conn.commit()
+    conn.close()
+    console.print(f"[green]Approved {email}[/green]")
+
+
 # ── Kroger ───────────────────────────────────────────────
 
 

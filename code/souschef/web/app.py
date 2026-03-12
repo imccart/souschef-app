@@ -137,6 +137,12 @@ async def auth_login(body: dict):
     conn = get_connection()
     try:
         if not is_email_allowed(conn, email):
+            # Save to waitlist for future approval
+            conn.execute(
+                text("INSERT INTO waitlist (email) VALUES (:email) ON CONFLICT DO NOTHING"),
+                {"email": email},
+            )
+            conn.commit()
             return {"ok": False, "waitlist": True}
 
         user_id = find_or_create_user(conn, email)

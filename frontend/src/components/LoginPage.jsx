@@ -47,8 +47,7 @@ export default function LoginPage() {
 
         {waitlist ? (
           <div className="login-sent">
-            <div className="login-sent-icon">{'\u{1F331}'}</div>
-            <div className="login-sent-title">Early access</div>
+            <div className="login-sent-title">No Stairway. Denied!</div>
             <div className="login-sent-desc">
               Souschef is in early access. We'll let you know when there's a spot for you.
             </div>

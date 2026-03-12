@@ -102,6 +102,12 @@ allowed_emails = Table(
     Column("added_at", Text, nullable=False, server_default=text("CURRENT_TIMESTAMP")),
 )
 
+waitlist = Table(
+    "waitlist", metadata,
+    Column("email", Text, primary_key=True),
+    Column("requested_at", Text, nullable=False, server_default=text("CURRENT_TIMESTAMP")),
+)
+
 
 # ── Table Definitions ─────────────────────────────────────
 
