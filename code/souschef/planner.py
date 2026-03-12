@@ -179,12 +179,13 @@ def save_meals(conn: DictConnection, meals: list[Meal]) -> list[Meal]:
         else:
             cur = conn.execute(
                 text("""INSERT INTO meals (slot_date, recipe_id, recipe_name, status, side, locked, is_followup, on_grocery)
-                   VALUES (:slot_date, :recipe_id, :recipe_name, :status, :side, :locked, :is_followup, :on_grocery)"""),
+                   VALUES (:slot_date, :recipe_id, :recipe_name, :status, :side, :locked, :is_followup, :on_grocery)
+                   RETURNING id"""),
                 {"slot_date": meal.slot_date, "recipe_id": meal.recipe_id, "recipe_name": meal.recipe_name,
                  "status": meal.status, "side": meal.side, "locked": int(meal.locked),
                  "is_followup": int(meal.is_followup), "on_grocery": int(meal.on_grocery)},
             )
-            meal.id = cur.lastrowid
+            meal.id = cur.fetchone()["id"]
     conn.commit()
     return meals
 

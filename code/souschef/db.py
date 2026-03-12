@@ -371,9 +371,10 @@ def _migrate_grocery_to_trips(conn: DictConnection) -> None:
 
     result = conn.execute(text(
         """INSERT INTO grocery_trips (trip_type, start_date, end_date, active)
-           VALUES ('plan', :start, :end, 1)"""
+           VALUES ('plan', :start, :end, 1)
+           RETURNING id"""
     ), {"start": start_date, "end": end_date})
-    trip_id = result.lastrowid
+    trip_id = result.fetchone()["id"]
 
     extras = data.get("extras", [])
     for name in extras:
@@ -435,7 +436,8 @@ def _seed_recipes(conn: DictConnection, path: Path) -> None:
                 prep_minutes, cook_minutes, servings, notes)
                VALUES (:name, :cuisine, :effort, :cleanup, :outdoor, :kid, :premade,
                         :prep, :cook, :servings, :notes)
-               ON CONFLICT (name) DO NOTHING"""
+               ON CONFLICT (name) DO NOTHING
+               RETURNING id"""
         ), {
             "name": rec["name"],
             "cuisine": rec.get("cuisine", "any"),
@@ -450,10 +452,11 @@ def _seed_recipes(conn: DictConnection, path: Path) -> None:
             "notes": rec.get("notes", ""),
         })
 
-        if result.rowcount == 0:
+        row = result.fetchone()
+        if row is None:
             continue
 
-        recipe_id = result.lastrowid
+        recipe_id = row["id"]
         for item in rec.get("ingredients", []):
             ing_row = conn.execute(text(
                 "SELECT id FROM ingredients WHERE name = :name"

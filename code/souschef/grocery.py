@@ -121,22 +121,23 @@ def build_grocery_list(
 
 def save_grocery_list(conn: DictConnection, gl: GroceryList) -> GroceryList:
     cursor = conn.execute(
-        text("INSERT INTO grocery_lists (plan_id, start_date, end_date) VALUES (:plan_id, :start_date, :end_date)"),
+        text("INSERT INTO grocery_lists (plan_id, start_date, end_date) VALUES (:plan_id, :start_date, :end_date) RETURNING id"),
         {"plan_id": gl.plan_id, "start_date": gl.start_date, "end_date": gl.end_date},
     )
-    gl.id = cursor.lastrowid
+    gl.id = cursor.fetchone()["id"]
 
     for item in gl.items:
         item.list_id = gl.id
         cur = conn.execute(
             text("""INSERT INTO grocery_list_items
                (list_id, ingredient_id, total_quantity, unit, store, aisle, from_pantry)
-               VALUES (:list_id, :ingredient_id, :total_quantity, :unit, :store, :aisle, :from_pantry)"""),
+               VALUES (:list_id, :ingredient_id, :total_quantity, :unit, :store, :aisle, :from_pantry)
+               RETURNING id"""),
             {"list_id": item.list_id, "ingredient_id": item.ingredient_id,
              "total_quantity": item.total_quantity, "unit": item.unit,
              "store": item.store, "aisle": item.aisle, "from_pantry": item.from_pantry},
         )
-        item.id = cur.lastrowid
+        item.id = cur.fetchone()["id"]
 
     conn.commit()
     return gl

@@ -433,11 +433,12 @@ def _ensure_active_trip(conn, mw):
     if trip is None:
         cursor = conn.execute(
             text("""INSERT INTO grocery_trips (trip_type, start_date, end_date, active)
-               VALUES ('plan', :start_date, :end_date, 1)"""),
+               VALUES ('plan', :start_date, :end_date, 1)
+               RETURNING id"""),
             {"start_date": mw.start_date, "end_date": mw.end_date},
         )
         conn.commit()
-        trip_id = cursor.lastrowid
+        trip_id = cursor.fetchone()["id"]
         _build_trip_from_meals(conn, trip_id, mw)
         trip = conn.execute(
             text("SELECT * FROM grocery_trips WHERE id = :id"),
@@ -672,11 +673,12 @@ async def build_my_list(body: dict = None):
     # Create new trip
     cursor = conn.execute(
         text("""INSERT INTO grocery_trips (trip_type, start_date, end_date, active)
-           VALUES ('plan', :start_date, :end_date, 1)"""),
+           VALUES ('plan', :start_date, :end_date, 1)
+           RETURNING id"""),
         {"start_date": mw.start_date, "end_date": mw.end_date},
     )
     conn.commit()
-    trip_id = cursor.lastrowid
+    trip_id = cursor.fetchone()["id"]
 
     # Build meal items
     _build_trip_from_meals(conn, trip_id, mw)
@@ -1604,11 +1606,12 @@ async def add_meal_to_pool(body: dict):
     cursor = conn.execute(
         text("""INSERT INTO recipes (name, cuisine, effort, cleanup, outdoor, kid_friendly, premade,
            prep_minutes, cook_minutes, servings)
-           VALUES (:name, '', 'medium', 'medium', 0, 1, 0, 0, 0, 4)"""),
+           VALUES (:name, '', 'medium', 'medium', 0, 1, 0, 0, 0, 4)
+           RETURNING id"""),
         {"name": name},
     )
     conn.commit()
-    return {"ok": True, "id": cursor.lastrowid, "name": name}
+    return {"ok": True, "id": cursor.fetchone()["id"], "name": name}
 
 
 # ── Grocery Active Trip ────────────────────────────────
