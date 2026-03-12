@@ -125,6 +125,32 @@ async def health():
         return JSONResponse({"status": "error"}, status_code=503)
 
 
+def _claim_default_data(conn, user_id: str) -> None:
+    """One-time: reassign orphaned 'default' user data to a real user."""
+    # Only run if there's actually default data to claim
+    row = conn.execute(
+        text("SELECT COUNT(*) AS n FROM meals WHERE user_id = 'default'"),
+    ).fetchone()
+    if not row or row["n"] == 0:
+        return
+
+    tables = [
+        "meals", "grocery_trips", "regulars", "pantry",
+        "product_preferences", "learning_dismissed",
+        "meal_item_overrides", "settings",
+    ]
+    for table in tables:
+        try:
+            conn.execute(
+                text(f"UPDATE {table} SET user_id = :uid WHERE user_id = 'default'"),
+                {"uid": user_id},
+            )
+        except Exception:
+            pass
+    conn.commit()
+    print(f"[auth] Claimed default user data for {user_id}")
+
+
 # ── Auth Endpoints ───────────────────────────────────────
 
 @app.post("/api/auth/login")
@@ -162,6 +188,9 @@ async def auth_verify(token: str):
         user_id = verify_magic_link(conn, token)
         if not user_id:
             return RedirectResponse(url="/app?auth=expired", status_code=302)
+
+        # One-time: claim orphaned 'default' user data for the first real user
+        _claim_default_data(conn, user_id)
 
         session_id = create_session(conn, user_id)
     finally:
