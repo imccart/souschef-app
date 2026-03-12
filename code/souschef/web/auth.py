@@ -200,8 +200,11 @@ def send_magic_link_email(email: str, token: str) -> bool:
             },
             timeout=10,
         )
+        if resp.status_code != 200:
+            print(f"[auth] Resend error {resp.status_code}: {resp.text}")
         return resp.status_code == 200
-    except Exception:
+    except Exception as e:
+        print(f"[auth] Resend exception: {e}")
         return False
 
 
