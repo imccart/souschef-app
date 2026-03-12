@@ -117,12 +117,12 @@ def _date_label(start: str, end: str) -> str:
 async def health():
     """Health check for Railway / load balancers."""
     try:
-        conn = get_conn()
+        conn = get_connection()
         conn.execute(text("SELECT 1"))
         conn.close()
         return {"status": "ok"}
-    except Exception as e:
-        return {"status": "error", "detail": str(e)}
+    except Exception:
+        return JSONResponse({"status": "error"}, status_code=503)
 
 
 # ── Auth Endpoints ───────────────────────────────────────
