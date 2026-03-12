@@ -685,7 +685,11 @@ async def get_carryover(request: Request):
         return {"has_carryover": False, "items": []}
 
     rows = conn.execute(
-        text("SELECT name, shopping_group FROM trip_items WHERE trip_id = :trip_id AND checked = 0 AND ordered = 0"),
+        text("""SELECT name, shopping_group FROM trip_items WHERE trip_id = :trip_id
+            AND (
+                (checked = 0 AND ordered = 0)
+                OR (ordered = 1 AND receipt_status = 'not_fulfilled')
+            )"""),
         {"trip_id": trip["id"]},
     ).fetchall()
 
