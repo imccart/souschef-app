@@ -256,8 +256,30 @@ export default function ReceiptPage() {
           </div>
           {!collapsedSections.not_fulfilled && receipt.not_fulfilled.map(item => (
             <div key={item.name} className="receipt-item not-fulfilled">
-              <div className="receipt-item-name">{item.name}</div>
-              <div className="receipt-item-meta">Will carry over to next list</div>
+              <div className="receipt-item-info">
+                <div className="receipt-item-name">{item.name}</div>
+                <div className="receipt-item-meta">Ordered but not on receipt</div>
+              </div>
+              <div className="receipt-item-actions not-fulfilled-actions">
+                <button
+                  className="receipt-resolve-btn accept"
+                  onClick={() => handleResolve(item.name, 'recover')}
+                >
+                  Add back to list
+                </button>
+                <button
+                  className="receipt-resolve-btn"
+                  onClick={() => handleResolve(item.name, 'matched')}
+                >
+                  Actually got it
+                </button>
+                <button
+                  className="receipt-resolve-btn flag"
+                  onClick={() => handleResolve(item.name, 'dismissed')}
+                >
+                  Don't need it
+                </button>
+              </div>
             </div>
           ))}
         </div>

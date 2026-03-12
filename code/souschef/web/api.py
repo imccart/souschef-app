@@ -1331,10 +1331,24 @@ async def resolve_receipt_item(body: dict):
     name = body["name"]
     status = body["status"]
 
-    conn.execute(
-        text("UPDATE trip_items SET receipt_status = :status WHERE trip_id = :trip_id AND LOWER(name) = LOWER(:name)"),
-        {"status": status, "trip_id": trip["id"], "name": name},
-    )
+    if status == "recover":
+        # Put item back on the active grocery list (un-order it)
+        conn.execute(
+            text("""UPDATE trip_items SET ordered = 0, receipt_status = ''
+               WHERE trip_id = :trip_id AND LOWER(name) = LOWER(:name)"""),
+            {"trip_id": trip["id"], "name": name},
+        )
+    elif status == "dismissed":
+        # Acknowledged as not needed — mark so it doesn't keep prompting
+        conn.execute(
+            text("UPDATE trip_items SET receipt_status = 'dismissed' WHERE trip_id = :trip_id AND LOWER(name) = LOWER(:name)"),
+            {"trip_id": trip["id"], "name": name},
+        )
+    else:
+        conn.execute(
+            text("UPDATE trip_items SET receipt_status = :status WHERE trip_id = :trip_id AND LOWER(name) = LOWER(:name)"),
+            {"status": status, "trip_id": trip["id"], "name": name},
+        )
     conn.commit()
     return {"ok": True}
 

@@ -2006,6 +2006,15 @@ main {
   color: #C47F2A;
 }
 
+.not-fulfilled-actions {
+  flex-wrap: wrap;
+}
+
+.not-fulfilled-actions .receipt-resolve-btn {
+  font-size: 11px;
+  padding: 5px 10px;
+}
+
 .receipt-resolve-btn.flag:hover {
   background: #FDF0DC;
 }
