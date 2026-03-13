@@ -322,11 +322,11 @@ async def fresh_start(request: Request):
         {"start": mw.start_date, "end": mw.end_date, "user_id": user_id},
     )
 
-    # Deactivate the active grocery trip
+    # Complete the active grocery trip
     trip = _get_active_trip(conn, user_id)
     if trip:
         conn.execute(
-            text("UPDATE grocery_trips SET active = 0 WHERE id = :id"),
+            text("UPDATE grocery_trips SET active = 0, completed_at = NOW() WHERE id = :id"),
             {"id": trip["id"]},
         )
 
@@ -777,39 +777,26 @@ async def build_my_list(request: Request, body: dict = None):
         # Refresh mw to pick up the on_grocery changes
         mw = load_rolling_week(conn, user_id)
 
-    # Merge into existing trip or create new one
+    # Complete previous trip and start a new cycle
     existing_trip = _get_active_trip(conn, user_id)
     if existing_trip:
-        trip_id = existing_trip["id"]
-        # Refresh meal items — adds new, removes aged-out, preserves checked state
-        _refresh_trip_meal_items(conn, trip_id, mw, user_id)
-    else:
-        cursor = conn.execute(
-            text("""INSERT INTO grocery_trips (trip_type, start_date, end_date, active, user_id)
-               VALUES ('plan', :start_date, :end_date, 1, :user_id)
-               RETURNING id"""),
-            {"start_date": mw.start_date, "end_date": mw.end_date, "user_id": user_id},
+        conn.execute(
+            text("UPDATE grocery_trips SET active = 0, completed_at = NOW() WHERE id = :id"),
+            {"id": existing_trip["id"]},
         )
         conn.commit()
-        trip_id = cursor.fetchone()["id"]
-        _build_trip_from_meals(conn, trip_id, mw, user_id)
 
-    # Handle carryover: remove unchecked non-meal items the user deselected
-    if existing_trip:
-        carryover_keep = {n.lower() for n in carryover_items}
-        unchecked = conn.execute(
-            text("""SELECT id, name, source FROM trip_items
-               WHERE trip_id = :trip_id AND checked = 0 AND ordered = 0"""),
-            {"trip_id": trip_id},
-        ).fetchall()
-        for row in unchecked:
-            if row["source"] != 'meal' and row["name"].lower() not in carryover_keep:
-                conn.execute(
-                    text("DELETE FROM trip_items WHERE id = :id"),
-                    {"id": row["id"]},
-                )
+    cursor = conn.execute(
+        text("""INSERT INTO grocery_trips (trip_type, start_date, end_date, active, user_id)
+           VALUES ('plan', :start_date, :end_date, 1, :user_id)
+           RETURNING id"""),
+        {"start_date": mw.start_date, "end_date": mw.end_date, "user_id": user_id},
+    )
+    conn.commit()
+    trip_id = cursor.fetchone()["id"]
+    _build_trip_from_meals(conn, trip_id, mw, user_id)
 
-    # Add carryover items (no-op if they already exist on the trip)
+    # Add carryover items from previous trip
     for name in carryover_items:
         name_lower = name.lower()
         group = _infer_item_group(conn, name_lower, user_id)
@@ -822,6 +809,7 @@ async def build_my_list(request: Request, body: dict = None):
         )
 
     # Add selected regulars
+    selected_regular_names = {n.lower() for n in regular_items}
     for name in regular_items:
         name_lower = name.lower()
         group = _infer_item_group(conn, name_lower, user_id)
@@ -832,6 +820,21 @@ async def build_my_list(request: Request, body: dict = None):
                ON CONFLICT DO NOTHING"""),
             {"trip_id": trip_id, "name": name_lower, "group": group},
         )
+
+    # Record skipped regulars (active regulars the user unchecked)
+    # Needed for learning: detect regulars consistently skipped across weeks
+    from souschef.regulars import list_regulars
+    all_active_regulars = list_regulars(conn, user_id, active_only=True)
+    for reg in all_active_regulars:
+        if reg.name.lower() not in selected_regular_names:
+            group = reg.shopping_group or _infer_item_group(conn, reg.name.lower(), user_id)
+            conn.execute(
+                text("""INSERT INTO trip_items
+                   (trip_id, name, shopping_group, source, for_meals, meal_count, checked)
+                   VALUES (:trip_id, :name, :group, 'regular_skip', '', 0, 0)
+                   ON CONFLICT DO NOTHING"""),
+                {"trip_id": trip_id, "name": reg.name.lower(), "group": group},
+            )
 
     # Add selected pantry items (running low)
     for name in pantry_items:
@@ -1596,6 +1599,12 @@ async def add_regular(body: dict, request: Request):
     if not body.get("name"):
         return {"ok": False, "error": "name required"}
     r = do_add(conn, user_id, body["name"], body.get("shopping_group", ""), body.get("store_pref", "either"))
+    # Auto-dismiss any "remove" learning suggestion for this item
+    conn.execute(
+        text("INSERT INTO learning_dismissed (name, user_id) VALUES (:name, :user_id) ON CONFLICT DO NOTHING"),
+        {"name": r.name.lower(), "user_id": user_id},
+    )
+    conn.commit()
     return {
         "id": r.id,
         "name": r.name,
@@ -1615,6 +1624,12 @@ async def toggle_regular(regular_id: int, request: Request):
     r = do_toggle(conn, user_id, regular_id)
     if r is None:
         return {"ok": False}
+    # Auto-dismiss learning suggestion: "add" if deactivated, "remove" if reactivated
+    conn.execute(
+        text("INSERT INTO learning_dismissed (name, user_id) VALUES (:name, :user_id) ON CONFLICT DO NOTHING"),
+        {"name": r.name.lower(), "user_id": user_id},
+    )
+    conn.commit()
     return {
         "id": r.id,
         "name": r.name,
@@ -1632,6 +1647,12 @@ async def remove_regular(name: str, request: Request):
     user_id = request.state.user_id
     conn = _conn()
     ok = do_remove(conn, user_id, name)
+    # Auto-dismiss any "add" learning suggestion for this item
+    conn.execute(
+        text("INSERT INTO learning_dismissed (name, user_id) VALUES (:name, :user_id) ON CONFLICT DO NOTHING"),
+        {"name": name.lower(), "user_id": user_id},
+    )
+    conn.commit()
     return {"ok": ok}
 
 
@@ -2066,71 +2087,101 @@ async def get_meal_history(request: Request):
 
 @router.get("/learning/suggestions")
 async def get_learning_suggestions(request: Request):
-    """Suggest regulars additions/removals based on trip patterns."""
+    """Suggest regulars additions/removals based on weekly shopping patterns.
+
+    Groups completed trips by ISO week to normalize for different build
+    frequencies. Requires 4+ weeks of data. Suggests additions for items
+    appearing in 4+ of the last 5 active weeks, and removals for regulars
+    skipped in 4+ of the last 5 active weeks.
+    """
     from souschef.regulars import list_regulars
 
     user_id = request.state.user_id
     conn = _conn()
 
-    # Get completed trips (last 5)
+    # Get completed trips with their ISO week
     trips = conn.execute(
-        text("SELECT id FROM grocery_trips WHERE active = 0 AND user_id = :user_id ORDER BY id DESC LIMIT 5"),
+        text("""SELECT id, EXTRACT(ISOYEAR FROM completed_at) AS iso_year,
+                       EXTRACT(WEEK FROM completed_at) AS iso_week
+                FROM grocery_trips
+                WHERE user_id = :user_id AND active = 0 AND completed_at IS NOT NULL
+                ORDER BY completed_at DESC"""),
         {"user_id": user_id},
     ).fetchall()
 
-    if len(trips) < 3:
+    if not trips:
         return {"add": [], "remove": []}
 
-    trip_ids = [t["id"] for t in trips]
+    # Group trip IDs by ISO week (year-week key), keep last 5 weeks
+    week_trips: dict[str, list[int]] = {}
+    for t in trips:
+        week_key = f"{int(t['iso_year'])}-W{int(t['iso_week']):02d}"
+        week_trips.setdefault(week_key, []).append(t["id"])
 
-    # Items that appear on 3+ consecutive trips but aren't regulars
+    sorted_weeks = sorted(week_trips.keys(), reverse=True)[:5]
+    if len(sorted_weeks) < 4:
+        return {"add": [], "remove": []}
+
+    total_weeks = len(sorted_weeks)
+
+    # Gather items per week (deduplicated within each week)
     regulars = list_regulars(conn, user_id, active_only=False)
     regular_names = {r.name.lower() for r in regulars}
+    dismissed_rows = conn.execute(
+        text("SELECT name FROM learning_dismissed WHERE user_id = :user_id"),
+        {"user_id": user_id},
+    ).fetchall()
+    dismissed = {r["name"] for r in dismissed_rows}
 
-    item_freq = {}
-    for tid in trip_ids:
+    # --- Addition suggestions ---
+    # Items on the list (not regular_skip) in 4+ of last 5 weeks
+    item_weeks: dict[str, int] = {}
+    for week_key in sorted_weeks:
+        tids = week_trips[week_key]
+        placeholders = ", ".join(f":tid{i}" for i in range(len(tids)))
+        params = {f"tid{i}": tid for i, tid in enumerate(tids)}
         items = conn.execute(
-            text("SELECT DISTINCT LOWER(name) as name FROM trip_items WHERE trip_id = :trip_id"),
-            {"trip_id": tid},
+            text(f"""SELECT DISTINCT LOWER(name) as name FROM trip_items
+                 WHERE trip_id IN ({placeholders}) AND source != 'regular_skip'"""),
+            params,
         ).fetchall()
-        for item in items:
-            item_freq[item["name"]] = item_freq.get(item["name"], 0) + 1
+        seen_this_week = {item["name"] for item in items}
+        for name in seen_this_week:
+            item_weeks[name] = item_weeks.get(name, 0) + 1
 
     add_suggestions = []
-    for name, count in item_freq.items():
-        if count >= 3 and name not in regular_names:
-            # Check not dismissed
-            dismissed = conn.execute(
-                text("SELECT 1 FROM learning_dismissed WHERE name = :name AND user_id = :user_id"),
-                {"name": name, "user_id": user_id},
-            ).fetchone()
-            if not dismissed:
-                add_suggestions.append({"name": name, "trip_count": count})
+    for name, week_count in item_weeks.items():
+        if week_count >= 4 and name not in regular_names and name not in dismissed:
+            add_suggestions.append({
+                "name": name,
+                "trip_count": week_count,
+                "total_trips": total_weeks,
+            })
 
-    # Regulars that are active but unchecked on recent trips
+    # --- Removal suggestions ---
+    # Active regulars skipped (source='regular_skip') in 4+ of last 5 weeks
     remove_suggestions = []
     active_regulars = [r for r in regulars if r.active]
     for reg in active_regulars:
         name_lower = reg.name.lower()
-        # Check if it was on the trip and unchecked for 3+ trips
-        unchecked_count = 0
-        for tid in trip_ids[:3]:
-            item = conn.execute(
-                text("""SELECT checked FROM trip_items
-                   WHERE trip_id = :trip_id AND LOWER(name) = :name AND source = 'regular'"""),
-                {"trip_id": tid, "name": name_lower},
+        if name_lower in dismissed:
+            continue
+        skip_weeks = 0
+        for week_key in sorted_weeks:
+            tids = week_trips[week_key]
+            placeholders = ", ".join(f":tid{i}" for i in range(len(tids)))
+            params = {f"tid{i}": tid for i, tid in enumerate(tids)}
+            params["name"] = name_lower
+            skip = conn.execute(
+                text(f"""SELECT 1 FROM trip_items
+                     WHERE trip_id IN ({placeholders}) AND LOWER(name) = :name
+                     AND source = 'regular_skip' LIMIT 1"""),
+                params,
             ).fetchone()
-            if item and not item["checked"]:
-                unchecked_count += 1
-            elif not item:
-                unchecked_count += 1  # not even on the trip
-        if unchecked_count >= 3:
-            dismissed = conn.execute(
-                text("SELECT 1 FROM learning_dismissed WHERE name = :name AND user_id = :user_id"),
-                {"name": name_lower, "user_id": user_id},
-            ).fetchone()
-            if not dismissed:
-                remove_suggestions.append({"name": reg.name, "id": reg.id})
+            if skip:
+                skip_weeks += 1
+        if skip_weeks >= 4:
+            remove_suggestions.append({"name": reg.name, "id": reg.id})
 
     return {
         "add": add_suggestions[:5],

@@ -10,6 +10,7 @@ export default function BuildListFlow({ onComplete, onClose }) {
   const [regularsChecked, setRegularsChecked] = useState(new Set())
   const [learningSuggestions, setLearningSuggestions] = useState([])
   const [learningAccepted, setLearningAccepted] = useState(new Set())
+  const [removalSuggestions, setRemovalSuggestions] = useState([])
   const [pantry, setPantry] = useState([])
   const [pantryChecked, setPantryChecked] = useState(new Set())
 
@@ -41,6 +42,16 @@ export default function BuildListFlow({ onComplete, onClose }) {
     // Learning: items bought frequently that aren't regulars yet
     if (learningData.add && learningData.add.length > 0) {
       setLearningSuggestions(learningData.add)
+    }
+    // Learning: regulars being consistently skipped
+    if (learningData.remove && learningData.remove.length > 0) {
+      setRemovalSuggestions(learningData.remove)
+      // Pre-uncheck regulars flagged for removal
+      setRegularsChecked(prev => {
+        const next = new Set(prev)
+        learningData.remove.forEach(s => next.delete(s.name))
+        return next
+      })
     }
     setStep('regulars')
   }
@@ -81,6 +92,12 @@ export default function BuildListFlow({ onComplete, onClose }) {
     // Add any accepted learning suggestions to regulars
     for (const name of learningAccepted) {
       await api.addRegular(name)
+    }
+    // Deactivate regulars the user confirmed removing (left unchecked + flagged for removal)
+    for (const s of removalSuggestions) {
+      if (!regularsChecked.has(s.name)) {
+        await api.toggleRegular(s.id)
+      }
     }
     goToPantry()
   }
@@ -196,7 +213,10 @@ export default function BuildListFlow({ onComplete, onClose }) {
                   {regularsChecked.has(r.name) && '\u2713'}
                 </div>
                 <span>{r.name}</span>
-                {r.shopping_group && (
+                {removalSuggestions.some(s => s.name === r.name) && (
+                  <span className="build-flow-suggestion-context">skipping often</span>
+                )}
+                {r.shopping_group && !removalSuggestions.some(s => s.name === r.name) && (
                   <span className="build-flow-group-label">{r.shopping_group}</span>
                 )}
               </div>
@@ -217,7 +237,7 @@ export default function BuildListFlow({ onComplete, onClose }) {
                     </div>
                     <span>{s.name}</span>
                     <span className="build-flow-suggestion-context">
-                      on {s.trip_count} of last {s.total_trips} trips
+                      {s.trip_count} of last {s.total_trips} weeks
                     </span>
                   </div>
                 ))}
