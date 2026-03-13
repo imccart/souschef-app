@@ -2253,6 +2253,25 @@ main {
   background: var(--accent-bg);
 }
 
+.prefs-move {
+  background: none;
+  border: 1px solid var(--tan);
+  color: var(--text-light);
+  font-size: 11px;
+  cursor: pointer;
+  padding: 2px 8px;
+  border-radius: 10px;
+  transition: all 0.15s;
+  font-family: 'DM Sans', sans-serif;
+  margin-left: auto;
+  flex-shrink: 0;
+}
+.prefs-move:hover {
+  color: var(--accent);
+  border-color: var(--accent);
+  background: var(--accent-bg);
+}
+
 .prefs-add-row {
   display: flex;
   gap: 8px;

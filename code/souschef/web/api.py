@@ -642,7 +642,7 @@ async def toggle_grocery_item(item_name: str, request: Request):
         return {"name": item_name, "checked": False}
 
     row = conn.execute(
-        text("SELECT id, checked FROM trip_items WHERE trip_id = :trip_id AND LOWER(name) = LOWER(:name)"),
+        text("SELECT id, checked, ordered FROM trip_items WHERE trip_id = :trip_id AND LOWER(name) = LOWER(:name)"),
         {"trip_id": trip["id"], "name": item_name},
     ).fetchone()
 
@@ -654,7 +654,7 @@ async def toggle_grocery_item(item_name: str, request: Request):
                 {"id": row["id"]},
             )
             # If checking off an item not ordered via Kroger, it's in-store
-            if not row.get("ordered"):
+            if not row["ordered"]:
                 conn.execute(
                     text("""UPDATE grocery_trips SET order_source = CASE
                            WHEN order_source IN ('none', 'in_store') THEN 'in_store'

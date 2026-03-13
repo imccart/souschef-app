@@ -67,6 +67,22 @@ export default function PreferencesSheet({ onClose }) {
     setPantry(data.items)
   }
 
+  const handleMoveToPantry = async (name) => {
+    await api.removeRegular(name)
+    await api.addPantryItem(name)
+    const [rData, pData] = await Promise.all([api.getRegulars(), api.getPantry()])
+    setRegulars(rData.regulars)
+    setPantry(pData.items)
+  }
+
+  const handleMoveToRegulars = async (name, id) => {
+    await api.removePantryItem(id)
+    await api.addRegular(name)
+    const [rData, pData] = await Promise.all([api.getRegulars(), api.getPantry()])
+    setRegulars(rData.regulars)
+    setPantry(pData.items)
+  }
+
   const handleAddStore = async (e) => {
     e.preventDefault()
     if (!addStoreName.trim()) return
@@ -193,6 +209,7 @@ export default function PreferencesSheet({ onClose }) {
                   {regularGroups[group].map(r => (
                     <div key={r.id} className="prefs-list-item">
                       <span className="prefs-list-name">{r.name}</span>
+                      <button className="prefs-move" title="Move to Pantry" onClick={() => handleMoveToPantry(r.name)}>{'\u2192 pantry'}</button>
                       <button className="prefs-remove" onClick={() => handleRemoveRegular(r.name)}>{'\u00D7'}</button>
                     </div>
                   ))}
@@ -225,6 +242,7 @@ export default function PreferencesSheet({ onClose }) {
               {pantry.map(p => (
                 <div key={p.id} className="prefs-list-item">
                   <span className="prefs-list-name">{p.name}</span>
+                  <button className="prefs-move" title="Move to Regulars" onClick={() => handleMoveToRegulars(p.name, p.id)}>{'\u2192 regular'}</button>
                   <button className="prefs-remove" onClick={() => handleRemovePantry(p.id)}>{'\u00D7'}</button>
                 </div>
               ))}
