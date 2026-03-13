@@ -253,7 +253,7 @@ def fill_dates(
     used_ids = {m.recipe_id for m in existing if m.recipe_id}
     used_ids |= _get_recent_recipe_ids(conn, user_id, start_date)
 
-    producer_ids = _get_producer_recipe_ids(conn)
+    producer_ids = _get_producer_recipe_ids(conn, user_id)
     has_producer = any(m.recipe_id in producer_ids for m in existing)
 
     # Check for carryover follow-ups from meals just before this range
@@ -278,9 +278,9 @@ def fill_dates(
             continue
 
         effective_exclude = used_ids | (producer_ids if has_producer else set())
-        recipe = _pick_recipe(conn, theme, effective_exclude)
+        recipe = _pick_recipe(conn, theme, effective_exclude, user_id)
         if recipe is None:
-            recipe = _pick_recipe(conn, {}, effective_exclude)
+            recipe = _pick_recipe(conn, {}, effective_exclude, user_id)
 
         recipe_id = recipe.id if recipe else None
         recipe_name = recipe.name if recipe else "No match"
@@ -296,10 +296,10 @@ def fill_dates(
 
     # Guarantee light meal
     all_meals = existing + new_meals
-    _ensure_light_meal(conn, all_meals, new_meals, used_ids)
+    _ensure_light_meal(conn, all_meals, new_meals, used_ids, user_id)
 
     # Schedule same-range follow-ups
-    _schedule_same_range_followups(conn, all_meals, new_meals, used_ids)
+    _schedule_same_range_followups(conn, all_meals, new_meals, used_ids, user_id)
 
     # Assign sides
     used_sides = [m.side for m in existing if m.side]
@@ -338,7 +338,7 @@ def _schedule_carryover_followups(
             if DAY_THEMES.get(weekday) is None:
                 continue
 
-            followup = _pick_followup(conn, producer["follows"], used_ids, weekday)
+            followup = _pick_followup(conn, producer["follows"], used_ids, weekday, user_id)
             if followup is None:
                 continue
 
@@ -353,7 +353,7 @@ def _schedule_carryover_followups(
 
 def _schedule_same_range_followups(
     conn: DictConnection, all_meals: list[Meal],
-    new_meals: list[Meal], used_ids: set[int]
+    new_meals: list[Meal], used_ids: set[int], user_id: str = ""
 ) -> None:
     """If a big cook is in this range, replace a later slot with a follow-up."""
     filled_dates = {m.slot_date for m in all_meals}
@@ -383,7 +383,7 @@ def _schedule_same_range_followups(
             if old_id:
                 used_ids.discard(old_id)
 
-            followup = _pick_followup(conn, producer["follows"], used_ids, weekday)
+            followup = _pick_followup(conn, producer["follows"], used_ids, weekday, user_id)
             if followup is None:
                 if old_id:
                     used_ids.add(old_id)
@@ -398,7 +398,7 @@ def _schedule_same_range_followups(
 
 def _ensure_light_meal(
     conn: DictConnection, all_meals: list[Meal],
-    new_meals: list[Meal], used_ids: set[int]
+    new_meals: list[Meal], used_ids: set[int], user_id: str = ""
 ) -> None:
     has_light = any(m.recipe_name in LIGHT_MEALS for m in all_meals)
     if has_light:
@@ -406,7 +406,7 @@ def _ensure_light_meal(
 
     light_recipe = None
     for name in LIGHT_MEALS:
-        r = get_recipe_by_name(conn, name)
+        r = get_recipe_by_name(conn, name, user_id=user_id)
         if r and r.id not in used_ids:
             light_recipe = r
             break
@@ -443,9 +443,9 @@ def swap_meal(conn: DictConnection, user_id: str, slot_date: str) -> Meal:
     weekday = date.fromisoformat(slot_date).weekday()
     theme = DAY_THEMES.get(weekday, {}) or {}
 
-    recipe = _pick_recipe(conn, theme, used_ids)
+    recipe = _pick_recipe(conn, theme, used_ids, user_id)
     if recipe is None:
-        recipe = _pick_recipe(conn, {}, used_ids)
+        recipe = _pick_recipe(conn, {}, used_ids, user_id)
 
     if meal is None:
         meal = Meal(id=None, slot_date=slot_date)
@@ -508,11 +508,11 @@ def swap_dates(conn: DictConnection, user_id: str, date_a: str, date_b: str) -> 
 
 def set_meal(conn: DictConnection, user_id: str, slot_date: str, recipe_name: str) -> Meal | str:
     """Manually set a date's recipe by name. No rule enforcement."""
-    recipe = get_recipe_by_name(conn, recipe_name)
+    recipe = get_recipe_by_name(conn, recipe_name, user_id=user_id)
     if recipe is None:
         row = conn.execute(
-            text("SELECT * FROM recipes WHERE name LIKE :pattern ORDER BY name LIMIT 1"),
-            {"pattern": f"%{recipe_name}%"},
+            text("SELECT * FROM recipes WHERE name LIKE :pattern AND user_id = :user_id ORDER BY name LIMIT 1"),
+            {"pattern": f"%{recipe_name}%", "user_id": user_id},
         ).fetchone()
         if row:
             from souschef.recipes import get_recipe
@@ -595,9 +595,10 @@ def get_candidates(conn: DictConnection, user_id: str, slot_date: str) -> list:
         conn, cuisine=cuisine, effort=theme.get("effort"),
         outdoor=theme.get("outdoor"), kid_friendly=theme.get("kid_friendly"),
         exclude_ids=used_ids, exclude_cuisines=exclude_cuisines,
+        user_id=user_id,
     )
     if not candidates:
-        candidates = filter_recipes(conn, exclude_ids=used_ids, exclude_cuisines=exclude_cuisines)
+        candidates = filter_recipes(conn, exclude_ids=used_ids, exclude_cuisines=exclude_cuisines, user_id=user_id)
 
     candidates = [r for r in candidates if r.name not in FOLLOWUP_ONLY]
     return candidates
@@ -647,16 +648,16 @@ def _row_to_meal(row) -> Meal:
     )
 
 
-def _get_producer_recipe_ids(conn: DictConnection) -> set[int]:
+def _get_producer_recipe_ids(conn: DictConnection, user_id: str = "") -> set[int]:
     ids = set()
     for name in LEFTOVER_PRODUCERS:
-        recipe = get_recipe_by_name(conn, name)
+        recipe = get_recipe_by_name(conn, name, user_id=user_id)
         if recipe:
             ids.add(recipe.id)
     return ids
 
 
-def _pick_recipe(conn, theme: dict, exclude_ids: set[int]):
+def _pick_recipe(conn, theme: dict, exclude_ids: set[int], user_id: str = ""):
     cuisine = theme.get("cuisine")
     exclude_cuisines = None if cuisine else RESERVED_CUISINES
 
@@ -664,6 +665,7 @@ def _pick_recipe(conn, theme: dict, exclude_ids: set[int]):
         conn, cuisine=cuisine, effort=theme.get("effort"),
         outdoor=theme.get("outdoor"), kid_friendly=theme.get("kid_friendly"),
         exclude_ids=exclude_ids, exclude_cuisines=exclude_cuisines,
+        user_id=user_id,
     )
     candidates = [r for r in candidates if r.name not in FOLLOWUP_ONLY]
     if not candidates:
@@ -671,11 +673,11 @@ def _pick_recipe(conn, theme: dict, exclude_ids: set[int]):
     return random.choice(candidates)
 
 
-def _pick_followup(conn, follow_names: list[str], used_ids: set[int], target_weekday: int):
+def _pick_followup(conn, follow_names: list[str], used_ids: set[int], target_weekday: int, user_id: str = ""):
     theme = DAY_THEMES.get(target_weekday, {}) or {}
     candidates = []
     for name in follow_names:
-        recipe = get_recipe_by_name(conn, name)
+        recipe = get_recipe_by_name(conn, name, user_id=user_id)
         if recipe is None or recipe.id in used_ids:
             continue
         cuisine = theme.get("cuisine")
@@ -687,7 +689,7 @@ def _pick_followup(conn, follow_names: list[str], used_ids: set[int], target_wee
 
     if not candidates:
         for name in follow_names:
-            recipe = get_recipe_by_name(conn, name)
+            recipe = get_recipe_by_name(conn, name, user_id=user_id)
             if recipe and recipe.id not in used_ids:
                 candidates.append(recipe)
 

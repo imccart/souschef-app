@@ -137,6 +137,7 @@ recipes = Table(
     Column("cook_minutes", Integer, nullable=False, server_default=text("0")),
     Column("servings", Integer, nullable=False, server_default=text("4")),
     Column("notes", Text, nullable=False, server_default=text("''")),
+    Column("user_id", Text, nullable=False, server_default=text("'default'")),
 )
 
 recipe_ingredients = Table(

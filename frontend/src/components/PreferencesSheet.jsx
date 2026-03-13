@@ -341,20 +341,26 @@ export default function PreferencesSheet({ onClose }) {
             <select
               className="prefs-add-select"
               value={addStoreMode}
-              onChange={(e) => setAddStoreMode(e.target.value)}
+              onChange={(e) => {
+                const mode = e.target.value
+                setAddStoreMode(mode)
+                if (mode === 'in-person') setAddStoreApi('none')
+              }}
             >
               <option value="in-person">In-person</option>
               <option value="pickup">Pickup</option>
               <option value="delivery">Delivery</option>
             </select>
-            <select
-              className="prefs-add-select"
-              value={addStoreApi}
-              onChange={(e) => setAddStoreApi(e.target.value)}
-            >
-              <option value="none">No integration</option>
-              <option value="kroger">Kroger</option>
-            </select>
+            {addStoreMode !== 'in-person' && (
+              <select
+                className="prefs-add-select"
+                value={addStoreApi}
+                onChange={(e) => setAddStoreApi(e.target.value)}
+              >
+                <option value="none">No linked account</option>
+                <option value="kroger">Link Kroger account</option>
+              </select>
+            )}
             <button className="btn primary" type="submit">+</button>
           </form>
         </AccordionSection>

@@ -2522,6 +2522,11 @@ main {
 .prefs-sheet {
   max-height: 80vh;
 }
+@media (min-width: 1024px) {
+  .prefs-sheet {
+    max-width: 600px;
+  }
+}
 
 .prefs-accordion {
   border-bottom: 1px solid var(--tan);
@@ -2672,6 +2677,7 @@ main {
 .prefs-ingredient-item .prefs-remove { font-size: 15px; }
 .prefs-add-row {
   display: flex;
+  flex-wrap: wrap;
   gap: 8px;
 }
 
@@ -2704,6 +2710,8 @@ main {
   font-size: 13px;
   color: var(--dark);
   outline: none;
+  min-width: 0;
+  flex-shrink: 0;
 }
 
 .prefs-account-field {

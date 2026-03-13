@@ -14,9 +14,14 @@ def list_recipes(
     effort: str | None = None,
     outdoor: bool | None = None,
     kid_friendly: bool | None = None,
+    user_id: str | None = None,
 ) -> list[Recipe]:
     query = "SELECT * FROM recipes WHERE 1=1"
     params: dict = {}
+
+    if user_id:
+        query += " AND user_id = :user_id"
+        params["user_id"] = user_id
 
     if cuisine:
         query += " AND cuisine = :cuisine"
@@ -47,10 +52,16 @@ def get_recipe(conn: DictConnection, recipe_id: int) -> Recipe | None:
     return recipe
 
 
-def get_recipe_by_name(conn: DictConnection, name: str) -> Recipe | None:
-    row = conn.execute(
-        text("SELECT * FROM recipes WHERE name = :name"), {"name": name}
-    ).fetchone()
+def get_recipe_by_name(conn: DictConnection, name: str, user_id: str | None = None) -> Recipe | None:
+    if user_id:
+        row = conn.execute(
+            text("SELECT * FROM recipes WHERE name = :name AND user_id = :user_id"),
+            {"name": name, "user_id": user_id},
+        ).fetchone()
+    else:
+        row = conn.execute(
+            text("SELECT * FROM recipes WHERE name = :name"), {"name": name}
+        ).fetchone()
     if row is None:
         return None
     recipe = _row_to_recipe(row)
@@ -92,8 +103,9 @@ def filter_recipes(
     kid_friendly: bool | None = None,
     exclude_ids: set[int] | None = None,
     exclude_cuisines: set[str] | None = None,
+    user_id: str | None = None,
 ) -> list[Recipe]:
-    recipes = list_recipes(conn, cuisine, effort, outdoor, kid_friendly)
+    recipes = list_recipes(conn, cuisine, effort, outdoor, kid_friendly, user_id=user_id)
     if exclude_ids:
         recipes = [r for r in recipes if r.id not in exclude_ids]
     if exclude_cuisines:

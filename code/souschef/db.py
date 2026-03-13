@@ -93,6 +93,7 @@ def _run_column_migrations(conn: DictConnection) -> None:
         ("product_preferences", "user_id", "TEXT NOT NULL DEFAULT 'default'"),
         ("learning_dismissed", "user_id", "TEXT NOT NULL DEFAULT 'default'"),
         ("meal_item_overrides", "user_id", "TEXT NOT NULL DEFAULT 'default'"),
+        ("recipes", "user_id", "TEXT NOT NULL DEFAULT 'default'"),
     ]
 
     for table_name, col_name, col_def in migrations:

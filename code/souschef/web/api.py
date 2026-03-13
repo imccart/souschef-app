@@ -384,7 +384,7 @@ async def get_candidates(date: str, request: Request):
     user_id = request.state.user_id
     conn = _conn()
     candidates = do_get(conn, user_id, date)
-    all_recipes = list_recipes(conn)
+    all_recipes = list_recipes(conn, user_id=user_id)
     return {
         "candidates": [_recipe_dict(r) for r in candidates],
         "all_recipes": [_recipe_dict(r) for r in all_recipes],
@@ -1313,13 +1313,25 @@ async def get_receipt(request: Request):
     }
 
 
-@router.post("/receipt/upload")
-async def upload_receipt(body: dict, request: Request):
-    """Upload and parse a receipt. Accepts {type: 'text'|'pdf_path'|'image_path', content: str}."""
+def _parse_receipt_by_type(receipt_type: str, content: str):
+    """Internal: parse receipt content by type. Only called from trusted code paths."""
     from souschef.reconcile import (
         parse_receipt_text, parse_receipt_pdf, parse_receipt_image,
-        parse_receipt_email, diff_order, diff_grocery_list,
+        parse_receipt_email,
     )
+    if receipt_type == "pdf_path":
+        return parse_receipt_pdf(content)
+    elif receipt_type == "image_path":
+        return parse_receipt_image(content)
+    elif receipt_type == "eml_path":
+        return parse_receipt_email(content)
+    else:
+        return parse_receipt_text(content)
+
+
+async def _process_receipt(receipt_type: str, content: str, request: Request):
+    """Shared receipt processing: parse, match, store. Called by both upload endpoints."""
+    from souschef.reconcile import diff_order, diff_grocery_list
 
     user_id = request.state.user_id
     conn = _conn()
@@ -1327,19 +1339,9 @@ async def upload_receipt(body: dict, request: Request):
     if not trip:
         return {"ok": False, "error": "No active trip"}
 
-    receipt_type = body.get("type", "text")
-    content = body.get("content", "")
-
     # Parse receipt
     try:
-        if receipt_type == "pdf_path":
-            receipt_items = parse_receipt_pdf(content)
-        elif receipt_type == "image_path":
-            receipt_items = parse_receipt_image(content)
-        elif receipt_type == "eml_path":
-            receipt_items = parse_receipt_email(content)
-        else:
-            receipt_items = parse_receipt_text(content)
+        receipt_items = _parse_receipt_by_type(receipt_type, content)
     except Exception as e:
         return {"ok": False, "error": f"Failed to parse receipt: {e}"}
 
@@ -1401,8 +1403,6 @@ async def upload_receipt(body: dict, request: Request):
                 {"trip_id": trip["id"], "name": r.get("item", r.get("product", ""))},
             )
 
-        # Added items are potential substitutions — mark as substituted
-        # (these are receipt items that didn't match any order item)
         extra_items = diff.get("added", [])
     else:
         grocery_names = [r["name"] for r in rows]
@@ -1441,6 +1441,19 @@ async def upload_receipt(body: dict, request: Request):
     }
 
 
+@router.post("/receipt/upload")
+async def upload_receipt(body: dict, request: Request):
+    """Upload and parse a receipt. Public endpoint accepts text only."""
+    receipt_type = body.get("type", "text")
+    content = body.get("content", "")
+
+    # Block path-based types from the public endpoint (server-side file read)
+    if receipt_type in ("pdf_path", "image_path", "eml_path"):
+        return {"ok": False, "error": "File path types not accepted. Use /receipt/upload-file instead."}
+
+    return await _process_receipt(receipt_type, content, request)
+
+
 @router.post("/receipt/upload-file")
 async def upload_receipt_file(request: Request, file: UploadFile = File(...)):
     """Upload a receipt file (PDF, image, or .eml) and parse + reconcile it."""
@@ -1461,19 +1474,17 @@ async def upload_receipt_file(request: Request, file: UploadFile = File(...)):
         tmp_path = tmp.name
 
     try:
-        # Route to correct parser
+        # Route to correct parser (path types are safe here — we control the temp file)
         if suffix == ".pdf":
-            body = {"type": "pdf_path", "content": tmp_path}
+            rtype, rcontent = "pdf_path", tmp_path
         elif suffix == ".eml":
-            body = {"type": "eml_path", "content": tmp_path}
+            rtype, rcontent = "eml_path", tmp_path
         elif suffix in (".jpg", ".jpeg", ".png", ".webp", ".gif"):
-            body = {"type": "image_path", "content": tmp_path}
+            rtype, rcontent = "image_path", tmp_path
         else:
-            # Try as text
-            text_content = content.decode("utf-8", errors="replace")
-            body = {"type": "text", "content": text_content}
+            rtype, rcontent = "text", content.decode("utf-8", errors="replace")
 
-        return await upload_receipt(body, request)
+        return await _process_receipt(rtype, rcontent, request)
     finally:
         try:
             os.unlink(tmp_path)
@@ -1680,7 +1691,7 @@ async def get_recipes(request: Request):
     from souschef.recipes import list_recipes
 
     conn = _conn()
-    recipes = list_recipes(conn)
+    recipes = list_recipes(conn, user_id=request.state.user_id)
     return {"recipes": [_recipe_dict(r) for r in recipes]}
 
 
@@ -1688,23 +1699,24 @@ async def get_recipes(request: Request):
 async def add_recipe(body: dict, request: Request):
     """Add a new recipe (name only, stub)."""
     conn = _conn()
+    user_id = request.state.user_id
     name = body.get("name", "").strip()
     if not name:
         return {"ok": False}
 
     existing = conn.execute(
-        text("SELECT id FROM recipes WHERE LOWER(name) = :name"),
-        {"name": name.lower()},
+        text("SELECT id FROM recipes WHERE LOWER(name) = :name AND user_id = :user_id"),
+        {"name": name.lower(), "user_id": user_id},
     ).fetchone()
     if existing:
         return {"ok": True, "id": existing["id"], "exists": True}
 
     cursor = conn.execute(
         text("""INSERT INTO recipes (name, cuisine, effort, cleanup, outdoor, kid_friendly, premade,
-           prep_minutes, cook_minutes, servings)
-           VALUES (:name, '', 'medium', 'medium', 0, 1, 0, 0, 0, 4)
+           prep_minutes, cook_minutes, servings, user_id)
+           VALUES (:name, '', 'medium', 'medium', 0, 1, 0, 0, 0, 4, :user_id)
            RETURNING id"""),
-        {"name": name},
+        {"name": name, "user_id": user_id},
     )
     conn.commit()
     return {"ok": True, "id": cursor.fetchone()["id"]}
@@ -1724,8 +1736,16 @@ async def delete_recipe(recipe_id: int, request: Request):
     if in_use["cnt"] > 0:
         return {"ok": False, "error": "Recipe is on your meal plan"}
 
+    # Only delete if recipe belongs to this user
+    recipe = conn.execute(
+        text("SELECT id FROM recipes WHERE id = :id AND user_id = :user_id"),
+        {"id": recipe_id, "user_id": user_id},
+    ).fetchone()
+    if not recipe:
+        return {"ok": False, "error": "Recipe not found"}
+
     conn.execute(text("DELETE FROM recipe_ingredients WHERE recipe_id = :id"), {"id": recipe_id})
-    conn.execute(text("DELETE FROM recipes WHERE id = :id"), {"id": recipe_id})
+    conn.execute(text("DELETE FROM recipes WHERE id = :id AND user_id = :user_id"), {"id": recipe_id, "user_id": user_id})
     conn.commit()
     return {"ok": True}
 
@@ -1734,6 +1754,16 @@ async def delete_recipe(recipe_id: int, request: Request):
 async def get_recipe_ingredients(recipe_id: int, request: Request):
     """List ingredients for a recipe."""
     conn = _conn()
+    user_id = request.state.user_id
+
+    # Verify recipe belongs to this user
+    own = conn.execute(
+        text("SELECT id FROM recipes WHERE id = :id AND user_id = :user_id"),
+        {"id": recipe_id, "user_id": user_id},
+    ).fetchone()
+    if not own:
+        return {"ingredients": []}
+
     rows = conn.execute(
         text("""SELECT ri.id, i.name, i.aisle
            FROM recipe_ingredients ri
@@ -1749,6 +1779,16 @@ async def get_recipe_ingredients(recipe_id: int, request: Request):
 async def add_recipe_ingredient(recipe_id: int, body: dict, request: Request):
     """Add an ingredient to a recipe by name. Creates ingredient if it doesn't exist."""
     conn = _conn()
+    user_id = request.state.user_id
+
+    # Verify recipe belongs to this user
+    own = conn.execute(
+        text("SELECT id FROM recipes WHERE id = :id AND user_id = :user_id"),
+        {"id": recipe_id, "user_id": user_id},
+    ).fetchone()
+    if not own:
+        return {"ok": False, "error": "Recipe not found"}
+
     name = body.get("name", "").strip().lower()
     if not name:
         return {"ok": False}
@@ -1794,6 +1834,16 @@ async def add_recipe_ingredient(recipe_id: int, body: dict, request: Request):
 async def remove_recipe_ingredient(recipe_id: int, ri_id: int, request: Request):
     """Remove an ingredient from a recipe."""
     conn = _conn()
+    user_id = request.state.user_id
+
+    # Verify recipe belongs to this user
+    own = conn.execute(
+        text("SELECT id FROM recipes WHERE id = :id AND user_id = :user_id"),
+        {"id": recipe_id, "user_id": user_id},
+    ).fetchone()
+    if not own:
+        return {"ok": False, "error": "Recipe not found"}
+
     conn.execute(
         text("DELETE FROM recipe_ingredients WHERE id = :id AND recipe_id = :rid"),
         {"id": ri_id, "rid": recipe_id},
@@ -1940,24 +1990,25 @@ async def onboarding_complete(request: Request):
 async def add_meal_to_pool(body: dict, request: Request):
     """Create a recipe stub (name only) for onboarding. No ingredients."""
     conn = _conn()
+    user_id = request.state.user_id
     name = body.get("name", "").strip()
     if not name:
         return {"ok": False}
 
-    # Check if recipe already exists
+    # Check if recipe already exists for this user
     existing = conn.execute(
-        text("SELECT id FROM recipes WHERE LOWER(name) = :name"),
-        {"name": name.lower()},
+        text("SELECT id FROM recipes WHERE LOWER(name) = :name AND user_id = :user_id"),
+        {"name": name.lower(), "user_id": user_id},
     ).fetchone()
     if existing:
         return {"ok": True, "id": existing["id"], "name": name}
 
     cursor = conn.execute(
         text("""INSERT INTO recipes (name, cuisine, effort, cleanup, outdoor, kid_friendly, premade,
-           prep_minutes, cook_minutes, servings)
-           VALUES (:name, '', 'medium', 'medium', 0, 1, 0, 0, 0, 4)
+           prep_minutes, cook_minutes, servings, user_id)
+           VALUES (:name, '', 'medium', 'medium', 0, 1, 0, 0, 0, 4, :user_id)
            RETURNING id"""),
-        {"name": name},
+        {"name": name, "user_id": user_id},
     )
     conn.commit()
     return {"ok": True, "id": cursor.fetchone()["id"], "name": name}
