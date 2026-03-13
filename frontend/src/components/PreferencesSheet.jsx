@@ -161,7 +161,9 @@ export default function PreferencesSheet({ onClose }) {
     if (stores && stores.some(s => s.key === key)) {
       key = name.slice(0, 2).toLowerCase()
     }
-    const result = await api.addStore(name, key, addStoreMode, addStoreApi)
+    // Pickup/delivery stores automatically get kroger integration (link happens on entry)
+    const storeApi = addStoreMode !== 'in-person' ? 'kroger' : 'none'
+    const result = await api.addStore(name, key, addStoreMode, storeApi)
     if (result.ok) {
       setAddStoreName('')
       setAddStoreApi('none')
@@ -341,28 +343,15 @@ export default function PreferencesSheet({ onClose }) {
             <select
               className="prefs-add-select"
               value={addStoreMode}
-              onChange={(e) => {
-                const mode = e.target.value
-                setAddStoreMode(mode)
-                if (mode === 'in-person') setAddStoreApi('none')
-              }}
+              onChange={(e) => setAddStoreMode(e.target.value)}
             >
               <option value="in-person">In-person</option>
               <option value="pickup">Pickup</option>
               <option value="delivery">Delivery</option>
             </select>
-            {addStoreMode !== 'in-person' && (
-              <select
-                className="prefs-add-select"
-                value={addStoreApi}
-                onChange={(e) => setAddStoreApi(e.target.value)}
-              >
-                <option value="none">No linked account</option>
-                <option value="kroger">Link Kroger account</option>
-              </select>
-            )}
             <button className="btn primary" type="submit">+</button>
           </form>
+          <div className="prefs-note">Order integrations available for Kroger. More stores coming soon.</div>
         </AccordionSection>
 
         {/* Kitchen — Meals, Regulars, Pantry */}
