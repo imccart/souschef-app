@@ -104,8 +104,10 @@ export default function PlanPage({ showHeader = true, onLoad, onNavigate }) {
     const targetDate = row?.dataset.date
 
     if (targetDate && targetDate !== touchDragFrom.current) {
-      const result = await api.swapDays(touchDragFrom.current, targetDate)
-      setData(result)
+      try {
+        const result = await api.swapDays(touchDragFrom.current, targetDate)
+        setData(result)
+      } catch { /* silent — rows snap back */ }
     }
 
     if (rowsRef.current) {
@@ -149,23 +151,29 @@ export default function PlanPage({ showHeader = true, onLoad, onNavigate }) {
   }
 
   const handleToggleGrocery = async (date) => {
-    const result = await api.toggleGrocery(date)
-    setData(result)
+    try {
+      const result = await api.toggleGrocery(date)
+      setData(result)
+    } catch { /* silent — checkbox stays in current state */ }
   }
 
   const handleSetMeal = async (date, recipeId) => {
-    const result = await api.setMeal(date, recipeId)
-    setData(result)
-    setPickerDate(null)
-    setPickerMode(null)
+    try {
+      const result = await api.setMeal(date, recipeId)
+      setData(result)
+      setPickerDate(null)
+      setPickerMode(null)
+    } catch { await load() }
   }
 
   const handleFreeform = async (date, name) => {
-    const result = await api.setFreeform(date, name)
-    setData(result)
-    setPickerDate(null)
-    setPickerMode(null)
-    setActionDate(null)
+    try {
+      const result = await api.setFreeform(date, name)
+      setData(result)
+      setPickerDate(null)
+      setPickerMode(null)
+      setActionDate(null)
+    } catch { await load() }
   }
 
   const handleOpenSidePicker = (date) => {
@@ -174,9 +182,11 @@ export default function PlanPage({ showHeader = true, onLoad, onNavigate }) {
   }
 
   const handleSetSide = async (date, side) => {
-    const result = await api.setSide(date, side)
-    setData(result)
-    setSidePickerDate(null)
+    try {
+      const result = await api.setSide(date, side)
+      setData(result)
+      setSidePickerDate(null)
+    } catch { await load() }
   }
 
   const handleBuildMyList = () => {
@@ -185,23 +195,29 @@ export default function PlanPage({ showHeader = true, onLoad, onNavigate }) {
 
   const handleBuildFlowComplete = async () => {
     setShowBuildFlow(false)
-    const result = await api.getMeals()
-    setData(result)
+    try {
+      const result = await api.getMeals()
+      setData(result)
+    } catch { /* data stays stale — user sees grocery tab next anyway */ }
     if (onNavigate) onNavigate('grocery')
   }
 
   const handleSwapConfirm = async (choices) => {
-    const result = await api.swapMealSmart(swapPrompt.date, choices)
-    setData(result)
-    setSwapPrompt(null)
+    try {
+      const result = await api.swapMealSmart(swapPrompt.date, choices)
+      setData(result)
+      setSwapPrompt(null)
+    } catch { await load() }
   }
 
   const handleStartNewPlan = async () => {
     if (!window.confirm('This clears all your meals and your grocery list. Are you sure?')) return
     setErasing(true)
     setTimeout(async () => {
-      const result = await api.freshStart()
-      setData(result)
+      try {
+        const result = await api.freshStart()
+        setData(result)
+      } catch { await load() }
       setErasing(false)
     }, 700)
   }
@@ -211,9 +227,11 @@ export default function PlanPage({ showHeader = true, onLoad, onNavigate }) {
       setShowPast(false)
       return
     }
-    const result = await api.getPastMeals()
-    setPastDays(result.days)
-    setShowPast(true)
+    try {
+      const result = await api.getPastMeals()
+      setPastDays(result.days)
+      setShowPast(true)
+    } catch { /* silent — toggle stays off */ }
   }
 
   const actionDay = actionDate ? days.find(d => d.date === actionDate) : null
@@ -364,9 +382,11 @@ export default function PlanPage({ showHeader = true, onLoad, onNavigate }) {
                 </div>
               </button>
               <button className="sheet-option" onClick={async () => {
-                await api.removeMeal(actionDate)
-                setActionDate(null)
-                await load()
+                try {
+                  await api.removeMeal(actionDate)
+                  setActionDate(null)
+                  await load()
+                } catch { /* silent */ }
               }}>
                 <div className="sheet-opt-icon">{'\u{1F5D1}'}</div>
                 <div>
@@ -421,8 +441,10 @@ export default function PlanPage({ showHeader = true, onLoad, onNavigate }) {
                   style={{ width: '100%', marginTop: 12 }}
                   disabled={!feedbackText.trim()}
                   onClick={async () => {
-                    await api.sendFeedback(feedbackText.trim(), 'plan')
-                    setFeedbackSent(true)
+                    try {
+                      await api.sendFeedback(feedbackText.trim(), 'plan')
+                      setFeedbackSent(true)
+                    } catch { /* silent */ }
                   }}
                 >
                   Send

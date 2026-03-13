@@ -16,15 +16,18 @@ export default function BuildListFlow({ onComplete, onClose }) {
   useEffect(() => { init() }, [])
 
   const init = async () => {
-    // Check for carryover items from last trip
-    const carryover = await api.getCarryover()
-    if (carryover.has_carryover && carryover.items.length > 0) {
-      setCarryoverItems(carryover.items)
-      setCarryoverSelected(new Set(carryover.items.map(i => i.name)))
-      setStep('carryover')
-      return
+    try {
+      const carryover = await api.getCarryover()
+      if (carryover.has_carryover && carryover.items.length > 0) {
+        setCarryoverItems(carryover.items)
+        setCarryoverSelected(new Set(carryover.items.map(i => i.name)))
+        setStep('carryover')
+        return
+      }
+      await goToRegulars()
+    } catch {
+      await goToRegulars()
     }
-    await goToRegulars()
   }
 
   const goToRegulars = async () => {
@@ -43,20 +46,27 @@ export default function BuildListFlow({ onComplete, onClose }) {
   }
 
   const goToPantry = async () => {
-    const data = await api.getPantry()
-    setPantry(data.items)
-    // Pantry items start unchecked — user checks what they're running low on
+    try {
+      const data = await api.getPantry()
+      setPantry(data.items)
+    } catch {
+      setPantry([])
+    }
     setPantryChecked(new Set())
     setStep('pantry')
   }
 
   const buildAndFinish = async () => {
-    await api.buildMyList(
-      [...carryoverSelected],
-      [...regularsChecked],
-      [...pantryChecked],
-    )
-    onComplete()
+    try {
+      await api.buildMyList(
+        [...carryoverSelected],
+        [...regularsChecked],
+        [...pantryChecked],
+      )
+      onComplete()
+    } catch {
+      onClose()
+    }
   }
 
   // Carryover: keep items or fresh start

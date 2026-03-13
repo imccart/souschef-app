@@ -74,7 +74,7 @@ export default function OrderPage() {
       if (data.pending.length > 0 && !activeItem) {
         setActiveItem(data.pending[0].name)
       }
-    })
+    }).catch(() => setOrder({ pending: [], selected: [], total_price: 0, total_items: 0 }))
   }, [])
 
   const doSearch = (itemName, mod) => {
@@ -98,26 +98,33 @@ export default function OrderPage() {
   }, [activeItem])
 
   const handleSelect = async (product) => {
-    const data = await api.selectProduct(activeItem, product)
-    setOrder(data)
-    // Move to next pending item
-    if (data.pending.length > 0) {
-      setActiveItem(data.pending[0].name)
-    } else {
-      setActiveItem(null)
-    }
+    try {
+      const data = await api.selectProduct(activeItem, product)
+      setOrder(data)
+      if (data.pending.length > 0) {
+        setActiveItem(data.pending[0].name)
+      } else {
+        setActiveItem(null)
+      }
+    } catch { /* silent — product stays unselected */ }
   }
 
   const handleDeselect = async (itemName) => {
-    const data = await api.deselectProduct(itemName)
-    setOrder(data)
-    setActiveItem(itemName)
+    try {
+      const data = await api.deselectProduct(itemName)
+      setOrder(data)
+      setActiveItem(itemName)
+    } catch { /* silent */ }
   }
 
   const handleSubmit = async () => {
     setSubmitting(true)
-    const result = await api.submitOrder(selectedAccount || undefined)
-    setSubmitResult(result)
+    try {
+      const result = await api.submitOrder(selectedAccount || undefined)
+      setSubmitResult(result)
+    } catch {
+      setSubmitResult({ ok: false, error: 'Failed to submit order' })
+    }
     setSubmitting(false)
   }
 

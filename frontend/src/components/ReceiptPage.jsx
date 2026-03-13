@@ -13,8 +13,10 @@ export default function ReceiptPage() {
     setCollapsedSections(prev => ({ ...prev, [key]: !prev[key] }))
   }
 
+  const [loadError, setLoadError] = useState(false)
+
   const loadReceipt = () => {
-    api.getReceipt().then(setReceipt)
+    api.getReceipt().then(setReceipt).catch(() => setLoadError(true))
   }
 
   useEffect(loadReceipt, [])
@@ -23,14 +25,18 @@ export default function ReceiptPage() {
     if (!pasteText.trim()) return
     setUploading(true)
     setUploadResult(null)
-    const result = await api.uploadReceipt('text', pasteText.trim())
-    setUploadResult(result)
-    setUploading(false)
-    if (result.ok) {
-      loadReceipt()
-      setShowPaste(false)
-      setPasteText('')
+    try {
+      const result = await api.uploadReceipt('text', pasteText.trim())
+      setUploadResult(result)
+      if (result.ok) {
+        loadReceipt()
+        setShowPaste(false)
+        setPasteText('')
+      }
+    } catch {
+      setUploadResult({ ok: false, error: 'Failed to upload receipt' })
     }
+    setUploading(false)
   }
 
   const handleFileUpload = async (e) => {
@@ -65,6 +71,7 @@ export default function ReceiptPage() {
     } catch { /* ignore — item stays in current state */ }
   }
 
+  if (loadError) return <div className="loading">Something went wrong loading receipts. Try refreshing.</div>
   if (!receipt) return <div className="loading">Checking the tab...</div>
 
   if (!receipt.has_trip) {

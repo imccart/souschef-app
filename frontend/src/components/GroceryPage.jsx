@@ -27,12 +27,17 @@ export default function GroceryPage({ sidebar = false }) {
   const [addText, setAddText] = useState('')
   const [collapsedGroups, setCollapsedGroups] = useState({})
   const [loading, setLoading] = useState(true)
+  const [loadError, setLoadError] = useState(false)
   const [recatItem, setRecatItem] = useState(null) // item name being recategorized
 
   const load = async () => {
-    const [g, m] = await Promise.all([api.getGrocery(), api.getMeals()])
-    setGrocery(g)
-    setMeals(m)
+    try {
+      const [g, m] = await Promise.all([api.getGrocery(), api.getMeals()])
+      setGrocery(g)
+      setMeals(m)
+    } catch {
+      setLoadError(true)
+    }
     setLoading(false)
   }
 
@@ -46,19 +51,8 @@ export default function GroceryPage({ sidebar = false }) {
 
   useEffect(() => { load() }, [])
 
-  // Close suggestions on outside click
-  useEffect(() => {
-    const handler = (e) => {
-      if (suggestionsRef.current && !suggestionsRef.current.contains(e.target) &&
-          inputRef.current && !inputRef.current.contains(e.target)) {
-        setShowSuggestions(false)
-      }
-    }
-    document.addEventListener('mousedown', handler)
-    return () => document.removeEventListener('mousedown', handler)
-  }, [])
-
   if (loading) return <div className="loading">Gathering ingredients...</div>
+  if (loadError) return <div className="loading">Something went wrong loading your list. Try refreshing.</div>
 
   const { items_by_group, checked, ordered, start_date, end_date } = grocery
   const checkedSet = new Set((checked || []).map(n => n.toLowerCase()))
@@ -118,6 +112,7 @@ export default function GroceryPage({ sidebar = false }) {
   }
 
   const handleToggle = async (name) => {
+    const prev = grocery
     const newChecked = new Set(checkedSet)
     if (newChecked.has(name.toLowerCase())) {
       newChecked.delete(name.toLowerCase())
@@ -125,22 +120,34 @@ export default function GroceryPage({ sidebar = false }) {
       newChecked.add(name.toLowerCase())
     }
     setGrocery({ ...grocery, checked: [...newChecked] })
-    await api.toggleGroceryItem(name)
+    try {
+      await api.toggleGroceryItem(name)
+    } catch {
+      setGrocery(prev) // rollback on failure
+    }
   }
 
   const handleRecategorize = async (group) => {
     if (!recatItem) return
-    const result = await api.recategorizeItem(recatItem, group)
-    setGrocery(result)
+    try {
+      const result = await api.recategorizeItem(recatItem, group)
+      setGrocery(result)
+    } catch {
+      // stay on current state
+    }
     setRecatItem(null)
   }
 
   const handleAddSubmit = async (name) => {
     const trimmed = name.trim()
     if (!trimmed) return
-    const result = await api.addGroceryItem(trimmed)
-    setGrocery(result)
-    setAddText('')
+    try {
+      const result = await api.addGroceryItem(trimmed)
+      setGrocery(result)
+      setAddText('')
+    } catch {
+      // input stays so user can retry
+    }
   }
 
   const listContent = (
