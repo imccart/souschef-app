@@ -363,6 +363,17 @@ export default function PlanPage({ showHeader = true, onLoad, onNavigate }) {
                   <div className="sheet-opt-desc">Use what you have</div>
                 </div>
               </button>
+              <button className="sheet-option" onClick={async () => {
+                await api.removeMeal(actionDate)
+                setActionDate(null)
+                await load()
+              }}>
+                <div className="sheet-opt-icon">{'\u{1F5D1}'}</div>
+                <div>
+                  <div className="sheet-opt-title">Remove</div>
+                  <div className="sheet-opt-desc">Clear this day</div>
+                </div>
+              </button>
             </div>
         </Sheet>
       )}

@@ -111,9 +111,227 @@ export default function OrderPage() {
     )
   }
 
+  const queuePanel = (
+    <div className="order-queue-panel">
+      <div className="order-queue-header">
+        <div className="order-queue-title">Unchecked items</div>
+        <div className="order-queue-sub">
+          {order.pending.length > 0
+            ? `${order.pending.length} left to pick`
+            : 'All items selected'}
+        </div>
+      </div>
+      <div className="order-queue-list">
+        {allItems.map(item => {
+          const isSelected = !!item.product
+          const isActive = item.name === activeItem
+          return (
+            <button
+              key={item.name}
+              className={`queue-item ${isActive ? 'active' : ''} ${isSelected ? 'selected' : ''}`}
+              onClick={() => isSelected ? handleDeselect(item.name) : setActiveItem(item.name)}
+            >
+              <span className="queue-item-name">{item.name}</span>
+              {isSelected && <span className="queue-check">{'\u2713'}</span>}
+            </button>
+          )
+        })}
+      </div>
+    </div>
+  )
+
+  const centerPanel = (
+    <div className="order-center-panel">
+      {activeItem && (
+        <div className="order-active-item">
+          <div className="order-item-label">Picking for</div>
+          <div className="order-item-name">{activeItem}</div>
+          <form className="modifier-form" onSubmit={e => {
+            e.preventDefault()
+            doSearch(activeItem, modifier)
+          }}>
+            <input
+              className="modifier-input"
+              type="text"
+              placeholder="Refine... e.g. organic, low sodium"
+              value={modifier}
+              onChange={e => setModifier(e.target.value)}
+            />
+            {modifier && (
+              <button type="button" className="modifier-clear" onClick={() => {
+                setModifier('')
+                doSearch(activeItem, '')
+              }}>{'\u00D7'}</button>
+            )}
+          </form>
+        </div>
+      )}
+
+      {searching && <div className="loading">{
+        ['Dicing...', 'Simmering...', 'Slicing...', "Cookin'...", 'Chopping...', 'Seasoning...'][
+          (activeItem || '').length % 6
+        ]
+      }</div>}
+
+      {products && !searching && (
+        <>
+          {products.preferences.length > 0 && (
+            <div className="order-section">
+              <div className="order-section-label">Prior selections</div>
+              {products.preferences.map(pref => (
+                <button
+                  key={pref.upc}
+                  className="product-card preference"
+                  onClick={() => handleSelect({
+                    upc: pref.upc, name: pref.name,
+                    brand: pref.brand, size: pref.size,
+                    price: null, image: pref.image || '',
+                  })}
+                >
+                  {pref.image && (
+                    <div className="product-image">
+                      <img src={pref.image} alt="" loading="lazy" />
+                    </div>
+                  )}
+                  <div className="product-info">
+                    <div className="product-name">{pref.name}</div>
+                    <div className="product-meta">{pref.size}</div>
+                  </div>
+                  {pref.rating === 1 && <span className="pref-star">{'\u2605'}</span>}
+                </button>
+              ))}
+            </div>
+          )}
+
+          <div className="order-section">
+            <div className="order-section-label">
+              Kroger results
+              {products.search_term !== activeItem && (
+                <span className="search-term-note"> for "{products.search_term}"</span>
+              )}
+            </div>
+            {products.products.length === 0 ? (
+              <div className="empty-state">
+                <p>No products found.</p>
+              </div>
+            ) : (
+              <div className="product-grid">
+                {products.products.map(p => (
+                  <button
+                    key={p.upc}
+                    className={`product-card ${!p.in_stock ? 'out-of-stock' : ''}`}
+                    onClick={() => p.in_stock && handleSelect({
+                      upc: p.upc, name: p.name,
+                      brand: p.brand, size: p.size,
+                      price: p.promo_price || p.price,
+                      image: p.image,
+                    })}
+                    disabled={!p.in_stock}
+                  >
+                    {p.image && (
+                      <div className="product-image">
+                        <img src={p.image} alt="" loading="lazy" />
+                      </div>
+                    )}
+                    <div className="product-info">
+                      <div className="product-name">{p.name}</div>
+                      <div className="product-meta">
+                        {p.brand && <span>{p.brand}</span>}
+                        {p.size && <span> {'\u00B7'} {p.size}</span>}
+                      </div>
+                      <div className="product-price-row">
+                        {p.promo_price ? (
+                          <>
+                            <span className="price-promo">{formatPrice(p.promo_price)}</span>
+                            <span className="price-original">{formatPrice(p.price)}</span>
+                          </>
+                        ) : (
+                          <span className="price">{formatPrice(p.price)}</span>
+                        )}
+                      </div>
+                      {!p.in_stock && <div className="out-of-stock-label">Unavailable</div>}
+                    </div>
+                    <ProductInsights nova={p.nova} nutriscore={p.nutriscore} />
+                  </button>
+                ))}
+              </div>
+            )}
+          </div>
+        </>
+      )}
+    </div>
+  )
+
+  const summaryPanel = (
+    <div className="order-summary-panel">
+      <div className="order-summary-header">
+        <div className="order-summary-title">Order Summary</div>
+        <div className="order-summary-sub">
+          {order.selected.length} of {allItems.length} items selected
+        </div>
+      </div>
+      <div className="order-summary-scroll">
+        {order.selected.length > 0 ? (
+          <>
+            <div className="order-summary-list-label">Selected so far</div>
+            {order.selected.map(item => (
+              <div key={item.name} className="order-summary-row">
+                <span className="order-summary-item-name">{item.name}</span>
+                <span className="order-summary-item-price">
+                  {item.product?.price ? formatPrice(item.product.price) : ''}
+                </span>
+              </div>
+            ))}
+            {activeItem && order.pending.some(p => p.name === activeItem) && (
+              <div className="order-summary-row selecting">
+                <span className="order-summary-item-name">{activeItem}</span>
+                <span className="order-summary-item-selecting">selecting...</span>
+              </div>
+            )}
+            <div className="order-summary-total">
+              <span>Est. subtotal</span>
+              <strong>{formatPrice(order.total_price)}</strong>
+            </div>
+            {order.pending.length > 0 && (
+              <div className="order-summary-hint">
+                {order.pending.length} item{order.pending.length !== 1 ? 's' : ''} still need selection.
+                Keep going, or finalize now and the rest will carry over.
+              </div>
+            )}
+          </>
+        ) : (
+          <div className="order-summary-empty">
+            No products selected yet. Pick items from the search results.
+          </div>
+        )}
+      </div>
+      <div className="order-summary-footer">
+        {order.selected.length > 0 && (
+          <>
+            {submitResult?.ok ? (
+              <div className="submit-success">Added to Kroger cart {'\u2713'}</div>
+            ) : (
+              <button
+                className="order-finalize-btn"
+                onClick={handleSubmit}
+                disabled={submitting}
+              >
+                {submitting ? 'Submitting...' : `Finalize on Kroger ${'\u2192'}`}
+              </button>
+            )}
+            {submitResult && !submitResult.ok && (
+              <div className="submit-error">{submitResult.error}</div>
+            )}
+          </>
+        )}
+      </div>
+    </div>
+  )
+
   return (
     <>
-      <div className="page-header">
+      {/* Mobile header — hidden on desktop 3-col */}
+      <div className="page-header order-mobile-header">
         <h2 className="screen-heading">Order</h2>
         <div className="screen-sub">
           {order.pending.length > 0
@@ -122,8 +340,8 @@ export default function OrderPage() {
         </div>
       </div>
 
-      {/* Item queue — horizontal strip on mobile, vertical on desktop */}
-      <div className="order-queue">
+      {/* Mobile: horizontal queue strip */}
+      <div className="order-queue order-mobile-queue">
         {allItems.map(item => {
           const isSelected = !!item.product
           const isActive = item.name === activeItem
@@ -140,132 +358,21 @@ export default function OrderPage() {
         })}
       </div>
 
-      {/* Product results area */}
-      <div className="order-content">
-        {activeItem && (
-          <div className="order-active-item">
-            <div className="order-item-label">Picking for</div>
-            <div className="order-item-name">{activeItem}</div>
-            <form className="modifier-form" onSubmit={e => {
-              e.preventDefault()
-              doSearch(activeItem, modifier)
-            }}>
-              <input
-                className="modifier-input"
-                type="text"
-                placeholder="Refine... e.g. organic, low sodium"
-                value={modifier}
-                onChange={e => setModifier(e.target.value)}
-              />
-              {modifier && (
-                <button type="button" className="modifier-clear" onClick={() => {
-                  setModifier('')
-                  doSearch(activeItem, '')
-                }}>{'\u00D7'}</button>
-              )}
-            </form>
-          </div>
-        )}
-
-        {searching && <div className="loading">{
-          ['Dicing...', 'Simmering...', 'Slicing...', "Cookin'...", 'Chopping...', 'Seasoning...'][
-            (activeItem || '').length % 6
-          ]
-        }</div>}
-
-        {products && !searching && (
-          <>
-            {/* Preferences */}
-            {products.preferences.length > 0 && (
-              <div className="order-section">
-                <div className="order-section-label">Prior selections</div>
-                {products.preferences.map(pref => (
-                  <button
-                    key={pref.upc}
-                    className="product-card preference"
-                    onClick={() => handleSelect({
-                      upc: pref.upc, name: pref.name,
-                      brand: pref.brand, size: pref.size,
-                      price: null, image: pref.image || '',
-                    })}
-                  >
-                    {pref.image && (
-                      <div className="product-image">
-                        <img src={pref.image} alt="" loading="lazy" />
-                      </div>
-                    )}
-                    <div className="product-info">
-                      <div className="product-name">{pref.name}</div>
-                      <div className="product-meta">{pref.size}</div>
-                    </div>
-                    {pref.rating === 1 && <span className="pref-star">{'\u2605'}</span>}
-                  </button>
-                ))}
-              </div>
-            )}
-
-            {/* Search results */}
-            <div className="order-section">
-              <div className="order-section-label">
-                Kroger results
-                {products.search_term !== activeItem && (
-                  <span className="search-term-note"> for "{products.search_term}"</span>
-                )}
-              </div>
-              {products.products.length === 0 ? (
-                <div className="empty-state">
-                  <p>No products found.</p>
-                </div>
-              ) : (
-                <div className="product-grid">
-                  {products.products.map(p => (
-                    <button
-                      key={p.upc}
-                      className={`product-card ${!p.in_stock ? 'out-of-stock' : ''}`}
-                      onClick={() => p.in_stock && handleSelect({
-                        upc: p.upc, name: p.name,
-                        brand: p.brand, size: p.size,
-                        price: p.promo_price || p.price,
-                        image: p.image,
-                      })}
-                      disabled={!p.in_stock}
-                    >
-                      {p.image && (
-                        <div className="product-image">
-                          <img src={p.image} alt="" loading="lazy" />
-                        </div>
-                      )}
-                      <div className="product-info">
-                        <div className="product-name">{p.name}</div>
-                        <div className="product-meta">
-                          {p.brand && <span>{p.brand}</span>}
-                          {p.size && <span> {'\u00B7'} {p.size}</span>}
-                        </div>
-                        <div className="product-price-row">
-                          {p.promo_price ? (
-                            <>
-                              <span className="price-promo">{formatPrice(p.promo_price)}</span>
-                              <span className="price-original">{formatPrice(p.price)}</span>
-                            </>
-                          ) : (
-                            <span className="price">{formatPrice(p.price)}</span>
-                          )}
-                        </div>
-                        {!p.in_stock && <div className="out-of-stock-label">Unavailable</div>}
-                      </div>
-                      <ProductInsights nova={p.nova} nutriscore={p.nutriscore} />
-                    </button>
-                  ))}
-                </div>
-              )}
-            </div>
-          </>
-        )}
+      {/* Desktop 3-column layout */}
+      <div className="order-desktop-layout">
+        {queuePanel}
+        {centerPanel}
+        {summaryPanel}
       </div>
 
-      {/* Order summary footer */}
+      {/* Mobile: center content inline */}
+      <div className="order-mobile-content">
+        {centerPanel}
+      </div>
+
+      {/* Mobile: order summary footer */}
       {order.selected.length > 0 && (
-        <div className="order-footer">
+        <div className="order-footer order-mobile-footer">
           <div className="order-summary">
             <span>{order.total_items} item{order.total_items !== 1 ? 's' : ''}</span>
             {order.total_price > 0 && (

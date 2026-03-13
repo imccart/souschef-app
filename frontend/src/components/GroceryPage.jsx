@@ -25,7 +25,7 @@ export default function GroceryPage({ sidebar = false }) {
   const [grocery, setGrocery] = useState(null)
   const [meals, setMeals] = useState(null)
   const [addText, setAddText] = useState('')
-  const [hideChecked, setHideChecked] = useState(false)
+  const [collapsedGroups, setCollapsedGroups] = useState({})
   const [loading, setLoading] = useState(true)
   const [recatItem, setRecatItem] = useState(null) // item name being recategorized
 
@@ -72,14 +72,22 @@ export default function GroceryPage({ sidebar = false }) {
     }
   }
 
-  // Count totals
+  // Count totals per group and overall
   let totalItems = 0
   let checkedCount = 0
-  for (const group of Object.values(items_by_group)) {
-    for (const item of group) {
+  const groupCounts = {}
+  for (const [group, items] of Object.entries(items_by_group)) {
+    let groupRemaining = 0
+    for (const item of items) {
       totalItems++
-      if (checkedSet.has(item.name.toLowerCase())) checkedCount++
+      const nameLower = item.name.toLowerCase()
+      if (checkedSet.has(nameLower)) {
+        checkedCount++
+      } else if (!orderedSet.has(nameLower)) {
+        groupRemaining++
+      }
     }
+    groupCounts[group] = { total: items.length, remaining: groupRemaining }
   }
   const remainingCount = totalItems - checkedCount
 
@@ -91,6 +99,23 @@ export default function GroceryPage({ sidebar = false }) {
   })
 
   const hasItems = sortedGroups.length > 0
+
+  // Auto-collapse groups where all items are checked or ordered
+  const isGroupAllDone = (group) => {
+    return groupCounts[group] && groupCounts[group].remaining === 0
+  }
+
+  const isGroupExpanded = (group) => {
+    // If user has explicitly toggled, respect that
+    if (collapsedGroups[group] !== undefined) return !collapsedGroups[group]
+    // Auto-collapse if all done
+    return !isGroupAllDone(group)
+  }
+
+  const handleGroupToggle = (group) => {
+    const currentlyExpanded = isGroupExpanded(group)
+    setCollapsedGroups(prev => ({ ...prev, [group]: currentlyExpanded }))
+  }
 
   const handleToggle = async (name) => {
     const newChecked = new Set(checkedSet)
@@ -120,17 +145,6 @@ export default function GroceryPage({ sidebar = false }) {
 
   const listContent = (
     <>
-      {hasItems && checkedCount > 0 && (
-        <div className="grocery-controls">
-          <button
-            className="btn sm"
-            onClick={() => setHideChecked(!hideChecked)}
-          >
-            {hideChecked ? 'Show all' : 'Hide checked'}
-          </button>
-        </div>
-      )}
-
       {!hasItems ? (
         <div className="empty-state">
           <div className="icon">{'\u{1F6D2}'}</div>
@@ -139,22 +153,25 @@ export default function GroceryPage({ sidebar = false }) {
       ) : (
         sortedGroups.map(group => {
           const items = items_by_group[group]
-          const visibleItems = hideChecked
-            ? items.filter(item => !checkedSet.has(item.name.toLowerCase()))
-            : items
-          if (visibleItems.length === 0) return null
-
-          const groupLeft = items.filter(i =>
-            !checkedSet.has(i.name.toLowerCase()) && !orderedSet.has(i.name.toLowerCase())
-          ).length
+          const { remaining: groupLeft } = groupCounts[group]
+          const expanded = isGroupExpanded(group)
+          const allDone = isGroupAllDone(group)
 
           return (
             <div key={group} className="grocery-group">
-              <h3>
-                {group}
-                {groupLeft > 0 && <span className="group-left-count">{groupLeft} left</span>}
-              </h3>
-              {visibleItems.map(item => {
+              <button
+                className={`grocery-group-header ${allDone ? 'all-done' : ''}`}
+                onClick={() => handleGroupToggle(group)}
+              >
+                <span className="grocery-group-arrow">{expanded ? '\u25B4' : '\u25BE'}</span>
+                <span className="grocery-group-title">{group}</span>
+                {groupLeft > 0 ? (
+                  <span className="group-left-count">{groupLeft} left</span>
+                ) : (
+                  <span className="group-left-count done">{'\u2713'} done</span>
+                )}
+              </button>
+              {expanded && items.map(item => {
                 const nameLower = item.name.toLowerCase()
                 const isChecked = checkedSet.has(nameLower)
                 const isOrdered = orderedSet.has(nameLower)
