@@ -59,6 +59,7 @@ def add_regular(
     store_pref: str = "either",
 ) -> Regular:
     """Add a regular item. Silently links to an ingredient if a match exists."""
+    name = name.strip().lower()
     ingredient_id = _match_ingredient(conn, name)
 
     # If we matched an ingredient and no group was given, inherit it
@@ -114,7 +115,7 @@ def add_regular(
 def remove_regular(conn: DictConnection, user_id: str, name: str) -> bool:
     """Soft-delete a regular (sets active=0)."""
     cursor = conn.execute(
-        text("UPDATE regulars SET active = 0 WHERE user_id = :user_id AND name = :name AND active = 1"),
+        text("UPDATE regulars SET active = 0 WHERE user_id = :user_id AND LOWER(name) = LOWER(:name) AND active = 1"),
         {"user_id": user_id, "name": name},
     )
     conn.commit()

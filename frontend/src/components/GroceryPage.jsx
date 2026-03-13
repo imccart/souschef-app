@@ -1,6 +1,6 @@
 import { useState, useEffect, useRef } from 'react'
 import { api } from '../api/client'
-import StatusBar from './StatusBar'
+import AutocompleteInput from './AutocompleteInput'
 
 const GROUP_ORDER = [
   'Produce', 'Meat', 'Dairy & Eggs', 'Bread & Bakery',
@@ -24,13 +24,8 @@ export default function GroceryPage({ sidebar = false }) {
   const [grocery, setGrocery] = useState(null)
   const [meals, setMeals] = useState(null)
   const [addText, setAddText] = useState('')
-  const [suggestions, setSuggestions] = useState([])
-  const [showSuggestions, setShowSuggestions] = useState(false)
-  const [selectedIndex, setSelectedIndex] = useState(-1)
   const [hideChecked, setHideChecked] = useState(false)
   const [loading, setLoading] = useState(true)
-  const inputRef = useRef(null)
-  const suggestionsRef = useRef(null)
 
   const load = async () => {
     const [g, m] = await Promise.all([api.getGrocery(), api.getMeals()])
@@ -39,11 +34,11 @@ export default function GroceryPage({ sidebar = false }) {
     setLoading(false)
   }
 
-  // Load suggestions once
-  const allSuggestions = useRef([])
+  // Load item pool for autocomplete
+  const [itemPool, setItemPool] = useState([])
   useEffect(() => {
     api.getGrocerySuggestions().then(data => {
-      allSuggestions.current = data.suggestions || []
+      setItemPool(data.suggestions || [])
     })
   }, [])
 
@@ -107,51 +102,12 @@ export default function GroceryPage({ sidebar = false }) {
   }
 
   const handleAddSubmit = async (name) => {
-    const trimmed = (name || addText).trim()
+    const trimmed = name.trim()
     if (!trimmed) return
     const result = await api.addGroceryItem(trimmed)
     setGrocery(result)
     setAddText('')
-    setShowSuggestions(false)
-    setSelectedIndex(-1)
   }
-
-  const handleAdd = (e) => {
-    e.preventDefault()
-    if (selectedIndex >= 0 && selectedIndex < filtered.length) {
-      handleAddSubmit(filtered[selectedIndex])
-    } else {
-      handleAddSubmit()
-    }
-  }
-
-  const handleInputChange = (e) => {
-    const val = e.target.value
-    setAddText(val)
-    setSelectedIndex(-1)
-    setShowSuggestions(val.trim().length > 0)
-  }
-
-  const handleKeyDown = (e) => {
-    if (!showSuggestions || filtered.length === 0) return
-    if (e.key === 'ArrowDown') {
-      e.preventDefault()
-      setSelectedIndex(i => Math.min(i + 1, filtered.length - 1))
-    } else if (e.key === 'ArrowUp') {
-      e.preventDefault()
-      setSelectedIndex(i => Math.max(i - 1, -1))
-    } else if (e.key === 'Escape') {
-      setShowSuggestions(false)
-    }
-  }
-
-  // Filter suggestions — exclude items already on the list
-  const query = addText.trim().toLowerCase()
-  const filtered = query.length > 0
-    ? allSuggestions.current
-        .filter(s => s.toLowerCase().includes(query) && !onListSet.has(s.toLowerCase()))
-        .slice(0, 6)
-    : []
 
   const listContent = (
     <>
@@ -227,35 +183,18 @@ export default function GroceryPage({ sidebar = false }) {
 
   const addBar = (
     <div className={`add-bar ${sidebar ? '' : 'add-bar-mobile'}`}>
-      <form onSubmit={handleAdd} className="add-form">
-        <div className="add-input-wrap">
-          <input
-            ref={inputRef}
-            className="add-input"
-            type="text"
-            placeholder="Anything else while you're there?"
-            value={addText}
-            onChange={handleInputChange}
-            onFocus={() => { if (addText.trim()) setShowSuggestions(true) }}
-            onKeyDown={handleKeyDown}
-            autoComplete="off"
-          />
-          {showSuggestions && filtered.length > 0 && (
-            <div className="autocomplete-dropdown" ref={suggestionsRef}>
-              {filtered.map((s, i) => (
-                <div
-                  key={s}
-                  className={`autocomplete-item ${i === selectedIndex ? 'selected' : ''}`}
-                  onMouseDown={() => handleAddSubmit(s)}
-                >
-                  {s}
-                </div>
-              ))}
-            </div>
-          )}
-        </div>
-        <button className="btn primary" type="submit">+</button>
-      </form>
+      <div className="add-form">
+        <AutocompleteInput
+          value={addText}
+          onChange={setAddText}
+          onSubmit={handleAddSubmit}
+          candidates={itemPool}
+          exclude={onListSet}
+          placeholder="Anything else while you're there?"
+          inputClassName="add-input"
+        />
+        <button className="btn primary" onClick={() => addText.trim() && handleAddSubmit(addText)}>+</button>
+      </div>
     </div>
   )
 

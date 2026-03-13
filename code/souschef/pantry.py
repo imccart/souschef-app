@@ -33,8 +33,9 @@ def list_pantry(conn: DictConnection, user_id: str) -> list[PantryItem]:
 def add_pantry_item(
     conn: DictConnection, user_id: str, ingredient_name: str, quantity: float, unit: str
 ) -> PantryItem | None:
+    ingredient_name = ingredient_name.strip().lower()
     ing = conn.execute(
-        text("SELECT id FROM ingredients WHERE name = :name"), {"name": ingredient_name}
+        text("SELECT id FROM ingredients WHERE LOWER(name) = :name"), {"name": ingredient_name}
     ).fetchone()
     if ing is None:
         return None
@@ -78,8 +79,9 @@ def add_pantry_item(
 def set_pantry_item(
     conn: DictConnection, user_id: str, ingredient_name: str, quantity: float, unit: str
 ) -> PantryItem | None:
+    ingredient_name = ingredient_name.strip().lower()
     ing = conn.execute(
-        text("SELECT id FROM ingredients WHERE name = :name"), {"name": ingredient_name}
+        text("SELECT id FROM ingredients WHERE LOWER(name) = :name"), {"name": ingredient_name}
     ).fetchone()
     if ing is None:
         return None

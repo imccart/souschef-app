@@ -1,6 +1,7 @@
 import { useState, useEffect } from 'react'
 import { api } from '../api/client'
 import Sheet from './Sheet'
+import AutocompleteInput from './AutocompleteInput'
 
 function AccordionSection({ title, count, children, defaultOpen = false }) {
   const [open, setOpen] = useState(defaultOpen)
@@ -20,7 +21,6 @@ function RecipeItem({ recipe, onRemove, allIngredients }) {
   const [expanded, setExpanded] = useState(false)
   const [ingredients, setIngredients] = useState(null)
   const [addText, setAddText] = useState('')
-  const [showSuggestions, setShowSuggestions] = useState(false)
 
   const loadIngredients = async () => {
     const data = await api.getRecipeIngredients(recipe.id)
@@ -33,17 +33,10 @@ function RecipeItem({ recipe, onRemove, allIngredients }) {
   }
 
   const handleAdd = async (name) => {
-    const val = (name || addText).trim()
-    if (!val) return
-    await api.addRecipeIngredient(recipe.id, val)
+    if (!name.trim()) return
+    await api.addRecipeIngredient(recipe.id, name.trim())
     setAddText('')
-    setShowSuggestions(false)
     loadIngredients()
-  }
-
-  const handleSubmit = (e) => {
-    e.preventDefault()
-    handleAdd()
   }
 
   const handleRemoveIngredient = async (riId) => {
@@ -51,11 +44,7 @@ function RecipeItem({ recipe, onRemove, allIngredients }) {
     loadIngredients()
   }
 
-  const query = addText.trim().toLowerCase()
   const existingNames = new Set((ingredients || []).map(i => i.name.toLowerCase()))
-  const matches = query.length >= 2 && allIngredients
-    ? allIngredients.filter(n => n.toLowerCase().includes(query) && !existingNames.has(n.toLowerCase())).slice(0, 6)
-    : []
 
   return (
     <div className="prefs-recipe-item">
@@ -82,28 +71,17 @@ function RecipeItem({ recipe, onRemove, allIngredients }) {
           {ingredients && ingredients.length === 0 && (
             <div className="prefs-section-hint" style={{ marginTop: 0 }}>No ingredients yet</div>
           )}
-          <div className="prefs-autocomplete">
-            <form onSubmit={handleSubmit} className="prefs-add-row">
-              <input
-                className="prefs-add-input"
-                type="text"
-                placeholder="Add ingredient..."
-                value={addText}
-                onChange={(e) => { setAddText(e.target.value); setShowSuggestions(true) }}
-                onFocus={() => setShowSuggestions(true)}
-                onBlur={() => setTimeout(() => setShowSuggestions(false), 150)}
-              />
-              <button className="btn primary" type="submit">+</button>
-            </form>
-            {showSuggestions && matches.length > 0 && (
-              <div className="prefs-autocomplete-list">
-                {matches.map(name => (
-                  <button key={name} className="prefs-autocomplete-option" onMouseDown={() => handleAdd(name)}>
-                    {name}
-                  </button>
-                ))}
-              </div>
-            )}
+          <div className="prefs-add-row">
+            <AutocompleteInput
+              value={addText}
+              onChange={setAddText}
+              onSubmit={handleAdd}
+              candidates={allIngredients || []}
+              exclude={existingNames}
+              placeholder="Add ingredient..."
+              inputClassName="prefs-add-input"
+            />
+            <button className="btn primary" onClick={() => addText.trim() && handleAdd(addText)}>+</button>
           </div>
         </div>
       )}
@@ -135,28 +113,10 @@ export default function PreferencesSheet({ onClose }) {
     api.getHouseholdMembers().then(data => setMembers(data.members)).catch(() => {})
   }, [])
 
-  const handleAddRegular = async (e) => {
-    e.preventDefault()
-    if (!addRegularText.trim()) return
-    await api.addRegular(addRegularText.trim())
-    setAddRegularText('')
-    const data = await api.getRegulars()
-    setRegulars(data.regulars)
-  }
-
   const handleRemoveRegular = async (name) => {
     await api.removeRegular(name)
     const data = await api.getRegulars()
     setRegulars(data.regulars)
-  }
-
-  const handleAddPantry = async (e) => {
-    e.preventDefault()
-    if (!addPantryText.trim()) return
-    await api.addPantryItem(addPantryText.trim())
-    setAddPantryText('')
-    const data = await api.getPantry()
-    setPantry(data.items)
   }
 
   const handleRemovePantry = async (id) => {
@@ -356,16 +316,32 @@ export default function PreferencesSheet({ onClose }) {
               ))}
             </div>
           )}
-          <form onSubmit={handleAddRegular} className="prefs-add-row">
-            <input
-              className="prefs-add-input"
-              type="text"
-              placeholder="Add a regular..."
+          <div className="prefs-add-row">
+            <AutocompleteInput
               value={addRegularText}
-              onChange={(e) => setAddRegularText(e.target.value)}
+              onChange={setAddRegularText}
+              onSubmit={async (name) => {
+                if (!name.trim()) return
+                await api.addRegular(name.trim())
+                setAddRegularText('')
+                const data = await api.getRegulars()
+                setRegulars(data.regulars)
+              }}
+              candidates={allIngredients || []}
+              exclude={new Set((regulars || []).map(r => r.name.toLowerCase()))}
+              placeholder="Add a regular..."
+              inputClassName="prefs-add-input"
             />
-            <button className="btn primary" type="submit">+</button>
-          </form>
+            <button className="btn primary" onClick={() => {
+              if (addRegularText.trim()) {
+                const name = addRegularText.trim()
+                api.addRegular(name).then(() => {
+                  setAddRegularText('')
+                  api.getRegulars().then(data => setRegulars(data.regulars))
+                })
+              }
+            }}>+</button>
+          </div>
         </AccordionSection>
 
         {/* Pantry */}
@@ -387,16 +363,32 @@ export default function PreferencesSheet({ onClose }) {
               ))}
             </div>
           )}
-          <form onSubmit={handleAddPantry} className="prefs-add-row">
-            <input
-              className="prefs-add-input"
-              type="text"
-              placeholder="Add a pantry item..."
+          <div className="prefs-add-row">
+            <AutocompleteInput
               value={addPantryText}
-              onChange={(e) => setAddPantryText(e.target.value)}
+              onChange={setAddPantryText}
+              onSubmit={async (name) => {
+                if (!name.trim()) return
+                await api.addPantryItem(name.trim())
+                setAddPantryText('')
+                const data = await api.getPantry()
+                setPantry(data.items)
+              }}
+              candidates={allIngredients || []}
+              exclude={new Set((pantry || []).map(p => p.name.toLowerCase()))}
+              placeholder="Add a pantry item..."
+              inputClassName="prefs-add-input"
             />
-            <button className="btn primary" type="submit">+</button>
-          </form>
+            <button className="btn primary" onClick={() => {
+              if (addPantryText.trim()) {
+                const name = addPantryText.trim()
+                api.addPantryItem(name).then(() => {
+                  setAddPantryText('')
+                  api.getPantry().then(data => setPantry(data.items))
+                })
+              }
+            }}>+</button>
+          </div>
         </AccordionSection>
 
         {/* Transparency */}

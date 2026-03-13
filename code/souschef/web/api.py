@@ -1540,23 +1540,29 @@ async def remove_regular(name: str, request: Request):
 
 @router.get("/grocery/suggestions")
 async def grocery_suggestions(request: Request):
-    """Return all known item names for autocomplete."""
+    """Return all known item names for autocomplete (combined pool: ingredients + regulars + pantry)."""
     from souschef.regulars import list_regulars
+    from souschef.pantry import list_pantry
 
     user_id = request.state.user_id
     conn = _conn()
     names: set[str] = set()
 
-    # Regulars
-    for r in list_regulars(conn, user_id, active_only=False):
-        names.add(r.name)
-
     # All ingredients
     rows = conn.execute(text("SELECT name FROM ingredients")).fetchall()
     for row in rows:
-        names.add(row["name"])
+        names.add(row["name"].lower())
 
-    return {"suggestions": sorted(names, key=str.lower)}
+    # Regulars
+    for r in list_regulars(conn, user_id, active_only=False):
+        names.add(r.name.lower())
+
+    # Pantry items
+    for p in list_pantry(conn, user_id):
+        if p.ingredient_name:
+            names.add(p.ingredient_name.lower())
+
+    return {"suggestions": sorted(names)}
 
 
 # ── Recipes ──────────────────────────────────────────────
@@ -1636,14 +1642,14 @@ async def get_recipe_ingredients(recipe_id: int, request: Request):
 async def add_recipe_ingredient(recipe_id: int, body: dict, request: Request):
     """Add an ingredient to a recipe by name. Creates ingredient if it doesn't exist."""
     conn = _conn()
-    name = body.get("name", "").strip()
+    name = body.get("name", "").strip().lower()
     if not name:
         return {"ok": False}
 
     # Find or create ingredient
     row = conn.execute(
         text("SELECT id, aisle FROM ingredients WHERE LOWER(name) = :name"),
-        {"name": name.lower()},
+        {"name": name},
     ).fetchone()
 
     if row:
@@ -1655,7 +1661,7 @@ async def add_recipe_ingredient(recipe_id: int, body: dict, request: Request):
             text("""INSERT INTO ingredients (name, aisle, default_unit)
                VALUES (:name, :aisle, 'count')
                RETURNING id"""),
-            {"name": name.lower(), "aisle": group},
+            {"name": name, "aisle": group},
         )
         ingredient_id = cursor.fetchone()["id"]
 

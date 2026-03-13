@@ -929,12 +929,14 @@ main {
   width: 100%;
 }
 
-.add-input-wrap {
+.add-input-wrap,
+.autocomplete-wrap {
   flex: 1;
   position: relative;
 }
 
-.add-input-wrap .add-input {
+.add-input-wrap .add-input,
+.autocomplete-wrap input {
   width: 100%;
 }
 
@@ -2219,9 +2221,11 @@ main {
 .prefs-list {
   background: var(--warm-white);
   border-radius: 10px;
-  overflow: hidden;
   margin-bottom: 10px;
 }
+.prefs-list > :first-child { border-radius: 10px 10px 0 0; }
+.prefs-list > :last-child  { border-radius: 0 0 10px 10px; }
+.prefs-list > :only-child  { border-radius: 10px; }
 
 .prefs-list-group {
   padding: 8px 14px 4px;
@@ -2307,39 +2311,6 @@ main {
 }
 .prefs-ingredient-item span { flex: 1; }
 .prefs-ingredient-item .prefs-remove { font-size: 15px; }
-.prefs-autocomplete {
-  position: relative;
-}
-.prefs-autocomplete-list {
-  position: absolute;
-  top: 100%;
-  left: 0;
-  right: 50px;
-  background: var(--card-bg);
-  border: 1px solid var(--tan);
-  border-radius: 8px;
-  max-height: 150px;
-  overflow-y: auto;
-  z-index: 10;
-  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.1);
-}
-.prefs-autocomplete-option {
-  display: block;
-  width: 100%;
-  padding: 8px 12px;
-  border: none;
-  background: none;
-  text-align: left;
-  font-size: 14px;
-  color: var(--dark);
-  cursor: pointer;
-  font-family: 'DM Sans', sans-serif;
-}
-.prefs-autocomplete-option:hover {
-  background: var(--accent-bg);
-  color: var(--accent);
-}
-
 .prefs-add-row {
   display: flex;
   gap: 8px;
