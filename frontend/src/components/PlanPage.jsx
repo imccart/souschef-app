@@ -1,7 +1,6 @@
 import { useState, useEffect, useCallback, useRef } from 'react'
 import { api } from '../api/client'
 import useSwipeDismiss from '../hooks/useSwipeDismiss'
-import StatusBar from './StatusBar'
 import MealPickerSheet from './MealPickerSheet'
 import BuildListFlow from './BuildListFlow'
 import SwapPrompt from './SwapPrompt'
@@ -124,7 +123,7 @@ export default function PlanPage({ showHeader = true, onLoad, onNavigate }) {
   if (loadError) return <div className="loading">Something went wrong loading meals. Try refreshing.</div>
   if (!data) return null
 
-  const { days, status, start_date, end_date } = data
+  const { days, start_date, end_date } = data
   const dateRange = formatDateRange(start_date, end_date)
   const hasMeals = days.some(d => d.meal)
 
@@ -245,7 +244,6 @@ export default function PlanPage({ showHeader = true, onLoad, onNavigate }) {
             </div>
             <div className="date-subtitle">Your next 10 days</div>
           </div>
-          <StatusBar status={status} />
         </>
       )}
 

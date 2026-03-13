@@ -8,7 +8,6 @@ import ReceiptPage from './components/ReceiptPage'
 import PreferencesSheet from './components/PreferencesSheet'
 import OnboardingFlow, { WelcomeScreen } from './components/OnboardingFlow'
 import LoginPage from './components/LoginPage'
-import StatusBar from './components/StatusBar'
 
 function useIsWide(breakpoint = 1024) {
   const [wide, setWide] = useState(window.innerWidth >= breakpoint)
@@ -102,7 +101,6 @@ function App() {
                   </div>
                   <div className="date-subtitle">Your next 10 days</div>
                 </div>
-                <StatusBar status={mealData.status} />
                 <div className="section-label">Meals</div>
               </>
             )}

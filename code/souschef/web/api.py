@@ -25,7 +25,6 @@ async def get_meals(request: Request):
     user_id = request.state.user_id
     conn = _conn()
     mw = workflow.get_rolling_meals(conn, user_id)
-    status = workflow.get_workflow_status(conn, user_id)
     return {
         "start_date": mw.start_date,
         "end_date": mw.end_date,
@@ -37,14 +36,6 @@ async def get_meals(request: Request):
             }
             for d in mw.all_days
         ],
-        "status": {
-            "has_meals": status.has_meals,
-            "meals_on_grocery": status.meals_on_grocery,
-            "total_meals": status.total_meals,
-            "grocery_built": status.grocery_built,
-            "order_placed": status.order_placed,
-            "reconcile_count": status.reconcile_count,
-        },
     }
 
 
