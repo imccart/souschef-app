@@ -7,7 +7,6 @@ export default function ReceiptPage() {
   const [uploadResult, setUploadResult] = useState(null)
   const [pasteText, setPasteText] = useState('')
   const [showPaste, setShowPaste] = useState(false)
-  const [closing, setClosing] = useState(false)
   const [collapsedSections, setCollapsedSections] = useState({})
 
   const toggleSection = (key) => {
@@ -66,15 +65,6 @@ export default function ReceiptPage() {
     } catch { /* ignore — item stays in current state */ }
   }
 
-  const handleCloseTrip = async (apiFn) => {
-    setClosing(true)
-    try {
-      await apiFn()
-      loadReceipt()
-    } catch { /* ignore — stays on page */ }
-    setClosing(false)
-  }
-
   if (!receipt) return <div className="loading">Checking the tab...</div>
 
   if (!receipt.has_trip) {
@@ -95,7 +85,6 @@ export default function ReceiptPage() {
   const hasAnyActivity = receipt.has_ordered || receipt.has_checked
   const hasReconciled = receipt.matched.length > 0 || receipt.substituted.length > 0 || receipt.not_fulfilled.length > 0
   const canUploadMore = receipt.unresolved.length > 0 || receipt.not_fulfilled.length > 0
-  const allResolved = !canUploadMore && hasReconciled
 
   return (
     <>
@@ -285,28 +274,6 @@ export default function ReceiptPage() {
         </div>
       )}
 
-      {/* Close actions */}
-      {hasAnyActivity && (
-        <div className="receipt-footer">
-          {allResolved ? (
-            <button
-              className="build-list-btn"
-              onClick={() => handleCloseTrip(api.closeReceipt)}
-              disabled={closing}
-            >
-              {closing ? 'Closing...' : `Close Receipt ${'\u2713'}`}
-            </button>
-          ) : (
-            <button
-              className="receipt-close-quiet"
-              onClick={() => handleCloseTrip(api.closeNoReceipt)}
-              disabled={closing}
-            >
-              {closing ? 'Closing...' : 'No receipt \u2014 close anyway'}
-            </button>
-          )}
-        </div>
-      )}
     </>
   )
 }

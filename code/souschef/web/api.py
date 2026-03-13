@@ -465,18 +465,8 @@ def _build_trip_from_meals(conn, trip_id: int, mw, user_id: str) -> None:
 
 
 def _ensure_active_trip(conn, mw, user_id: str):
-    """Find or create an active trip for the current rolling window. Returns trip row."""
+    """Find or create an active trip. Trips persist until Build My List creates a new one."""
     trip = _get_active_trip(conn, user_id)
-
-    if trip:
-        # If date range shifted, deactivate old trip and create fresh one
-        if trip["start_date"] != mw.start_date or trip["end_date"] != mw.end_date:
-            conn.execute(
-                text("UPDATE grocery_trips SET active = 0 WHERE id = :id"),
-                {"id": trip["id"]},
-            )
-            conn.commit()
-            trip = None
 
     if trip is None:
         cursor = conn.execute(
