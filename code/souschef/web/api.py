@@ -403,9 +403,18 @@ def _get_active_trip(conn, user_id: str):
 
 
 def _infer_item_group(conn, name: str, user_id: str) -> str:
-    """Resolve shopping group for an item name via ingredients, regulars, or keyword inference."""
+    """Resolve shopping group: user override > ingredient aisle > regulars > keyword inference."""
     from souschef.regulars import _infer_group
 
+    # 1. User override (highest priority)
+    row = conn.execute(
+        text("SELECT shopping_group FROM user_item_groups WHERE LOWER(item_name) = LOWER(:name) AND user_id = :user_id"),
+        {"name": name, "user_id": user_id},
+    ).fetchone()
+    if row:
+        return row["shopping_group"]
+
+    # 2. Ingredient table
     row = conn.execute(
         text("SELECT aisle FROM ingredients WHERE LOWER(name) = LOWER(:name)"),
         {"name": name},
@@ -413,6 +422,7 @@ def _infer_item_group(conn, name: str, user_id: str) -> str:
     if row and row["aisle"]:
         return row["aisle"]
 
+    # 3. Regulars
     row = conn.execute(
         text("SELECT shopping_group FROM regulars WHERE LOWER(name) = LOWER(:name) AND user_id = :user_id"),
         {"name": name, "user_id": user_id},
@@ -420,6 +430,7 @@ def _infer_item_group(conn, name: str, user_id: str) -> str:
     if row and row["shopping_group"]:
         return row["shopping_group"]
 
+    # 4. Keyword inference
     return _infer_group(name)
 
 
@@ -635,6 +646,35 @@ async def add_grocery_item(body: dict, request: Request):
     )
     conn.commit()
 
+    return await get_grocery(request)
+
+
+@router.post("/grocery/recategorize")
+async def recategorize_item(body: dict, request: Request):
+    """Move an item to a different shopping group. Persists as a user override."""
+    user_id = request.state.user_id
+    conn = _conn()
+    name = body.get("name", "").strip().lower()
+    group = body.get("shopping_group", "").strip()
+    if not name or not group:
+        return {"ok": False}
+
+    # Save override for future trips
+    conn.execute(
+        text("""INSERT INTO user_item_groups (user_id, item_name, shopping_group)
+           VALUES (:user_id, :name, :group)
+           ON CONFLICT (user_id, item_name) DO UPDATE SET shopping_group = :group, updated_at = CURRENT_TIMESTAMP"""),
+        {"user_id": user_id, "name": name, "group": group},
+    )
+
+    # Update current trip item too
+    trip = _get_active_trip(conn, user_id)
+    if trip:
+        conn.execute(
+            text("UPDATE trip_items SET shopping_group = :group WHERE trip_id = :trip_id AND LOWER(name) = LOWER(:name)"),
+            {"group": group, "trip_id": trip["id"], "name": name},
+        )
+    conn.commit()
     return await get_grocery(request)
 
 

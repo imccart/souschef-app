@@ -383,6 +383,16 @@ user_feedback = Table(
     Column("created_at", Text, nullable=False, server_default=text("CURRENT_TIMESTAMP")),
 )
 
+user_item_groups = Table(
+    "user_item_groups", metadata,
+    Column("id", Integer, primary_key=True, autoincrement=True),
+    Column("user_id", Text, nullable=False),
+    Column("item_name", Text, nullable=False),
+    Column("shopping_group", Text, nullable=False),
+    Column("updated_at", Text, nullable=False, server_default=text("CURRENT_TIMESTAMP")),
+    UniqueConstraint("user_id", "item_name"),
+)
+
 settings = Table(
     "settings", metadata,
     Column("id", Integer, primary_key=True, autoincrement=True),

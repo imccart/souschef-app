@@ -65,6 +65,10 @@ export const api = {
     body: JSON.stringify({ name }),
   }),
   toggleGroceryItem: (name) => request(`/grocery/toggle/${encodeURIComponent(name)}`, { method: 'POST' }),
+  recategorizeItem: (name, shoppingGroup) => request('/grocery/recategorize', {
+    method: 'POST',
+    body: JSON.stringify({ name, shopping_group: shoppingGroup }),
+  }),
   getGrocerySuggestions: () => request('/grocery/suggestions'),
   getGroceryTrips: () => request('/grocery/trips'),
   getCarryover: () => request('/grocery/carryover'),

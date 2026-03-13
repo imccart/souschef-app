@@ -1,6 +1,7 @@
-import { useState, useEffect, useRef } from 'react'
+import { useState, useEffect } from 'react'
 import { api } from '../api/client'
 import AutocompleteInput from './AutocompleteInput'
+import Sheet from './Sheet'
 
 const GROUP_ORDER = [
   'Produce', 'Meat', 'Dairy & Eggs', 'Bread & Bakery',
@@ -26,6 +27,7 @@ export default function GroceryPage({ sidebar = false }) {
   const [addText, setAddText] = useState('')
   const [hideChecked, setHideChecked] = useState(false)
   const [loading, setLoading] = useState(true)
+  const [recatItem, setRecatItem] = useState(null) // item name being recategorized
 
   const load = async () => {
     const [g, m] = await Promise.all([api.getGrocery(), api.getMeals()])
@@ -101,6 +103,13 @@ export default function GroceryPage({ sidebar = false }) {
     await api.toggleGroceryItem(name)
   }
 
+  const handleRecategorize = async (group) => {
+    if (!recatItem) return
+    const result = await api.recategorizeItem(recatItem, group)
+    setGrocery(result)
+    setRecatItem(null)
+  }
+
   const handleAddSubmit = async (name) => {
     const trimmed = name.trim()
     if (!trimmed) return
@@ -171,6 +180,11 @@ export default function GroceryPage({ sidebar = false }) {
                         {isOrdered && ' \u00B7 ordered'}
                       </span>
                     )}
+                    <button
+                      className="recat-btn"
+                      title="Move to different aisle"
+                      onClick={(e) => { e.stopPropagation(); setRecatItem(item.name) }}
+                    >{'\u2630'}</button>
                   </div>
                 )
               })}
@@ -241,6 +255,22 @@ export default function GroceryPage({ sidebar = false }) {
           {addBar}
           {listContent}
         </>
+      )}
+
+      {recatItem && (
+        <Sheet onClose={() => setRecatItem(null)}>
+          <div className="sheet-title">Move "{recatItem}"</div>
+          <div className="sheet-sub">Pick a shopping group</div>
+          <div className="recat-options">
+            {GROUP_ORDER.map(g => (
+              <button
+                key={g}
+                className="recat-option"
+                onClick={() => handleRecategorize(g)}
+              >{g}</button>
+            ))}
+          </div>
+        </Sheet>
       )}
     </>
   )

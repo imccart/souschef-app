@@ -189,10 +189,10 @@ _GROUP_KEYWORDS: dict[str, list[str]] = {
     "Dairy & Eggs": ["milk", "cream", "cheese", "yogurt", "butter", "egg", "sour cream"],
     "Bread & Bakery": ["bread", "bun", "roll", "tortilla", "pita", "cornbread", "bagel"],
     "Pasta & Grains": ["pasta", "noodle", "rice", "quinoa", "couscous", "oat"],
-    "Spices & Baking": ["cumin", "chili powder", "paprika", "oregano", "cinnamon",
+    "Spices & Baking": ["black pepper", "chili powder", "garlic powder", "onion powder",
+                         "cumin", "paprika", "oregano", "cinnamon",
                          "pepper", "seasoning", "spice", "sugar", "flour", "baking",
-                         "vanilla", "cocoa", "salt", "thyme", "garlic powder",
-                         "onion powder", "cayenne", "nutmeg"],
+                         "vanilla", "cocoa", "salt", "thyme", "cayenne", "nutmeg"],
     "Condiments & Sauces": ["sauce", "ketchup", "mustard", "mayo", "dressing", "vinegar",
                              "oil", "soy sauce", "worcestershire", "hot sauce", "salsa",
                              "tomato paste", "honey", "syrup", "ranch"],
@@ -201,21 +201,25 @@ _GROUP_KEYWORDS: dict[str, list[str]] = {
     "Frozen": ["frozen", "ice cream"],
     "Breakfast & Beverages": ["cereal", "granola", "oatmeal", "juice", "tea",
                                "la croix", "soda", "water", "pancake"],
-    "Snacks": ["chips", "crackers", "cookies", "snack", "popcorn", "nuts", "pretzel"],
+    "Snacks": ["tortilla chips", "chips", "crackers", "cookies", "snack", "popcorn", "nuts", "pretzel"],
 }
 
 
 def _infer_group(name: str) -> str:
-    """Infer shopping group from item name using keyword matching."""
+    """Infer shopping group from item name using keyword matching.
+
+    Longer keywords are checked first so "tortilla chips" matches Snacks
+    (via "chips") rather than Bread & Bakery (via "tortilla").
+    """
     name_lower = name.lower()
+    # Build flat list of (keyword, group) sorted longest-first
+    pairs = []
     for group, keywords in _GROUP_KEYWORDS.items():
         for kw in keywords:
-            if kw in name_lower:
-                return group
-    # Check for multi-word matches that need special handling
-    # "pepper" alone → Produce, but "black pepper" or "chili powder" → Spices
-    spice_terms = ["black pepper", "chili powder", "garlic powder", "onion powder"]
-    for term in spice_terms:
-        if term in name_lower:
-            return "Spices & Baking"
+            pairs.append((kw, group))
+    pairs.sort(key=lambda p: len(p[0]), reverse=True)
+
+    for kw, group in pairs:
+        if kw in name_lower:
+            return group
     return "Other"
