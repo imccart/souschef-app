@@ -2253,6 +2253,82 @@ async def invite_to_beta(body: dict, request: Request):
     return {"ok": True}
 
 
+@router.get("/household/pending-invite")
+async def get_pending_invite(request: Request):
+    """Check if the current user has a pending household invite."""
+    real_user_id = getattr(request.state, 'real_user_id', request.state.user_id)
+    conn = _conn()
+
+    # Get this user's email
+    user = conn.execute(
+        text("SELECT email FROM users WHERE id = :id"),
+        {"id": real_user_id},
+    ).fetchone()
+    if not user:
+        return {"invite": None}
+
+    # Find pending invite
+    invite = conn.execute(
+        text("""SELECT hi.household_id, hi.invited_by, u.display_name, u.email AS inviter_email
+               FROM household_invites hi
+               JOIN users u ON u.id = hi.invited_by
+               WHERE LOWER(hi.email) = LOWER(:email) AND hi.status = 'pending'
+               ORDER BY hi.created_at DESC LIMIT 1"""),
+        {"email": user["email"]},
+    ).fetchone()
+    if not invite:
+        return {"invite": None}
+
+    inviter_name = invite["display_name"] or invite["inviter_email"].split("@")[0]
+    return {
+        "invite": {
+            "household_id": invite["household_id"],
+            "inviter_name": inviter_name,
+        }
+    }
+
+
+@router.post("/household/accept-invite")
+async def accept_invite(request: Request):
+    """Accept a pending household invite."""
+    from souschef.web.app import _process_household_invite
+
+    real_user_id = getattr(request.state, 'real_user_id', request.state.user_id)
+    conn = _conn()
+
+    user = conn.execute(
+        text("SELECT email FROM users WHERE id = :id"),
+        {"id": real_user_id},
+    ).fetchone()
+    if not user:
+        return {"ok": False}
+
+    _process_household_invite(conn, real_user_id, user["email"])
+    return {"ok": True}
+
+
+@router.post("/household/decline-invite")
+async def decline_invite(request: Request):
+    """Decline a pending household invite."""
+    real_user_id = getattr(request.state, 'real_user_id', request.state.user_id)
+    conn = _conn()
+
+    user = conn.execute(
+        text("SELECT email FROM users WHERE id = :id"),
+        {"id": real_user_id},
+    ).fetchone()
+    if not user:
+        return {"ok": False}
+
+    conn.execute(
+        text("""UPDATE household_invites SET status = 'declined'
+               WHERE LOWER(email) = LOWER(:email) AND status = 'pending'"""),
+        {"email": user["email"]},
+    )
+    conn.commit()
+    return {"ok": True}
+
+
 # ── Feedback ──────────────────────────────────────────────
 
 

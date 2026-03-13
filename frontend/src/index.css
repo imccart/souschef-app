@@ -3033,6 +3033,60 @@ main {
   font-weight: 600;
 }
 
+/* ── Household Invite Prompt ──────────── */
+
+.invite-prompt {
+  min-height: 100dvh;
+  background: var(--cream);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 32px 24px;
+}
+
+.invite-card {
+  width: 100%;
+  max-width: 400px;
+  text-align: center;
+}
+
+.invite-icon {
+  font-size: 48px;
+  margin-bottom: 16px;
+}
+
+.invite-title {
+  font-family: 'Playfair Display', serif;
+  font-size: 24px;
+  font-weight: 600;
+  color: var(--dark);
+  margin-bottom: 12px;
+}
+
+.invite-body {
+  font-size: 16px;
+  color: var(--brown);
+  line-height: 1.5;
+  margin-bottom: 32px;
+  font-weight: 300;
+}
+
+.invite-actions {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+}
+
+.invite-actions .btn.primary {
+  padding: 14px;
+  font-size: 16px;
+}
+
+.invite-actions .btn:not(.primary) {
+  color: var(--text-muted);
+  font-size: 14px;
+}
+
 /* ── Build List Flow ──────────────────── */
 
 .build-flow-step-title {

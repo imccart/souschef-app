@@ -149,6 +149,9 @@ export const api = {
     method: 'POST',
     body: JSON.stringify({ email }),
   }),
+  getPendingInvite: () => request('/household/pending-invite'),
+  acceptInvite: () => request('/household/accept-invite', { method: 'POST' }),
+  declineInvite: () => request('/household/decline-invite', { method: 'POST' }),
   inviteToBeta: (email) => request('/beta/invite', {
     method: 'POST',
     body: JSON.stringify({ email }),

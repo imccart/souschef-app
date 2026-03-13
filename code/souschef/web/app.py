@@ -266,15 +266,8 @@ async def auth_verify(token: str):
         # One-time: claim orphaned 'default' user data for the first real user
         _claim_default_data(conn, user_id)
 
-        # Check for pending household invites
-        user = conn.execute(
-            text("SELECT email FROM users WHERE id = :id"),
-            {"id": user_id},
-        ).fetchone()
-        if user:
-            _process_household_invite(conn, user_id, user["email"])
-
         # Ensure user has a household (creates one if needed)
+        # Note: pending household invites are handled via UI prompt, not auto-accepted
         ensure_household(conn, user_id)
 
         session_id = create_session(conn, user_id)

@@ -8,6 +8,7 @@ import ReceiptPage from './components/ReceiptPage'
 import PreferencesSheet from './components/PreferencesSheet'
 import OnboardingFlow, { WelcomeScreen } from './components/OnboardingFlow'
 import LoginPage from './components/LoginPage'
+import HouseholdInvitePrompt from './components/HouseholdInvitePrompt'
 
 function useIsWide(breakpoint = 1024) {
   const [wide, setWide] = useState(window.innerWidth >= breakpoint)
@@ -38,6 +39,8 @@ function App() {
   const [authed, setAuthed] = useState(null)
   const [onboardingDone, setOnboardingDone] = useState(null)
   const [welcomed, setWelcomed] = useState(() => localStorage.getItem('souschef_welcomed') === 'true')
+  const [pendingInvite, setPendingInvite] = useState(null) // { inviter_name } or null
+  const [inviteChecked, setInviteChecked] = useState(false)
   const isWide = useIsWide()
   const [mealData, setMealData] = useState(null)
 
@@ -47,6 +50,13 @@ function App() {
     api.getMe()
       .then(() => {
         setAuthed(true)
+        // Check for pending household invite
+        api.getPendingInvite().then(data => {
+          if (data.invite) {
+            setPendingInvite(data.invite)
+          }
+          setInviteChecked(true)
+        }).catch(() => setInviteChecked(true))
         // Fast path: skip round trip if localStorage says onboarded
         if (localStorage.getItem('souschef_onboarded') === 'true') {
           setOnboardingDone(true)
@@ -62,6 +72,7 @@ function App() {
       .catch(() => {
         setAuthed(false)
         setOnboardingDone(false)
+        setInviteChecked(true)
       })
   }, [])
 
@@ -85,6 +96,18 @@ function App() {
 
   if (!onboardingDone) {
     return <OnboardingFlow onComplete={() => setOnboardingDone(true)} />
+  }
+
+  // Show household invite prompt if pending
+  if (inviteChecked && pendingInvite) {
+    return <HouseholdInvitePrompt
+      inviterName={pendingInvite.inviter_name}
+      onResolved={() => {
+        setPendingInvite(null)
+        // Reload to pick up new household context
+        window.location.reload()
+      }}
+    />
   }
 
   return (
