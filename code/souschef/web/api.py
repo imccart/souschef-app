@@ -208,41 +208,42 @@ async def swap_meal_smart(date: str, request: Request, body: dict = None):
 @router.get("/meals/{date}/sides")
 async def get_sides(date: str, request: Request):
     """Return available side options for a date's meal."""
-    from souschef.planner import SIDE_OPTIONS, NO_SIDE, FIXED_SIDES, load_meals, rolling_range
+    from souschef.planner import load_meals, rolling_range
 
     user_id = request.state.user_id
     conn = _conn()
     meal_row = conn.execute(
-        text("SELECT recipe_name, side FROM meals WHERE slot_date = :date AND user_id = :user_id"),
+        text("SELECT recipe_name, side, side_recipe_id FROM meals WHERE slot_date = :date AND user_id = :user_id"),
         {"date": date, "user_id": user_id},
     ).fetchone()
     if not meal_row:
         return {"sides": [], "current": None, "fixed": False}
 
-    recipe_name = meal_row["recipe_name"]
-    if recipe_name in NO_SIDE:
-        return {"sides": [], "current": None, "fixed": True}
-    if recipe_name in FIXED_SIDES:
-        return {"sides": [], "current": FIXED_SIDES[recipe_name], "fixed": True}
+    # Get user's side recipes
+    side_recipes = conn.execute(
+        text("SELECT id, name FROM recipes WHERE user_id = :uid AND recipe_type = 'side' ORDER BY name"),
+        {"uid": user_id},
+    ).fetchall()
 
     s, e = rolling_range()
     week_meals = load_meals(conn, user_id, s, e)
-    used_sides = [m.side for m in week_meals if m.slot_date != date and m.side]
+    used_sides = {m.side for m in week_meals if m.slot_date != date and m.side}
 
     sides = []
-    for side in SIDE_OPTIONS:
+    for sr in side_recipes:
         sides.append({
-            "name": side,
-            "in_use": side in used_sides,
-            "current": side == meal_row["side"],
+            "id": sr["id"],
+            "name": sr["name"],
+            "in_use": sr["name"] in used_sides,
+            "current": sr["id"] == meal_row["side_recipe_id"],
         })
-    return {"sides": sides, "current": meal_row["side"], "fixed": False}
+    return {"sides": sides, "current": meal_row["side"], "current_id": meal_row["side_recipe_id"], "fixed": False}
 
 
 @router.post("/meals/{date}/set-side")
 async def set_side(date: str, body: dict, request: Request):
     """Set a specific side for a date's meal."""
-    from souschef.planner import load_meals, save_meal, rolling_range, _row_to_meal
+    from souschef.planner import save_meal, _row_to_meal
 
     user_id = request.state.user_id
     conn = _conn()
@@ -255,6 +256,7 @@ async def set_side(date: str, body: dict, request: Request):
 
     meal = _row_to_meal(row)
     meal.side = body.get("side", "")
+    meal.side_recipe_id = body.get("side_recipe_id")
     save_meal(conn, user_id, meal)
     return await get_meals(request)
 
@@ -2068,6 +2070,122 @@ async def add_meal_to_pool(body: dict, request: Request):
     return {"ok": True, "id": cursor.fetchone()["id"], "name": name}
 
 
+@router.get("/onboarding/library")
+async def get_onboarding_library(request: Request):
+    """Return library meals and sides for onboarding picker."""
+    conn = _conn()
+    meals = conn.execute(
+        text("SELECT id, name FROM recipes WHERE user_id = '__library__' AND recipe_type = 'meal' ORDER BY name"),
+    ).fetchall()
+    sides = conn.execute(
+        text("SELECT id, name FROM recipes WHERE user_id = '__library__' AND recipe_type = 'side' ORDER BY name"),
+    ).fetchall()
+    return {
+        "meals": [{"id": r["id"], "name": r["name"]} for r in meals],
+        "sides": [{"id": r["id"], "name": r["name"]} for r in sides],
+    }
+
+
+@router.post("/onboarding/select-recipes")
+async def select_onboarding_recipes(body: dict, request: Request):
+    """Copy selected library recipes to user's account and create custom stubs."""
+    user_id = request.state.user_id
+    conn = _conn()
+
+    meal_ids = body.get("meal_ids", [])
+    side_ids = body.get("side_ids", [])
+    custom_meals = body.get("custom_meals", [])
+    custom_sides = body.get("custom_sides", [])
+
+    # Copy library recipes (deep copy: recipe + recipe_ingredients)
+    for lib_id in meal_ids + side_ids:
+        _copy_library_recipe(conn, lib_id, user_id)
+
+    # Create custom meal stubs
+    for name in custom_meals:
+        name = name.strip()
+        if not name:
+            continue
+        existing = conn.execute(
+            text("SELECT id FROM recipes WHERE LOWER(name) = LOWER(:name) AND user_id = :uid"),
+            {"name": name, "uid": user_id},
+        ).fetchone()
+        if not existing:
+            conn.execute(text(
+                """INSERT INTO recipes (name, cuisine, effort, cleanup, outdoor, kid_friendly, premade,
+                   prep_minutes, cook_minutes, servings, user_id, recipe_type)
+                   VALUES (:name, '', 'medium', 'medium', 0, 1, 0, 0, 0, 4, :uid, 'meal')"""
+            ), {"name": name, "uid": user_id})
+
+    # Create custom side stubs
+    for name in custom_sides:
+        name = name.strip()
+        if not name:
+            continue
+        existing = conn.execute(
+            text("SELECT id FROM recipes WHERE LOWER(name) = LOWER(:name) AND user_id = :uid"),
+            {"name": name, "uid": user_id},
+        ).fetchone()
+        if not existing:
+            conn.execute(text(
+                """INSERT INTO recipes (name, cuisine, effort, cleanup, outdoor, kid_friendly, premade,
+                   prep_minutes, cook_minutes, servings, user_id, recipe_type)
+                   VALUES (:name, '', 'medium', 'medium', 0, 1, 0, 0, 0, 4, :uid, 'side')"""
+            ), {"name": name, "uid": user_id})
+
+    conn.commit()
+    return {"ok": True}
+
+
+def _copy_library_recipe(conn, lib_recipe_id: int, user_id: str) -> int | None:
+    """Deep copy a library recipe to the user's account. Returns new recipe id."""
+    lib = conn.execute(
+        text("SELECT * FROM recipes WHERE id = :id AND user_id = '__library__'"),
+        {"id": lib_recipe_id},
+    ).fetchone()
+    if not lib:
+        return None
+
+    # Check if user already has this recipe
+    existing = conn.execute(
+        text("SELECT id FROM recipes WHERE LOWER(name) = LOWER(:name) AND user_id = :uid"),
+        {"name": lib["name"], "uid": user_id},
+    ).fetchone()
+    if existing:
+        return existing["id"]
+
+    result = conn.execute(text(
+        """INSERT INTO recipes (name, cuisine, effort, cleanup, outdoor, kid_friendly, premade,
+           prep_minutes, cook_minutes, servings, notes, user_id, recipe_type)
+           VALUES (:name, :cuisine, :effort, :cleanup, :outdoor, :kid, :premade,
+                    :prep, :cook, :servings, :notes, :uid, :recipe_type)
+           RETURNING id"""
+    ), {
+        "name": lib["name"], "cuisine": lib["cuisine"], "effort": lib["effort"],
+        "cleanup": lib["cleanup"], "outdoor": lib["outdoor"], "kid": lib["kid_friendly"],
+        "premade": lib["premade"], "prep": lib["prep_minutes"], "cook": lib["cook_minutes"],
+        "servings": lib["servings"], "notes": lib["notes"], "uid": user_id,
+        "recipe_type": lib["recipe_type"],
+    })
+    new_id = result.fetchone()["id"]
+
+    # Copy ingredients
+    ingredients = conn.execute(
+        text("SELECT * FROM recipe_ingredients WHERE recipe_id = :rid"),
+        {"rid": lib_recipe_id},
+    ).fetchall()
+    for ing in ingredients:
+        conn.execute(text(
+            """INSERT INTO recipe_ingredients (recipe_id, ingredient_id, quantity, unit, prep_note, component)
+               VALUES (:rid, :iid, :qty, :unit, :prep, :comp)"""
+        ), {
+            "rid": new_id, "iid": ing["ingredient_id"], "qty": ing["quantity"],
+            "unit": ing["unit"], "prep": ing["prep_note"], "comp": ing["component"],
+        })
+
+    return new_id
+
+
 # ── Grocery Active Trip ────────────────────────────────
 
 
@@ -2621,6 +2739,7 @@ def _meal_dict(m) -> dict:
         "recipe_id": m.recipe_id,
         "recipe_name": m.recipe_name,
         "side": m.side,
+        "side_recipe_id": m.side_recipe_id,
         "locked": m.locked,
         "is_followup": m.is_followup,
         "on_grocery": m.on_grocery,
@@ -2642,4 +2761,5 @@ def _recipe_dict(r) -> dict:
         "prep_minutes": r.prep_minutes,
         "cook_minutes": r.cook_minutes,
         "servings": r.servings,
+        "recipe_type": r.recipe_type,
     }

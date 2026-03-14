@@ -59,7 +59,7 @@ export default function SidePickerSheet({ date, mealName, onSelect, onClose }) {
               <button
                 key={s.name}
                 className={`meal-pill ${s.current ? 'current-side' : ''} ${s.in_use ? 'in-use' : ''}`}
-                onClick={() => onSelect(s.name)}
+                onClick={() => onSelect(s.name, s.id)}
               >
                 {s.name}
                 {s.current && ' \u2713'}

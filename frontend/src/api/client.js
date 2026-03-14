@@ -20,9 +20,9 @@ export const api = {
   }),
   swapSide: (date) => request(`/meals/${date}/swap-side`, { method: 'POST' }),
   getSides: (date) => request(`/meals/${date}/sides`),
-  setSide: (date, side) => request(`/meals/${date}/set-side`, {
+  setSide: (date, side, sideRecipeId) => request(`/meals/${date}/set-side`, {
     method: 'POST',
-    body: JSON.stringify({ side }),
+    body: JSON.stringify({ side, side_recipe_id: sideRecipeId || null }),
   }),
   toggleGrocery: (date) => request(`/meals/${date}/toggle-grocery`, { method: 'POST' }),
   setMeal: (date, recipeId) => request(`/meals/${date}/set`, {
@@ -158,6 +158,11 @@ export const api = {
   // Onboarding
   getOnboardingStatus: () => request('/onboarding/status'),
   completeOnboarding: () => request('/onboarding/complete', { method: 'POST' }),
+  getOnboardingLibrary: () => request('/onboarding/library'),
+  selectOnboardingRecipes: (mealIds, sideIds, customMeals, customSides) => request('/onboarding/select-recipes', {
+    method: 'POST',
+    body: JSON.stringify({ meal_ids: mealIds, side_ids: sideIds, custom_meals: customMeals, custom_sides: customSides }),
+  }),
 
   // Learning
   getLearningSuggestions: () => request('/learning/suggestions'),

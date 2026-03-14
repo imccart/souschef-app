@@ -150,8 +150,25 @@ export default function GroceryPage({ sidebar = false }) {
     }
   }
 
+  // First grocery list banner
+  const [bannerDismissed, setBannerDismissed] = useState(
+    () => localStorage.getItem('souschef_grocery_banner_seen') === 'true'
+  )
+  const showBanner = hasItems && !bannerDismissed
+
+  const handleDismissBanner = () => {
+    localStorage.setItem('souschef_grocery_banner_seen', 'true')
+    setBannerDismissed(true)
+  }
+
   const listContent = (
     <>
+      {showBanner && (
+        <div className="grocery-banner">
+          <span>This list was built from your meals, minus what's in your pantry and regulars.</span>
+          <button className="grocery-banner-dismiss" onClick={handleDismissBanner}>{'\u00D7'}</button>
+        </div>
+      )}
       {!hasItems ? (
         <div className="empty-state">
           <div className="icon">{'\u{1F6D2}'}</div>

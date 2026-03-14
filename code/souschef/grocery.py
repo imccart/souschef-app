@@ -19,37 +19,36 @@ def build_grocery_list(
     user_id: str = "default",
 ) -> GroceryList:
     """Build a grocery list from a list of meals."""
-    from souschef.planner import SIDE_INGREDIENTS
-
     # Aggregate ingredients across all meals
     agg: dict[int, dict] = {}
 
     for meal in meals:
-        # Add side dish ingredients
-        if meal.side:
-            for side_name in [s.strip() for s in meal.side.split(",")]:
-                if side_name in SIDE_INGREDIENTS:
-                    ing_name, qty, unit = SIDE_INGREDIENTS[side_name]
-                    ing_row = conn.execute(
-                        text("SELECT id, store_pref, aisle, is_pantry_staple, category FROM ingredients WHERE name = :name"),
-                        {"name": ing_name}
-                    ).fetchone()
-                    if ing_row:
-                        iid = ing_row["id"]
-                        if iid in agg:
-                            agg[iid]["quantity"] += qty
-                            agg[iid]["meals"].add(meal.recipe_name)
-                        else:
-                            agg[iid] = {
-                                "quantity": qty,
-                                "unit": unit,
-                                "store": ing_row["store_pref"],
-                                "aisle": ing_row["aisle"],
-                                "name": ing_name,
-                                "is_staple": bool(ing_row["is_pantry_staple"]),
-                                "category": ing_row["category"],
-                                "meals": {meal.recipe_name},
-                            }
+        # Add side dish ingredients from recipe_ingredients (DB-backed sides)
+        if meal.side_recipe_id:
+            side_rows = conn.execute(
+                text("""SELECT ri.ingredient_id, ri.quantity, ri.unit,
+                          i.name, i.store_pref, i.aisle, i.is_pantry_staple, i.category
+                   FROM recipe_ingredients ri
+                   JOIN ingredients i ON i.id = ri.ingredient_id
+                   WHERE ri.recipe_id = :recipe_id"""),
+                {"recipe_id": meal.side_recipe_id},
+            ).fetchall()
+            for sr in side_rows:
+                iid = sr["ingredient_id"]
+                if iid in agg:
+                    agg[iid]["quantity"] += sr["quantity"]
+                    agg[iid]["meals"].add(meal.side or meal.recipe_name)
+                else:
+                    agg[iid] = {
+                        "quantity": sr["quantity"],
+                        "unit": sr["unit"],
+                        "store": sr["store_pref"],
+                        "aisle": sr["aisle"],
+                        "name": sr["name"],
+                        "is_staple": bool(sr["is_pantry_staple"]),
+                        "category": sr["category"],
+                        "meals": {meal.side or meal.recipe_name},
+                    }
 
         if meal.recipe_id is None:
             continue

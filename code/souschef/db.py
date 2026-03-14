@@ -52,6 +52,7 @@ def init_db(conn: DictConnection) -> None:
     _migrate_create_households(conn)
     _migrate_stores_to_db(conn)
     _migrate_default_user_id_rows(conn)
+    _migrate_recipes_unique_constraint(conn)
 
     conn.commit()
 
@@ -97,6 +98,8 @@ def _run_column_migrations(conn: DictConnection) -> None:
         ("meal_item_overrides", "user_id", "TEXT NOT NULL DEFAULT 'default'"),
         ("recipes", "user_id", "TEXT NOT NULL DEFAULT 'default'"),
         ("stores", "location_id", "TEXT NOT NULL DEFAULT ''"),
+        ("recipes", "recipe_type", "TEXT NOT NULL DEFAULT 'meal'"),
+        ("meals", "side_recipe_id", "INTEGER"),
     ]
 
     for table_name, col_name, col_def in migrations:
@@ -512,6 +515,47 @@ def _migrate_default_user_id_rows(conn: DictConnection) -> None:
             pass
 
 
+def _migrate_recipes_unique_constraint(conn: DictConnection) -> None:
+    """Drop global unique on recipes.name, add UNIQUE(name, user_id)."""
+    try:
+        conn.execute(text(
+            "ALTER TABLE recipes DROP CONSTRAINT IF EXISTS recipes_name_key"
+        ))
+    except Exception:
+        pass
+    try:
+        conn.execute(text(
+            "CREATE UNIQUE INDEX IF NOT EXISTS recipes_name_user_id_key ON recipes(name, user_id)"
+        ))
+    except Exception:
+        pass
+
+
+def _migrate_side_text_to_recipe_id(conn: DictConnection) -> None:
+    """Backfill meals.side_recipe_id from meals.side text by looking up side recipes."""
+    try:
+        rows = conn.execute(text(
+            """SELECT m.id, m.side, m.user_id FROM meals m
+               WHERE m.side != '' AND m.side_recipe_id IS NULL"""
+        )).fetchall()
+    except Exception:
+        return
+    for r in rows:
+        side_name = r["side"].strip()
+        if not side_name:
+            continue
+        # Look up the side recipe for this user
+        side_recipe = conn.execute(text(
+            """SELECT id FROM recipes
+               WHERE LOWER(name) = LOWER(:name) AND user_id = :user_id AND recipe_type = 'side'
+               LIMIT 1"""
+        ), {"name": side_name, "user_id": r["user_id"]}).fetchone()
+        if side_recipe:
+            conn.execute(text(
+                "UPDATE meals SET side_recipe_id = :sid WHERE id = :mid"
+            ), {"sid": side_recipe["id"], "mid": r["id"]})
+
+
 # ── Seed Data ─────────────────────────────────────────────
 
 
@@ -522,13 +566,20 @@ def seed_from_yaml(conn: DictConnection, data_dir: str | None = None) -> None:
     ingredients_file = Path(data_dir) / "seed_ingredients.yaml"
     recipes_file = Path(data_dir) / "seed_recipes.yaml"
     ingredient_db_file = Path(data_dir) / "seed_ingredient_database.yaml"
+    common_recipes_file = Path(data_dir) / "seed_recipes_common.yaml"
 
     if ingredients_file.exists():
         _seed_ingredients(conn, ingredients_file)
     if ingredient_db_file.exists():
         _seed_ingredient_database(conn, ingredient_db_file)
+    # Library recipes (user_id='__library__') loaded first
+    if common_recipes_file.exists():
+        _seed_recipes(conn, common_recipes_file, user_id="__library__")
     if recipes_file.exists():
         _seed_recipes(conn, recipes_file)
+
+    # Backfill side_recipe_id on existing meals
+    _migrate_side_text_to_recipe_id(conn)
 
     conn.commit()
 
@@ -576,20 +627,12 @@ def _seed_ingredient_database(conn: DictConnection, path: Path) -> None:
         })
 
 
-def _seed_recipes(conn: DictConnection, path: Path) -> None:
+def _seed_recipes(conn: DictConnection, path: Path, user_id: str | None = None) -> None:
     with open(path, encoding="utf-8") as f:
         data = yaml.safe_load(f)
 
     for rec in data.get("recipes", []):
-        result = conn.execute(text(
-            """INSERT INTO recipes
-               (name, cuisine, effort, cleanup, outdoor, kid_friendly, premade,
-                prep_minutes, cook_minutes, servings, notes)
-               VALUES (:name, :cuisine, :effort, :cleanup, :outdoor, :kid, :premade,
-                        :prep, :cook, :servings, :notes)
-               ON CONFLICT (name) DO NOTHING
-               RETURNING id"""
-        ), {
+        params = {
             "name": rec["name"],
             "cuisine": rec.get("cuisine", "any"),
             "effort": rec.get("effort", "medium"),
@@ -601,7 +644,29 @@ def _seed_recipes(conn: DictConnection, path: Path) -> None:
             "cook": rec.get("cook_minutes", 0),
             "servings": rec.get("servings", 4),
             "notes": rec.get("notes", ""),
-        })
+            "recipe_type": rec.get("recipe_type", "meal"),
+        }
+        if user_id:
+            params["user_id"] = user_id
+            result = conn.execute(text(
+                """INSERT INTO recipes
+                   (name, cuisine, effort, cleanup, outdoor, kid_friendly, premade,
+                    prep_minutes, cook_minutes, servings, notes, recipe_type, user_id)
+                   VALUES (:name, :cuisine, :effort, :cleanup, :outdoor, :kid, :premade,
+                            :prep, :cook, :servings, :notes, :recipe_type, :user_id)
+                   ON CONFLICT (name, user_id) DO NOTHING
+                   RETURNING id"""
+            ), params)
+        else:
+            result = conn.execute(text(
+                """INSERT INTO recipes
+                   (name, cuisine, effort, cleanup, outdoor, kid_friendly, premade,
+                    prep_minutes, cook_minutes, servings, notes, recipe_type)
+                   VALUES (:name, :cuisine, :effort, :cleanup, :outdoor, :kid, :premade,
+                            :prep, :cook, :servings, :notes, :recipe_type)
+                   ON CONFLICT (name, user_id) DO NOTHING
+                   RETURNING id"""
+            ), params)
 
         row = result.fetchone()
         if row is None:
@@ -628,6 +693,21 @@ def _seed_recipes(conn: DictConnection, path: Path) -> None:
             })
 
 
+def _seed_library_if_missing(conn: DictConnection) -> None:
+    """Seed library recipes on existing databases that don't have them yet."""
+    row = conn.execute(text(
+        "SELECT COUNT(*) AS n FROM recipes WHERE user_id = '__library__'"
+    )).fetchone()
+    if row["n"] > 0:
+        return
+    data_dir = str(Path(__file__).resolve().parents[2] / "data")
+    common_file = Path(data_dir) / "seed_recipes_common.yaml"
+    if common_file.exists():
+        _seed_recipes(conn, common_file, user_id="__library__")
+        _migrate_side_text_to_recipe_id(conn)
+        conn.commit()
+
+
 _db_initialized = False
 
 
@@ -641,6 +721,9 @@ def ensure_db(db_path: str | None = None) -> DictConnection:
             row = conn.execute(text("SELECT COUNT(*) AS n FROM recipes")).fetchone()
             if row["n"] == 0:
                 seed_from_yaml(conn)
+            else:
+                # Ensure library recipes exist even on existing databases
+                _seed_library_if_missing(conn)
             _db_initialized = True
         except Exception as e:
             print(f"[db] ensure_db error: {e}")

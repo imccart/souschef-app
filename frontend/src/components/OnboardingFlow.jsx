@@ -99,25 +99,57 @@ export function WelcomeScreen({ onStart }) {
 
 export default function OnboardingFlow({ onComplete }) {
   const [step, setStep] = useState(0)
-  const [mealInput, setMealInput] = useState('')
-  const [addedMeals, setAddedMeals] = useState([])
+  // Step 0: recipe library picker
+  const [library, setLibrary] = useState(null)
+  const [selectedMealIds, setSelectedMealIds] = useState(new Set())
+  const [selectedSideIds, setSelectedSideIds] = useState(new Set())
+  const [customMealInput, setCustomMealInput] = useState('')
+  const [customMeals, setCustomMeals] = useState([])
+  const [customSideInput, setCustomSideInput] = useState('')
+  const [customSides, setCustomSides] = useState([])
+  // Step 1: regulars
   const [selectedRegulars, setSelectedRegulars] = useState(new Set())
   const [regularInput, setRegularInput] = useState('')
+  // Step 2: pantry
   const [selectedPantry, setSelectedPantry] = useState(new Set())
   const [pantryInput, setPantryInput] = useState('')
 
-  const handleAddMeal = async (e) => {
-    e.preventDefault()
-    if (!mealInput.trim()) return
-    const result = await api.addToPool(mealInput.trim())
-    if (result.ok) {
-      setAddedMeals(prev => [...prev, result.name])
-      setMealInput('')
-    }
+  useEffect(() => {
+    api.getOnboardingLibrary().then(setLibrary)
+  }, [])
+
+  const toggleMealId = (id) => {
+    setSelectedMealIds(prev => {
+      const next = new Set(prev)
+      if (next.has(id)) next.delete(id)
+      else next.add(id)
+      return next
+    })
   }
 
-  const handleRemoveMeal = (index) => {
-    setAddedMeals(prev => prev.filter((_, i) => i !== index))
+  const toggleSideId = (id) => {
+    setSelectedSideIds(prev => {
+      const next = new Set(prev)
+      if (next.has(id)) next.delete(id)
+      else next.add(id)
+      return next
+    })
+  }
+
+  const handleAddCustomMeal = (e) => {
+    e.preventDefault()
+    const name = customMealInput.trim()
+    if (!name || customMeals.includes(name)) return
+    setCustomMeals(prev => [...prev, name])
+    setCustomMealInput('')
+  }
+
+  const handleAddCustomSide = (e) => {
+    e.preventDefault()
+    const name = customSideInput.trim()
+    if (!name || customSides.includes(name)) return
+    setCustomSides(prev => [...prev, name])
+    setCustomSideInput('')
   }
 
   const toggleRegular = (name) => {
@@ -153,18 +185,24 @@ export default function OnboardingFlow({ onComplete }) {
   }
 
   const handleNext = async () => {
+    if (step === 0) {
+      // Save selected recipes
+      await api.selectOnboardingRecipes(
+        [...selectedMealIds],
+        [...selectedSideIds],
+        customMeals,
+        customSides,
+      )
+    }
     if (step === 1) {
-      // Save selected regulars
       for (const name of selectedRegulars) {
         try { await api.addRegular(name) } catch (e) { /* ignore duplicates */ }
       }
     }
     if (step === 2) {
-      // Save selected pantry items
       for (const name of selectedPantry) {
         try { await api.addPantryItem(name) } catch (e) { /* ignore */ }
       }
-      // Mark onboarding complete — DB + localStorage
       await api.completeOnboarding()
       localStorage.setItem('souschef_onboarded', 'true')
       onComplete()
@@ -174,16 +212,16 @@ export default function OnboardingFlow({ onComplete }) {
   }
 
   const steps = [
-    { title: 'What does your family eat?', desc: 'Type meals you make regularly. You can always add more later.' },
-    { title: 'Weekly regulars', desc: 'Items you buy almost every trip. Check the ones that apply.' },
-    { title: 'Pantry staples', desc: 'Things you always have on hand, so they stay off the grocery list.' },
+    { title: 'What does your family eat?', desc: 'What your family eats. We\'ll use these to build your grocery list.' },
+    { title: 'Weekly regulars', desc: 'Things you buy almost every trip. These go on your list automatically.' },
+    { title: 'Pantry staples', desc: 'Things you always have at home. We\'ll leave these off your list.' },
   ]
 
   return (
     <div className="onboarding">
       <div className="onboarding-card">
         <div className="onboarding-logo">sous<em>chef</em></div>
-        <div className="onboarding-subtitle">Your kitchen assistant</div>
+        <div className="onboarding-subtitle">Tell us how your household eats and we'll handle the rest.</div>
 
         <div className="onboarding-dots">
           {steps.map((_, i) => (
@@ -197,30 +235,82 @@ export default function OnboardingFlow({ onComplete }) {
         <div className="onboarding-step-title">{steps[step].title}</div>
         <div className="onboarding-step-desc">{steps[step].desc}</div>
 
-        {/* Step 0: Meals */}
+        {/* Step 0: Recipe library picker */}
         {step === 0 && (
           <>
-            {addedMeals.length > 0 && (
-              <div className="onboarding-pills">
-                {addedMeals.map((name, i) => (
-                  <div key={i} className="onboarding-pill">
-                    {name}
-                    <span className="remove" onClick={() => handleRemoveMeal(i)}>{'\u00D7'}</span>
+            {!library ? (
+              <div className="loading">Loading recipes...</div>
+            ) : (
+              <div className="onboarding-recipe-columns">
+                <div className="onboarding-recipe-section">
+                  <div className="onboarding-section-label">Meals</div>
+                  <div className="onboarding-grid">
+                    {library.meals.map(r => (
+                      <button
+                        key={r.id}
+                        className={`onboarding-grid-item ${selectedMealIds.has(r.id) ? 'selected' : ''}`}
+                        onClick={() => toggleMealId(r.id)}
+                      >
+                        {r.name}
+                      </button>
+                    ))}
+                    {customMeals.map(name => (
+                      <button
+                        key={`custom-${name}`}
+                        className="onboarding-grid-item selected custom"
+                        onClick={() => setCustomMeals(prev => prev.filter(n => n !== name))}
+                      >
+                        {name}
+                      </button>
+                    ))}
                   </div>
-                ))}
+                  <form onSubmit={handleAddCustomMeal} className="onboarding-input-row">
+                    <input
+                      className="onboarding-input"
+                      type="text"
+                      placeholder="Add your own..."
+                      value={customMealInput}
+                      onChange={(e) => setCustomMealInput(e.target.value)}
+                    />
+                    <button className="btn primary" type="submit">+</button>
+                  </form>
+                </div>
+
+                <div className="onboarding-recipe-section">
+                  <div className="onboarding-section-label">Sides</div>
+                  <div className="onboarding-grid">
+                    {library.sides.map(r => (
+                      <button
+                        key={r.id}
+                        className={`onboarding-grid-item ${selectedSideIds.has(r.id) ? 'selected' : ''}`}
+                        onClick={() => toggleSideId(r.id)}
+                      >
+                        {r.name}
+                      </button>
+                    ))}
+                    {customSides.map(name => (
+                      <button
+                        key={`custom-${name}`}
+                        className="onboarding-grid-item selected custom"
+                        onClick={() => setCustomSides(prev => prev.filter(n => n !== name))}
+                      >
+                        {name}
+                      </button>
+                    ))}
+                  </div>
+                  <form onSubmit={handleAddCustomSide} className="onboarding-input-row">
+                    <input
+                      className="onboarding-input"
+                      type="text"
+                      placeholder="Add your own..."
+                      value={customSideInput}
+                      onChange={(e) => setCustomSideInput(e.target.value)}
+                    />
+                    <button className="btn primary" type="submit">+</button>
+                  </form>
+                </div>
               </div>
             )}
-            <form onSubmit={handleAddMeal} className="onboarding-input-row">
-              <input
-                className="onboarding-input"
-                type="text"
-                placeholder="Tacos, pasta, burgers..."
-                value={mealInput}
-                onChange={(e) => setMealInput(e.target.value)}
-                autoFocus
-              />
-              <button className="btn primary" type="submit">Add</button>
-            </form>
           </>
         )}
 

@@ -15,6 +15,7 @@ def list_recipes(
     outdoor: bool | None = None,
     kid_friendly: bool | None = None,
     user_id: str | None = None,
+    recipe_type: str | None = None,
 ) -> list[Recipe]:
     query = "SELECT * FROM recipes WHERE 1=1"
     params: dict = {}
@@ -22,6 +23,10 @@ def list_recipes(
     if user_id:
         query += " AND user_id = :user_id"
         params["user_id"] = user_id
+
+    if recipe_type:
+        query += " AND recipe_type = :recipe_type"
+        params["recipe_type"] = recipe_type
 
     if cuisine:
         query += " AND cuisine = :cuisine"
@@ -104,8 +109,9 @@ def filter_recipes(
     exclude_ids: set[int] | None = None,
     exclude_cuisines: set[str] | None = None,
     user_id: str | None = None,
+    recipe_type: str | None = "meal",
 ) -> list[Recipe]:
-    recipes = list_recipes(conn, cuisine, effort, outdoor, kid_friendly, user_id=user_id)
+    recipes = list_recipes(conn, cuisine, effort, outdoor, kid_friendly, user_id=user_id, recipe_type=recipe_type)
     if exclude_ids:
         recipes = [r for r in recipes if r.id not in exclude_ids]
     if exclude_cuisines:
@@ -127,4 +133,5 @@ def _row_to_recipe(row) -> Recipe:
         cook_minutes=row["cook_minutes"],
         servings=row["servings"],
         notes=row["notes"],
+        recipe_type=row["recipe_type"],
     )

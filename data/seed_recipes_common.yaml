@@ -1,0 +1,770 @@
+recipes:
+  # =====================
+  # MEALS
+  # =====================
+  - name: Spaghetti and Meatballs
+    recipe_type: meal
+    cuisine: italian
+    effort: medium
+    cleanup: medium
+    kid_friendly: true
+    ingredients:
+      - name: ground beef
+        quantity: 1.5
+        unit: lb
+        component: protein
+      - name: spaghetti
+        quantity: 16
+        unit: oz
+        component: base
+      - name: marinara sauce
+        quantity: 24
+        unit: oz
+        component: sauce
+      - name: breadcrumbs
+        quantity: 0.5
+        unit: cup
+      - name: egg
+        quantity: 1
+        unit: count
+      - name: parmesan cheese
+        quantity: 2
+        unit: oz
+
+  - name: Tacos
+    recipe_type: meal
+    cuisine: mexican
+    effort: easy
+    cleanup: easy
+    kid_friendly: true
+    ingredients:
+      - name: ground beef
+        quantity: 1.5
+        unit: lb
+        component: protein
+      - name: taco shells
+        quantity: 12
+        unit: count
+        component: base
+      - name: taco seasoning
+        quantity: 1
+        unit: oz
+      - name: shredded cheese
+        quantity: 8
+        unit: oz
+      - name: lettuce
+        quantity: 1
+        unit: count
+      - name: sour cream
+        quantity: 8
+        unit: oz
+
+  - name: Burgers
+    recipe_type: meal
+    cuisine: american
+    effort: easy
+    cleanup: easy
+    kid_friendly: true
+    outdoor: true
+    ingredients:
+      - name: ground beef
+        quantity: 2
+        unit: lb
+        component: protein
+      - name: hamburger buns
+        quantity: 8
+        unit: count
+        component: base
+      - name: american cheese
+        quantity: 8
+        unit: count
+      - name: lettuce
+        quantity: 1
+        unit: count
+      - name: ketchup
+        quantity: 1
+        unit: count
+
+  - name: Chicken Nuggets
+    recipe_type: meal
+    cuisine: american
+    effort: easy
+    cleanup: easy
+    kid_friendly: true
+    premade: true
+    ingredients:
+      - name: chicken nuggets
+        quantity: 32
+        unit: oz
+        component: protein
+
+  - name: Grilled Cheese and Soup
+    recipe_type: meal
+    cuisine: american
+    effort: easy
+    cleanup: easy
+    kid_friendly: true
+    ingredients:
+      - name: bread
+        quantity: 8
+        unit: count
+      - name: american cheese
+        quantity: 8
+        unit: count
+      - name: butter
+        quantity: 2
+        unit: tbsp
+      - name: tomato soup
+        quantity: 2
+        unit: count
+
+  - name: Mac and Cheese
+    recipe_type: meal
+    cuisine: american
+    effort: easy
+    cleanup: easy
+    kid_friendly: true
+    premade: true
+    ingredients:
+      - name: boxed mac and cheese
+        quantity: 2
+        unit: count
+      - name: butter
+        quantity: 4
+        unit: tbsp
+      - name: milk
+        quantity: 0.5
+        unit: cup
+
+  - name: Fried Rice
+    recipe_type: meal
+    cuisine: asian
+    effort: medium
+    cleanup: easy
+    kid_friendly: true
+    ingredients:
+      - name: rice
+        quantity: 3
+        unit: cup
+        component: base
+      - name: egg
+        quantity: 3
+        unit: count
+      - name: soy sauce
+        quantity: 3
+        unit: tbsp
+      - name: frozen peas and carrots
+        quantity: 12
+        unit: oz
+      - name: sesame oil
+        quantity: 1
+        unit: tbsp
+
+  - name: Chicken Stir Fry
+    recipe_type: meal
+    cuisine: asian
+    effort: medium
+    cleanup: easy
+    kid_friendly: true
+    ingredients:
+      - name: chicken breast
+        quantity: 1.5
+        unit: lb
+        component: protein
+      - name: stir fry vegetables
+        quantity: 16
+        unit: oz
+      - name: soy sauce
+        quantity: 3
+        unit: tbsp
+      - name: rice
+        quantity: 2
+        unit: cup
+        component: base
+
+  - name: Quesadillas
+    recipe_type: meal
+    cuisine: mexican
+    effort: easy
+    cleanup: easy
+    kid_friendly: true
+    ingredients:
+      - name: flour tortillas
+        quantity: 8
+        unit: count
+        component: base
+      - name: shredded cheese
+        quantity: 12
+        unit: oz
+      - name: chicken breast
+        quantity: 1
+        unit: lb
+        component: protein
+      - name: salsa
+        quantity: 8
+        unit: oz
+
+  - name: Baked Chicken
+    recipe_type: meal
+    cuisine: american
+    effort: easy
+    cleanup: easy
+    kid_friendly: true
+    ingredients:
+      - name: chicken thighs
+        quantity: 2
+        unit: lb
+        component: protein
+      - name: lemon
+        quantity: 1
+        unit: count
+      - name: garlic
+        quantity: 4
+        unit: count
+
+  - name: Meatloaf
+    recipe_type: meal
+    cuisine: american
+    effort: medium
+    cleanup: medium
+    kid_friendly: true
+    ingredients:
+      - name: ground beef
+        quantity: 2
+        unit: lb
+        component: protein
+      - name: breadcrumbs
+        quantity: 0.75
+        unit: cup
+      - name: egg
+        quantity: 2
+        unit: count
+      - name: ketchup
+        quantity: 0.5
+        unit: cup
+      - name: onion
+        quantity: 1
+        unit: count
+
+  - name: Pork Chops
+    recipe_type: meal
+    cuisine: american
+    effort: easy
+    cleanup: easy
+    kid_friendly: true
+    ingredients:
+      - name: pork chops
+        quantity: 4
+        unit: count
+        component: protein
+      - name: butter
+        quantity: 2
+        unit: tbsp
+      - name: garlic
+        quantity: 3
+        unit: count
+
+  - name: Salmon
+    recipe_type: meal
+    cuisine: any
+    effort: easy
+    cleanup: easy
+    kid_friendly: true
+    ingredients:
+      - name: salmon fillets
+        quantity: 1.5
+        unit: lb
+        component: protein
+      - name: lemon
+        quantity: 1
+        unit: count
+      - name: butter
+        quantity: 2
+        unit: tbsp
+
+  - name: Hot Dogs
+    recipe_type: meal
+    cuisine: american
+    effort: easy
+    cleanup: easy
+    kid_friendly: true
+    outdoor: true
+    ingredients:
+      - name: hot dogs
+        quantity: 8
+        unit: count
+        component: protein
+      - name: hot dog buns
+        quantity: 8
+        unit: count
+        component: base
+      - name: ketchup
+        quantity: 1
+        unit: count
+      - name: mustard
+        quantity: 1
+        unit: count
+
+  - name: Sloppy Joes
+    recipe_type: meal
+    cuisine: american
+    effort: easy
+    cleanup: easy
+    kid_friendly: true
+    ingredients:
+      - name: ground beef
+        quantity: 1.5
+        unit: lb
+        component: protein
+      - name: hamburger buns
+        quantity: 8
+        unit: count
+        component: base
+      - name: sloppy joe sauce
+        quantity: 15
+        unit: oz
+
+  - name: Beef Stew
+    recipe_type: meal
+    cuisine: comfort
+    effort: medium
+    cleanup: medium
+    kid_friendly: true
+    ingredients:
+      - name: stew meat
+        quantity: 2
+        unit: lb
+        component: protein
+      - name: potato
+        quantity: 3
+        unit: count
+      - name: carrot
+        quantity: 3
+        unit: count
+      - name: onion
+        quantity: 1
+        unit: count
+      - name: beef broth
+        quantity: 32
+        unit: oz
+
+  - name: Chicken Soup
+    recipe_type: meal
+    cuisine: comfort
+    effort: medium
+    cleanup: easy
+    kid_friendly: true
+    ingredients:
+      - name: chicken breast
+        quantity: 1.5
+        unit: lb
+        component: protein
+      - name: egg noodles
+        quantity: 8
+        unit: oz
+        component: base
+      - name: carrot
+        quantity: 3
+        unit: count
+      - name: celery
+        quantity: 3
+        unit: count
+      - name: chicken broth
+        quantity: 48
+        unit: oz
+
+  - name: Breakfast for Dinner
+    recipe_type: meal
+    cuisine: american
+    effort: easy
+    cleanup: easy
+    kid_friendly: true
+    ingredients:
+      - name: pancake mix
+        quantity: 2
+        unit: cup
+      - name: egg
+        quantity: 4
+        unit: count
+      - name: bacon
+        quantity: 12
+        unit: oz
+        component: protein
+      - name: maple syrup
+        quantity: 1
+        unit: count
+
+  - name: Homemade Pizza
+    recipe_type: meal
+    cuisine: italian
+    effort: medium
+    cleanup: medium
+    kid_friendly: true
+    ingredients:
+      - name: pizza dough
+        quantity: 2
+        unit: count
+        component: base
+      - name: pizza sauce
+        quantity: 8
+        unit: oz
+        component: sauce
+      - name: mozzarella cheese
+        quantity: 12
+        unit: oz
+      - name: pepperoni
+        quantity: 6
+        unit: oz
+
+  - name: BBQ Chicken
+    recipe_type: meal
+    cuisine: american
+    effort: easy
+    cleanup: easy
+    kid_friendly: true
+    outdoor: true
+    ingredients:
+      - name: chicken thighs
+        quantity: 2
+        unit: lb
+        component: protein
+      - name: bbq sauce
+        quantity: 12
+        unit: oz
+
+  - name: Pasta Bake
+    recipe_type: meal
+    cuisine: italian
+    effort: medium
+    cleanup: medium
+    kid_friendly: true
+    ingredients:
+      - name: penne
+        quantity: 16
+        unit: oz
+        component: base
+      - name: marinara sauce
+        quantity: 24
+        unit: oz
+        component: sauce
+      - name: mozzarella cheese
+        quantity: 8
+        unit: oz
+      - name: ground sausage
+        quantity: 1
+        unit: lb
+        component: protein
+
+  - name: Fajitas
+    recipe_type: meal
+    cuisine: mexican
+    effort: medium
+    cleanup: easy
+    kid_friendly: true
+    ingredients:
+      - name: chicken breast
+        quantity: 1.5
+        unit: lb
+        component: protein
+      - name: bell pepper
+        quantity: 3
+        unit: count
+      - name: onion
+        quantity: 1
+        unit: count
+      - name: flour tortillas
+        quantity: 8
+        unit: count
+        component: base
+      - name: fajita seasoning
+        quantity: 1
+        unit: oz
+
+  - name: Pulled Pork
+    recipe_type: meal
+    cuisine: american
+    effort: easy
+    cleanup: easy
+    kid_friendly: true
+    ingredients:
+      - name: pork shoulder
+        quantity: 4
+        unit: lb
+        component: protein
+      - name: bbq sauce
+        quantity: 16
+        unit: oz
+      - name: hamburger buns
+        quantity: 8
+        unit: count
+        component: base
+
+  - name: Fish Sticks
+    recipe_type: meal
+    cuisine: american
+    effort: easy
+    cleanup: easy
+    kid_friendly: true
+    premade: true
+    ingredients:
+      - name: fish sticks
+        quantity: 24
+        unit: oz
+        component: protein
+      - name: tartar sauce
+        quantity: 1
+        unit: count
+
+  - name: Chili
+    recipe_type: meal
+    cuisine: comfort
+    effort: medium
+    cleanup: easy
+    kid_friendly: true
+    ingredients:
+      - name: ground beef
+        quantity: 1.5
+        unit: lb
+        component: protein
+      - name: kidney beans
+        quantity: 30
+        unit: oz
+      - name: diced tomatoes
+        quantity: 28
+        unit: oz
+      - name: onion
+        quantity: 1
+        unit: count
+      - name: chili powder
+        quantity: 2
+        unit: tbsp
+      - name: cornbread mix
+        quantity: 1
+        unit: count
+
+  - name: Chicken Parmesan
+    recipe_type: meal
+    cuisine: italian
+    effort: medium
+    cleanup: medium
+    kid_friendly: true
+    ingredients:
+      - name: chicken breast
+        quantity: 1.5
+        unit: lb
+        component: protein
+      - name: breadcrumbs
+        quantity: 1
+        unit: cup
+      - name: marinara sauce
+        quantity: 24
+        unit: oz
+        component: sauce
+      - name: mozzarella cheese
+        quantity: 8
+        unit: oz
+      - name: spaghetti
+        quantity: 16
+        unit: oz
+        component: base
+
+  - name: Lasagna
+    recipe_type: meal
+    cuisine: italian
+    effort: medium
+    cleanup: medium
+    kid_friendly: true
+    ingredients:
+      - name: lasagna noodles
+        quantity: 12
+        unit: oz
+        component: base
+      - name: ground beef
+        quantity: 1
+        unit: lb
+        component: protein
+      - name: ricotta cheese
+        quantity: 15
+        unit: oz
+      - name: mozzarella cheese
+        quantity: 12
+        unit: oz
+      - name: marinara sauce
+        quantity: 24
+        unit: oz
+        component: sauce
+
+  - name: Baked Potatoes
+    recipe_type: meal
+    cuisine: american
+    effort: easy
+    cleanup: easy
+    kid_friendly: true
+    ingredients:
+      - name: russet potato
+        quantity: 4
+        unit: count
+      - name: butter
+        quantity: 4
+        unit: tbsp
+      - name: shredded cheese
+        quantity: 8
+        unit: oz
+      - name: sour cream
+        quantity: 8
+        unit: oz
+      - name: bacon
+        quantity: 6
+        unit: oz
+
+  # =====================
+  # SIDES
+  # =====================
+  - name: Green Beans
+    recipe_type: side
+    ingredients:
+      - name: green beans
+        quantity: 12
+        unit: oz
+
+  - name: Mixed Veggies
+    recipe_type: side
+    ingredients:
+      - name: mixed veggies
+        quantity: 12
+        unit: oz
+
+  - name: Black Beans
+    recipe_type: side
+    ingredients:
+      - name: black beans
+        quantity: 15
+        unit: oz
+
+  - name: Side Salad
+    recipe_type: side
+    ingredients:
+      - name: lettuce
+        quantity: 1
+        unit: count
+      - name: cherry tomatoes
+        quantity: 6
+        unit: oz
+      - name: salad dressing
+        quantity: 1
+        unit: count
+
+  - name: Roasted Broccoli
+    recipe_type: side
+    ingredients:
+      - name: broccoli
+        quantity: 1
+        unit: lb
+
+  - name: Mashed Potatoes
+    recipe_type: side
+    ingredients:
+      - name: potato
+        quantity: 2
+        unit: lb
+      - name: butter
+        quantity: 4
+        unit: tbsp
+      - name: milk
+        quantity: 0.5
+        unit: cup
+
+  - name: Corn on the Cob
+    recipe_type: side
+    ingredients:
+      - name: corn on the cob
+        quantity: 4
+        unit: count
+
+  - name: Corn
+    recipe_type: side
+    ingredients:
+      - name: corn
+        quantity: 12
+        unit: oz
+
+  - name: Roasted Carrots
+    recipe_type: side
+    ingredients:
+      - name: carrot
+        quantity: 1
+        unit: lb
+
+  - name: Edamame
+    recipe_type: side
+    ingredients:
+      - name: edamame
+        quantity: 12
+        unit: oz
+
+  - name: French Fries
+    recipe_type: side
+    premade: true
+    ingredients:
+      - name: frozen french fries
+        quantity: 28
+        unit: oz
+
+  - name: Rice
+    recipe_type: side
+    ingredients:
+      - name: rice
+        quantity: 2
+        unit: cup
+
+  - name: Garlic Bread
+    recipe_type: side
+    ingredients:
+      - name: garlic bread
+        quantity: 1
+        unit: count
+
+  - name: Applesauce
+    recipe_type: side
+    ingredients:
+      - name: applesauce
+        quantity: 1
+        unit: count
+
+  - name: Coleslaw
+    recipe_type: side
+    ingredients:
+      - name: coleslaw mix
+        quantity: 14
+        unit: oz
+      - name: coleslaw dressing
+        quantity: 1
+        unit: count
+
+  - name: Baked Beans
+    recipe_type: side
+    ingredients:
+      - name: baked beans
+        quantity: 28
+        unit: oz
+
+  - name: Fruit Salad
+    recipe_type: side
+    ingredients:
+      - name: strawberries
+        quantity: 1
+        unit: lb
+      - name: blueberries
+        quantity: 6
+        unit: oz
+      - name: grapes
+        quantity: 1
+        unit: lb
+
+  - name: Sweet Potato Fries
+    recipe_type: side
+    premade: true
+    ingredients:
+      - name: frozen sweet potato fries
+        quantity: 20
+        unit: oz

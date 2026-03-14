@@ -126,7 +126,7 @@ ingredients = Table(
 recipes = Table(
     "recipes", metadata,
     Column("id", Integer, primary_key=True, autoincrement=True),
-    Column("name", Text, unique=True, nullable=False),
+    Column("name", Text, nullable=False),
     Column("cuisine", Text, nullable=False, server_default=text("'any'")),
     Column("effort", Text, nullable=False, server_default=text("'medium'")),
     Column("cleanup", Text, nullable=False, server_default=text("'medium'")),
@@ -138,6 +138,7 @@ recipes = Table(
     Column("servings", Integer, nullable=False, server_default=text("4")),
     Column("notes", Text, nullable=False, server_default=text("''")),
     Column("user_id", Text, nullable=False, server_default=text("'default'")),
+    Column("recipe_type", Text, nullable=False, server_default=text("'meal'")),
 )
 
 recipe_ingredients = Table(
@@ -173,6 +174,7 @@ meals = Table(
     Column("locked", Integer, nullable=False, server_default=text("0")),
     Column("is_followup", Integer, nullable=False, server_default=text("0")),
     Column("on_grocery", Integer, nullable=False, server_default=text("0")),
+    Column("side_recipe_id", Integer, ForeignKey("recipes.id"), nullable=True),
     Column("created_at", Text, nullable=False, server_default=text("CURRENT_TIMESTAMP")),
 )
 

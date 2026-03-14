@@ -181,9 +181,9 @@ export default function PlanPage({ showHeader = true, onLoad, onNavigate }) {
     setSidePickerDate(date)
   }
 
-  const handleSetSide = async (date, side) => {
+  const handleSetSide = async (date, side, sideRecipeId) => {
     try {
-      const result = await api.setSide(date, side)
+      const result = await api.setSide(date, side, sideRecipeId)
       setData(result)
       setSidePickerDate(null)
     } catch { await load() }
@@ -478,7 +478,7 @@ export default function PlanPage({ showHeader = true, onLoad, onNavigate }) {
         <SidePickerSheet
           date={sidePickerDate}
           mealName={days.find(d => d.date === sidePickerDate)?.meal?.recipe_name || ''}
-          onSelect={(side) => handleSetSide(sidePickerDate, side)}
+          onSelect={(side, sideRecipeId) => handleSetSide(sidePickerDate, side, sideRecipeId)}
           onClose={() => setSidePickerDate(null)}
         />
       )}

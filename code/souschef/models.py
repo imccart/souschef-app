@@ -31,6 +31,7 @@ class Recipe:
     cook_minutes: int = 0
     servings: int = 4
     notes: str = ""
+    recipe_type: str = "meal"
     ingredients: list[RecipeIngredient] = field(default_factory=list)
 
 
@@ -70,6 +71,7 @@ class Meal:
     locked: bool = False
     is_followup: bool = False
     on_grocery: bool = False  # True = ingredients on grocery list
+    side_recipe_id: int | None = None
     created_at: str = ""
 
     @property
