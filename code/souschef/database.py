@@ -374,6 +374,7 @@ stores = Table(
     Column("key", Text, nullable=False),
     Column("mode", Text, nullable=False, server_default=text("'in-person'")),
     Column("api", Text, nullable=False, server_default=text("'none'")),
+    Column("location_id", Text, nullable=False, server_default=text("''")),
     UniqueConstraint("user_id", "key"),
 )
 

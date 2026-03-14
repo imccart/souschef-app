@@ -437,6 +437,48 @@ async def kroger_disconnect(request: Request):
     return {"ok": True}
 
 
+@app.get("/api/kroger/locations")
+async def kroger_locations(zip: str = "", request: Request = None):
+    """Search Kroger store locations by zip code."""
+    if not zip or len(zip) < 5:
+        return {"locations": [], "error": "Valid zip code required"}
+    try:
+        from souschef.kroger import search_kroger_locations
+        locations = search_kroger_locations(zip)
+        return {"locations": locations}
+    except Exception as e:
+        return {"locations": [], "error": str(e)}
+
+
+@app.get("/api/kroger/location")
+async def kroger_location_get(request: Request):
+    """Get the user's current Kroger store location."""
+    from souschef.stores import get_kroger_location_id
+    user_id = request.state.user_id
+    conn = get_connection()
+    try:
+        loc = get_kroger_location_id(conn, user_id)
+    finally:
+        conn.close()
+    return {"location_id": loc or ""}
+
+
+@app.post("/api/kroger/location")
+async def kroger_location_set(body: dict, request: Request):
+    """Set the user's Kroger store location."""
+    from souschef.stores import set_kroger_location_id
+    user_id = request.state.user_id
+    location_id = body.get("location_id", "").strip()
+    if not location_id:
+        return {"ok": False, "error": "location_id required"}
+    conn = get_connection()
+    try:
+        set_kroger_location_id(conn, user_id, location_id)
+    finally:
+        conn.close()
+    return {"ok": True, "location_id": location_id}
+
+
 @app.get("/api/kroger/household-accounts")
 async def kroger_household_accounts(request: Request):
     """Return household members who have linked Kroger accounts."""

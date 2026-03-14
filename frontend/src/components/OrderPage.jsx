@@ -78,12 +78,20 @@ export default function OrderPage() {
     }).catch(() => setOrder({ pending: [], selected: [], total_price: 0, total_items: 0 }))
   }, [])
 
+  const [noStore, setNoStore] = useState(false)
+
   const doSearch = (itemName, mod) => {
     if (!itemName) { setProducts(null); return }
     const term = mod ? `${mod} ${itemName}` : itemName
     setSearching(true)
     setProducts(null)
+    setNoStore(false)
     api.searchProducts(term, fulfillment).then(data => {
+      if (data.error === 'no_store') {
+        setNoStore(true)
+        setSearching(false)
+        return
+      }
       setProducts(data)
       setSearching(false)
     }).catch(err => {
@@ -201,6 +209,12 @@ export default function OrderPage() {
               }}>{'\u00D7'}</button>
             )}
           </form>
+        </div>
+      )}
+
+      {noStore && !searching && (
+        <div className="empty-state" style={{ padding: '20px 16px' }}>
+          <p>Set your Kroger store in Preferences to search products.</p>
         </div>
       )}
 

@@ -50,12 +50,8 @@ def _load_credentials() -> dict:
     # Prefer env vars (Railway), fall back to local credentials file
     client_id = os.environ.get("KROGER_CLIENT_ID", "")
     client_secret = os.environ.get("KROGER_CLIENT_SECRET", "")
-    location_id = os.environ.get("KROGER_LOCATION_ID", "")
     if client_id and client_secret:
-        creds = {"client_id": client_id, "client_secret": client_secret}
-        if location_id:
-            creds["location_id"] = location_id
-        return creds
+        return {"client_id": client_id, "client_secret": client_secret}
     if not _CREDS_FILE.exists():
         raise FileNotFoundError(
             f"Kroger credentials not found at {_CREDS_FILE}\n"
@@ -93,16 +89,36 @@ def _headers() -> dict:
 
 
 def get_location_id() -> str:
+    """Legacy fallback — prefer passing location_id explicitly."""
     creds = _load_credentials()
     loc = creds.get("location_id")
     if not loc:
-        raise ValueError(
-            "No Kroger location_id configured.\n"
-            "Run 'souschef kroger stores <zip>' to find your store,\n"
-            "then 'souschef kroger set-store <location_id>' to save it."
-        )
+        raise ValueError("No Kroger location_id configured.")
     return loc
 
+
+def search_kroger_locations(zip_code: str, limit: int = 5) -> list[dict]:
+    """Search for Kroger store locations near a zip code."""
+    resp = requests.get(
+        f"{BASE_URL}/locations",
+        params={
+            "filter.zipCode.near": zip_code,
+            "filter.limit": limit,
+            "filter.chain": "Kroger",
+        },
+        headers=_headers(),
+        timeout=15,
+    )
+    resp.raise_for_status()
+    results = []
+    for loc in resp.json().get("data", []):
+        addr = loc.get("address", {})
+        results.append({
+            "location_id": loc.get("locationId", ""),
+            "name": loc.get("name", ""),
+            "address": f"{addr.get('addressLine1', '')}, {addr.get('city', '')} {addr.get('state', '')} {addr.get('zipCode', '')}",
+        })
+    return results
 
 
 def _lookup_food_score(product_name: str, brand: str) -> tuple[int | None, str]:
@@ -176,13 +192,15 @@ def _parse_search_response(data: dict, fulfillment: str = "curbside") -> list[Kr
 def search_products_fast(term: str, limit: int = 5, start: int = 1,
                          require_category: str | None = None,
                          exclude_keywords: list[str] | None = None,
-                         fulfillment: str = "curbside") -> list[KrogerProduct]:
+                         fulfillment: str = "curbside",
+                         location_id: str | None = None) -> list[KrogerProduct]:
     """Fast catalog search — returns products with whatever prices the search API gives.
     No backfill, no retries. Use fill_prices() on a subset for reliable pricing.
     If require_category is set, only returns products whose Kroger categories include it.
     If exclude_keywords is set, drops products whose description contains any of them.
     fulfillment: 'curbside' (pickup) or 'delivery'."""
-    location_id = get_location_id()
+    if not location_id:
+        location_id = get_location_id()
     resp = requests.get(
         f"{BASE_URL}/products",
         params={
@@ -230,9 +248,10 @@ def search_products_fast(term: str, limit: int = 5, start: int = 1,
     return _parse_search_response(resp.json(), fulfillment)
 
 
-def fill_prices(products: list[KrogerProduct]) -> None:
+def fill_prices(products: list[KrogerProduct], location_id: str | None = None) -> None:
     """Fill in missing prices for a list of products via individual lookups."""
-    location_id = get_location_id()
+    if not location_id:
+        location_id = get_location_id()
     missing = [p for p in products if p.price is None and p.product_id]
     if not missing:
         return

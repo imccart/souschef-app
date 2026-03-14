@@ -960,8 +960,15 @@ async def search_order_products(item_name: str, request: Request, fulfillment: s
         search_products_fast, fill_prices, _lookup_food_score,
         get_preferred_products,
     )
+    from souschef.stores import get_kroger_location_id
 
     user_id = request.state.user_id
+    conn = _conn()
+
+    # Get user's Kroger location
+    user_location_id = get_kroger_location_id(conn, user_id)
+    if not user_location_id:
+        return {"error": "no_store", "message": "Set your Kroger store in Preferences", "prior_selections": [], "products": []}
 
     # Return cached response if fresh
     ff = fulfillment if fulfillment in ("curbside", "delivery") else "curbside"
@@ -973,8 +980,6 @@ async def search_order_products(item_name: str, request: Request, fulfillment: s
             return resp
         else:
             del _search_cache[cache_key]
-
-    conn = _conn()
 
     # Use ingredient root as search term if available
     ing = conn.execute(
@@ -996,7 +1001,7 @@ async def search_order_products(item_name: str, request: Request, fulfillment: s
 
     # Search Kroger
     try:
-        products = search_products_fast(search_term, limit=12, fulfillment=ff)
+        products = search_products_fast(search_term, limit=12, fulfillment=ff, location_id=user_location_id)
     except Exception as e:
         import traceback
         traceback.print_exc()
@@ -1036,7 +1041,7 @@ async def search_order_products(item_name: str, request: Request, fulfillment: s
 
     if need_price:
         try:
-            fill_prices(need_price)
+            fill_prices(need_price, location_id=user_location_id)
         except Exception as e:
             print(f"[search] fill_prices failed: {e}")
 

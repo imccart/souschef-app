@@ -139,6 +139,9 @@ export const api = {
   getKrogerStatus: () => request('/kroger/status'),
   connectKroger: () => request('/kroger/connect'),
   disconnectKroger: () => request('/kroger/disconnect', { method: 'POST' }),
+  searchKrogerLocations: (zip) => request(`/kroger/locations?zip=${encodeURIComponent(zip)}`),
+  getKrogerLocation: () => request('/kroger/location'),
+  setKrogerLocation: (locationId) => request('/kroger/location', { method: 'POST', body: JSON.stringify({ location_id: locationId }) }),
   getKrogerHouseholdAccounts: () => request('/kroger/household-accounts'),
 
   // Auth

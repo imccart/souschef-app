@@ -114,6 +114,11 @@ export default function PreferencesSheet({ onClose }) {
   const [displayName, setDisplayName] = useState('')
   const [nameSaved, setNameSaved] = useState(false)
   const [krogerConnected, setKrogerConnected] = useState(null)
+  const [krogerLocationId, setKrogerLocationId] = useState('')
+  const [krogerLocationName, setKrogerLocationName] = useState('')
+  const [storeZip, setStoreZip] = useState('')
+  const [storeResults, setStoreResults] = useState(null)
+  const [storeSearching, setStoreSearching] = useState(false)
   useEffect(() => {
     api.getMe().then(data => {
       setUserEmail(data.email || '')
@@ -126,6 +131,9 @@ export default function PreferencesSheet({ onClose }) {
     api.getGrocerySuggestions().then(data => setAllIngredients(data.suggestions)).catch(() => {})
     api.getHouseholdMembers().then(data => setMembers(data.members)).catch(() => {})
     api.getKrogerStatus().then(data => setKrogerConnected(data.connected)).catch(() => setKrogerConnected(false))
+    api.getKrogerLocation().then(data => {
+      if (data.location_id) setKrogerLocationId(data.location_id)
+    }).catch(() => {})
   }, [])
 
   const handleRemoveRegular = async (name) => {
@@ -267,6 +275,29 @@ export default function PreferencesSheet({ onClose }) {
     } catch { /* ignore */ }
   }
 
+  const handleSearchStores = async (e) => {
+    e.preventDefault()
+    if (!storeZip.trim() || storeZip.trim().length < 5) return
+    setStoreSearching(true)
+    try {
+      const data = await api.searchKrogerLocations(storeZip.trim())
+      setStoreResults(data.locations || [])
+    } catch {
+      setStoreResults([])
+    }
+    setStoreSearching(false)
+  }
+
+  const handleSelectStore = async (loc) => {
+    try {
+      await api.setKrogerLocation(loc.location_id)
+      setKrogerLocationId(loc.location_id)
+      setKrogerLocationName(loc.name + ' — ' + loc.address)
+      setStoreResults(null)
+      setStoreZip('')
+    } catch { /* ignore */ }
+  }
+
   // Group regulars by shopping_group
   const regularGroups = {}
   if (regulars) {
@@ -350,10 +381,58 @@ export default function PreferencesSheet({ onClose }) {
             {krogerConnected === null ? (
               <div className="prefs-list-meta">Checking connection...</div>
             ) : krogerConnected ? (
-              <div className="prefs-integration-connected">
-                <span className="prefs-connected">Kroger: Connected {'\u2713'}</span>
-                <button className="prefs-disconnect" onClick={handleDisconnectKroger}>Disconnect</button>
-              </div>
+              <>
+                <div className="prefs-integration-connected">
+                  <span className="prefs-connected">Kroger: Connected {'\u2713'}</span>
+                  <button className="prefs-disconnect" onClick={handleDisconnectKroger}>Disconnect</button>
+                </div>
+                {/* Store location picker */}
+                <div className="prefs-kroger-store">
+                  {krogerLocationId ? (
+                    <div className="prefs-kroger-selected">
+                      <span className="prefs-list-meta">
+                        Store: {krogerLocationName || `#${krogerLocationId}`}
+                      </span>
+                      <button className="prefs-disconnect" onClick={() => { setKrogerLocationId(''); setKrogerLocationName(''); setStoreResults(null) }}>
+                        Change
+                      </button>
+                    </div>
+                  ) : (
+                    <>
+                      <div className="prefs-section-hint" style={{ marginTop: 8 }}>Select your Kroger store</div>
+                      <form onSubmit={handleSearchStores} className="prefs-add-row">
+                        <input
+                          className="prefs-add-input"
+                          type="text"
+                          placeholder="Zip code..."
+                          value={storeZip}
+                          onChange={(e) => setStoreZip(e.target.value)}
+                          maxLength={5}
+                          inputMode="numeric"
+                        />
+                        <button className="btn primary" type="submit" disabled={storeSearching}>
+                          {storeSearching ? '...' : 'Search'}
+                        </button>
+                      </form>
+                      {storeResults && storeResults.length === 0 && (
+                        <div className="prefs-section-hint">No stores found near that zip.</div>
+                      )}
+                      {storeResults && storeResults.length > 0 && (
+                        <div className="prefs-list prefs-store-results">
+                          {storeResults.map(loc => (
+                            <div key={loc.location_id} className="prefs-list-item prefs-store-result" onClick={() => handleSelectStore(loc)}>
+                              <div>
+                                <div className="prefs-list-name">{loc.name}</div>
+                                <div className="prefs-list-meta">{loc.address}</div>
+                              </div>
+                            </div>
+                          ))}
+                        </div>
+                      )}
+                    </>
+                  )}
+                </div>
+              </>
             ) : (
               <button className="btn primary prefs-integration-btn" onClick={handleConnectKroger}>
                 Connect Kroger Account

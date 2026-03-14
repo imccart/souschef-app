@@ -10,10 +10,40 @@ from souschef.database import DictConnection
 def list_stores(conn: DictConnection, user_id: str = "default") -> list[dict]:
     """Return configured stores for a user."""
     rows = conn.execute(
-        text("SELECT id, name, key, mode, api FROM stores WHERE user_id = :user_id ORDER BY id"),
+        text("SELECT id, name, key, mode, api, location_id FROM stores WHERE user_id = :user_id ORDER BY id"),
         {"user_id": user_id},
     ).fetchall()
     return [dict(r) for r in rows]
+
+
+def get_kroger_location_id(conn: DictConnection, user_id: str) -> str | None:
+    """Get the Kroger location_id for a user, or None if not set."""
+    row = conn.execute(
+        text("SELECT location_id FROM stores WHERE user_id = :user_id AND api = 'kroger' AND location_id != '' LIMIT 1"),
+        {"user_id": user_id},
+    ).fetchone()
+    return row["location_id"] if row else None
+
+
+def set_kroger_location_id(conn: DictConnection, user_id: str, location_id: str) -> bool:
+    """Set the location_id on the user's Kroger store. Creates a Kroger store if none exists."""
+    row = conn.execute(
+        text("SELECT id FROM stores WHERE user_id = :user_id AND api = 'kroger' LIMIT 1"),
+        {"user_id": user_id},
+    ).fetchone()
+    if row:
+        conn.execute(
+            text("UPDATE stores SET location_id = :loc WHERE id = :id"),
+            {"loc": location_id, "id": row["id"]},
+        )
+    else:
+        conn.execute(
+            text("""INSERT INTO stores (user_id, name, key, mode, api, location_id)
+                    VALUES (:user_id, 'Kroger', 'k', 'in-person', 'kroger', :loc)"""),
+            {"user_id": user_id, "loc": location_id},
+        )
+    conn.commit()
+    return True
 
 
 def add_store(conn: DictConnection, user_id: str, name: str, key: str,
