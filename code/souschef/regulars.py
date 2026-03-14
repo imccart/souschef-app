@@ -59,8 +59,9 @@ def add_regular(
     store_pref: str = "either",
 ) -> Regular:
     """Add a regular item. Silently links to an ingredient if a match exists."""
-    name = name.strip().lower()
-    ingredient_id = _match_ingredient(conn, name)
+    from souschef.normalize import normalize_item_name
+    canonical, ingredient_id = normalize_item_name(conn, name)
+    name = canonical  # use canonical name if matched, else lowercased input
 
     # If we matched an ingredient and no group was given, inherit it
     if ingredient_id and not shopping_group:

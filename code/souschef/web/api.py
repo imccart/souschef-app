@@ -410,6 +410,12 @@ def _get_active_trip(conn, user_id: str):
     ).fetchone()
 
 
+def _normalize_name(conn, raw_name: str) -> tuple[str, int | None]:
+    """Normalize an item name to its canonical form. Returns (name, ingredient_id)."""
+    from souschef.normalize import normalize_item_name
+    return normalize_item_name(conn, raw_name)
+
+
 def _infer_item_group(conn, name: str, user_id: str) -> str:
     """Resolve shopping group: user override > ingredient aisle > regulars > keyword inference."""
     from souschef.regulars import _infer_group
@@ -422,13 +428,15 @@ def _infer_item_group(conn, name: str, user_id: str) -> str:
     if row:
         return row["shopping_group"]
 
-    # 2. Ingredient table
-    row = conn.execute(
-        text("SELECT aisle FROM ingredients WHERE LOWER(name) = LOWER(:name)"),
-        {"name": name},
-    ).fetchone()
-    if row and row["aisle"]:
-        return row["aisle"]
+    # 2. Ingredient table (normalize first to catch typos/variants)
+    canonical, ing_id = _normalize_name(conn, name)
+    if ing_id:
+        row = conn.execute(
+            text("SELECT aisle FROM ingredients WHERE id = :id"),
+            {"id": ing_id},
+        ).fetchone()
+        if row and row["aisle"]:
+            return row["aisle"]
 
     # 3. Regulars
     row = conn.execute(
@@ -643,11 +651,13 @@ async def add_grocery_item(body: dict, request: Request):
     from souschef.planner import load_rolling_week
 
     user_id = request.state.user_id
-    name = body.get("name", "").strip().lower()
-    if not name:
+    raw = body.get("name", "").strip()
+    if not raw:
         return {"ok": False}
 
     conn = _conn()
+    name, _ = _normalize_name(conn, raw)
+
     mw = load_rolling_week(conn, user_id)
     trip = _ensure_active_trip(conn, mw, user_id)
 
@@ -983,12 +993,15 @@ async def search_order_products(item_name: str, request: Request, fulfillment: s
         else:
             del _search_cache[cache_key]
 
-    # Use ingredient root as search term if available
-    ing = conn.execute(
-        text("SELECT root FROM ingredients WHERE LOWER(name) = :name"),
-        {"name": item_name.lower()},
-    ).fetchone()
-    search_term = (ing["root"] if ing and ing["root"] else item_name).strip()
+    # Normalize item name, then use ingredient root as search term if available
+    canonical, ing_id = _normalize_name(conn, item_name)
+    ing = None
+    if ing_id:
+        ing = conn.execute(
+            text("SELECT root FROM ingredients WHERE id = :id"),
+            {"id": ing_id},
+        ).fetchone()
+    search_term = (ing["root"] if ing and ing["root"] else canonical).strip()
 
     # Get preferences first
     prefs = get_preferred_products(conn, user_id, item_name, limit=3)
@@ -1840,28 +1853,34 @@ async def add_recipe_ingredient(recipe_id: int, body: dict, request: Request):
     if not own:
         return {"ok": False, "error": "Recipe not found"}
 
-    name = body.get("name", "").strip().lower()
-    if not name:
+    raw_name = body.get("name", "").strip()
+    if not raw_name:
         return {"ok": False}
 
-    # Find or create ingredient
-    row = conn.execute(
-        text("SELECT id, aisle FROM ingredients WHERE LOWER(name) = :name"),
-        {"name": name},
-    ).fetchone()
+    # Normalize to canonical ingredient name
+    name, matched_id = _normalize_name(conn, raw_name)
 
-    if row:
-        ingredient_id = row["id"]
+    if matched_id:
+        ingredient_id = matched_id
     else:
-        # Infer shopping group
-        group = _infer_item_group(conn, name, request.state.user_id)
-        cursor = conn.execute(
-            text("""INSERT INTO ingredients (name, aisle, default_unit)
-               VALUES (:name, :aisle, 'count')
-               RETURNING id"""),
-            {"name": name, "aisle": group},
-        )
-        ingredient_id = cursor.fetchone()["id"]
+        # Find exact or create
+        row = conn.execute(
+            text("SELECT id FROM ingredients WHERE LOWER(name) = :name"),
+            {"name": name},
+        ).fetchone()
+        if row:
+            ingredient_id = row["id"]
+        else:
+            from souschef.normalize import invalidate_cache
+            group = _infer_item_group(conn, name, request.state.user_id)
+            cursor = conn.execute(
+                text("""INSERT INTO ingredients (name, aisle, default_unit)
+                   VALUES (:name, :aisle, 'count')
+                   RETURNING id"""),
+                {"name": name, "aisle": group},
+            )
+            ingredient_id = cursor.fetchone()["id"]
+            invalidate_cache()
 
     # Check if already linked
     existing = conn.execute(
@@ -1935,25 +1954,30 @@ async def add_pantry(body: dict, request: Request):
 
     user_id = request.state.user_id
     conn = _conn()
-    name = body.get("name", "").strip()
-    if not name:
+    raw_name = body.get("name", "").strip()
+    if not raw_name:
         return {"ok": False, "error": "name required"}
     quantity = body.get("quantity", 1.0)
     unit = body.get("unit", "count")
 
+    # Normalize to canonical ingredient name
+    name, _ = _normalize_name(conn, raw_name)
+
     # If ingredient doesn't exist, create it
     ing = conn.execute(
         text("SELECT id FROM ingredients WHERE LOWER(name) = :name"),
-        {"name": name.lower()},
+        {"name": name},
     ).fetchone()
     if not ing:
+        from souschef.normalize import invalidate_cache
         conn.execute(
             text("INSERT INTO ingredients (name, aisle) VALUES (:name, :aisle)"),
-            {"name": name.lower(), "aisle": body.get("shopping_group", "Other")},
+            {"name": name, "aisle": body.get("shopping_group", "Other")},
         )
         conn.commit()
+        invalidate_cache()
 
-    result = add_pantry_item(conn, user_id, name.lower(), quantity, unit)
+    result = add_pantry_item(conn, user_id, name, quantity, unit)
     if result is None:
         return {"ok": False}
     return {"ok": True, "id": result.id, "name": result.ingredient_name}
