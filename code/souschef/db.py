@@ -845,26 +845,25 @@ def _backfill_user_sides_from_library(conn: DictConnection) -> None:
                 copied += 1
             if copied:
                 print(f"[db] Copied {copied} library sides (with ingredients) to user {uid}", flush=True)
-        # Repair dangling side_recipe_id references (from prior deploy that deleted without repointing)
-        dangling = conn.execute(text(
-            """SELECT m.id, m.side, m.user_id FROM meals m
-               WHERE m.side_recipe_id IS NOT NULL
-                 AND NOT EXISTS (SELECT 1 FROM recipes r WHERE r.id = m.side_recipe_id)"""
+        # Relink all side_recipe_id by name — catches dangling refs and mismatches
+        sides_to_fix = conn.execute(text(
+            """SELECT m.id, m.side, m.user_id, m.side_recipe_id FROM meals m
+               WHERE m.side IS NOT NULL AND m.side != ''"""
         )).fetchall()
-        for d in dangling:
-            if not d["side"]:
-                continue
-            fix = conn.execute(text(
+        fixed = 0
+        for m in sides_to_fix:
+            correct = conn.execute(text(
                 """SELECT id FROM recipes
                    WHERE LOWER(name) = LOWER(:name) AND user_id = :uid AND recipe_type = 'side'
                    LIMIT 1"""
-            ), {"name": d["side"], "uid": d["user_id"]}).fetchone()
-            if fix:
+            ), {"name": m["side"], "uid": m["user_id"]}).fetchone()
+            if correct and (m["side_recipe_id"] is None or m["side_recipe_id"] != correct["id"]):
                 conn.execute(text(
                     "UPDATE meals SET side_recipe_id = :rid WHERE id = :mid"
-                ), {"rid": fix["id"], "mid": d["id"]})
-        if dangling:
-            print(f"[db] Repaired {len(dangling)} dangling side_recipe_id references", flush=True)
+                ), {"rid": correct["id"], "mid": m["id"]})
+                fixed += 1
+        if fixed:
+            print(f"[db] Relinked {fixed} meal side_recipe_id references", flush=True)
 
         conn.commit()
     except Exception as e:
@@ -924,6 +923,12 @@ def ensure_db(db_path: str | None = None) -> DictConnection:
             if row["n"] == 0:
                 seed_from_yaml(conn)
             else:
+                # Ensure ingredient database is up to date (idempotent)
+                data_dir = str(Path(__file__).resolve().parents[2] / "data")
+                ing_db = Path(data_dir) / "seed_ingredient_database.yaml"
+                if ing_db.exists():
+                    _seed_ingredient_database(conn, ing_db)
+                    conn.commit()
                 # Ensure library recipes exist even on existing databases
                 _seed_library_if_missing(conn)
             _backfill_user_sides_from_library(conn)

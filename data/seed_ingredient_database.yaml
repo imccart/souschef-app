@@ -1240,18 +1240,21 @@ ingredients:
     is_pantry_staple: 0
 
   # -- Dressings & Spreads --
+  - name: salad dressing
+    aisle: Condiments & Sauces
+    is_pantry_staple: 0
   - name: ranch dressing
     aisle: Condiments & Sauces
     is_pantry_staple: 0
-    root: ranch
+    root: salad dressing
   - name: italian dressing
     aisle: Condiments & Sauces
     is_pantry_staple: 0
-    root: dressing
+    root: salad dressing
   - name: caesar dressing
     aisle: Condiments & Sauces
     is_pantry_staple: 0
-    root: dressing
+    root: salad dressing
   - name: honey
     aisle: Condiments & Sauces
     is_pantry_staple: 1
