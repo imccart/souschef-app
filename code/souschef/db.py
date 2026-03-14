@@ -28,28 +28,36 @@ def get_conn(db_path: str | None = None) -> DictConnection:
 
 def init_db(conn: DictConnection) -> None:
     """Create tables and run additive migrations."""
+    print("[db] Creating tables...", flush=True)
     create_tables()
+    print("[db] Tables created", flush=True)
 
-    # Additive migrations: add columns that may be missing on older databases.
-    # SQLAlchemy's create_all handles new installs, but existing DBs need ALTER TABLE.
+    print("[db] Running column migrations...", flush=True)
     _run_column_migrations(conn)
+    print("[db] Column migrations done", flush=True)
 
     # One-time data migrations
-    _migrate_accepted_to_on_grocery(conn)
-    _migrate_ratings_to_table(conn)
-    _migrate_to_regulars(conn)
-    _migrate_slots_to_meals(conn)
-    _migrate_shopping_groups(conn)
-    _migrate_regulars_default_inactive(conn)
-    _migrate_grocery_to_trips(conn)
-    _migrate_onboarding_marker(conn)
-    _migrate_create_default_user(conn)
-    _migrate_create_households(conn)
-    _migrate_stores_to_db(conn)
-    _migrate_default_user_id_rows(conn)
-    _migrate_recipes_unique_constraint(conn)
+    for name, fn in [
+        ("accepted_to_on_grocery", _migrate_accepted_to_on_grocery),
+        ("ratings_to_table", _migrate_ratings_to_table),
+        ("to_regulars", _migrate_to_regulars),
+        ("slots_to_meals", _migrate_slots_to_meals),
+        ("shopping_groups", _migrate_shopping_groups),
+        ("regulars_default_inactive", _migrate_regulars_default_inactive),
+        ("grocery_to_trips", _migrate_grocery_to_trips),
+        ("onboarding_marker", _migrate_onboarding_marker),
+        ("create_default_user", _migrate_create_default_user),
+        ("create_households", _migrate_create_households),
+        ("stores_to_db", _migrate_stores_to_db),
+        ("default_user_id_rows", _migrate_default_user_id_rows),
+        ("recipes_unique_constraint", _migrate_recipes_unique_constraint),
+    ]:
+        print(f"[db] Migration: {name}...", flush=True)
+        fn(conn)
 
+    print("[db] All migrations done, committing...", flush=True)
     conn.commit()
+    print("[db] init_db complete", flush=True)
 
 
 def _run_column_migrations(conn: DictConnection) -> None:
