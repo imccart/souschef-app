@@ -55,9 +55,12 @@ export default function OrderPage() {
   const [selectedAccount, setSelectedAccount] = useState(null)
   const [fulfillment, setFulfillment] = useState(() => localStorage.getItem('souschef_fulfillment') || 'curbside')
   const [storeInfo, setStoreInfo] = useState(null)
+  const [showQueue, setShowQueue] = useState(false)
+  const [skippedItems, setSkippedItems] = useState(new Set())
   const [communityBrand, setCommunityBrand] = useState(null)
   const [communityValue, setCommunityValue] = useState('')
   const [communityConfirm, setCommunityConfirm] = useState(false)
+  const [noStore, setNoStore] = useState(false)
 
   useEffect(() => {
     api.getKrogerHouseholdAccounts().then(data => {
@@ -72,14 +75,11 @@ export default function OrderPage() {
   useEffect(() => {
     api.getOrder().then(data => {
       setOrder(data)
-      // Auto-select first pending item
       if (data.pending.length > 0 && !activeItem) {
         setActiveItem(data.pending[0].name)
       }
     }).catch(() => setOrder({ pending: [], selected: [], total_price: 0, total_items: 0 }))
   }, [])
-
-  const [noStore, setNoStore] = useState(false)
 
   const doSearch = (itemName, mod) => {
     if (!itemName) { setProducts(null); return }
@@ -101,22 +101,63 @@ export default function OrderPage() {
     })
   }
 
-  // Auto-search when active item or fulfillment changes (reset modifier)
   useEffect(() => {
     setModifier('')
     doSearch(activeItem, '')
   }, [activeItem, fulfillment])
 
+  const storeName = storeInfo?.name || 'Kroger'
+
+  // Find the next pending item after the current one, cycling back through skipped
+  const advanceToNext = (updatedOrder) => {
+    const pending = updatedOrder.pending
+    if (pending.length === 0) {
+      setActiveItem(null)
+      return
+    }
+    // Find first pending item that hasn't been skipped
+    const unskipped = pending.filter(p => !skippedItems.has(p.name))
+    if (unskipped.length > 0) {
+      setActiveItem(unskipped[0].name)
+    } else {
+      // All remaining were skipped — cycle back
+      setSkippedItems(new Set())
+      setActiveItem(pending[0].name)
+    }
+  }
+
   const handleSelect = async (product) => {
     try {
       const data = await api.selectProduct(activeItem, product)
       setOrder(data)
-      if (data.pending.length > 0) {
-        setActiveItem(data.pending[0].name)
+      // Remove from skipped if it was there
+      setSkippedItems(prev => {
+        const next = new Set(prev)
+        next.delete(activeItem)
+        return next
+      })
+      advanceToNext(data)
+    } catch { /* silent */ }
+  }
+
+  const handleSkip = () => {
+    if (!activeItem || !order) return
+    setSkippedItems(prev => new Set(prev).add(activeItem))
+    const pending = order.pending
+    const unskippedAfter = pending.filter(p => p.name !== activeItem && !skippedItems.has(p.name))
+    if (unskippedAfter.length > 0) {
+      setActiveItem(unskippedAfter[0].name)
+    } else {
+      // All skipped — cycle back through them
+      setSkippedItems(new Set())
+      const remaining = pending.filter(p => p.name !== activeItem)
+      if (remaining.length > 0) {
+        setActiveItem(remaining[0].name)
       } else {
+        // This was the last pending item
         setActiveItem(null)
       }
-    } catch { /* silent — product stays unselected */ }
+    }
   }
 
   const handleDeselect = async (itemName) => {
@@ -141,13 +182,15 @@ export default function OrderPage() {
   if (!order) return <div className="loading">Prepping...</div>
 
   const allItems = [...order.pending, ...order.selected]
+  const pickedCount = order.selected.length
+  const totalCount = allItems.length
 
-  if (allItems.length === 0) {
+  if (totalCount === 0) {
     return (
       <>
         <div className="page-header">
           <h2 className="screen-heading">Order</h2>
-          <div className="screen-sub">Select Kroger products for your list</div>
+          <div className="screen-sub">Select products for your list</div>
         </div>
         <div className="empty-state">
           <div className="icon">{'\u{1F6D2}'}</div>
@@ -162,7 +205,7 @@ export default function OrderPage() {
       <div className="store-details-row">
         <div className="store-details-name">
           <select className="store-select" value="kroger" disabled>
-            <option value="kroger">{storeInfo?.name || 'Kroger'}</option>
+            <option value="kroger">{storeName}</option>
           </select>
         </div>
         <div className="fulfillment-toggle">
@@ -178,6 +221,36 @@ export default function OrderPage() {
       </div>
       {storeInfo?.address && (
         <div className="store-details-address">{storeInfo.address}</div>
+      )}
+    </div>
+  )
+
+  // Mobile collapsed queue row
+  const mobileQueueRow = activeItem ? (
+    <div className="picking-row">
+      <div className="picking-row-main" onClick={() => setShowQueue(true)}>
+        <span className="picking-row-label">Picking for</span>
+        <span className="picking-row-item">{activeItem}</span>
+        <span className="picking-row-progress">[{pickedCount}/{totalCount}]</span>
+        <span className="picking-row-expand">{'\u25BE'}</span>
+      </div>
+      <button className="picking-row-skip" onClick={handleSkip}>{'\u2192'}</button>
+    </div>
+  ) : (
+    <div className="picking-row done">
+      <div className="picking-row-main">
+        <span className="picking-row-summary">
+          {pickedCount} of {totalCount} picked
+          {order.total_price > 0 && ` \u00B7 ${formatPrice(order.total_price)}`}
+        </span>
+      </div>
+      {pickedCount > 0 && !submitResult?.ok && (
+        <button className="picking-row-send" onClick={handleSubmit} disabled={submitting}>
+          {submitting ? '...' : `Send to ${storeName} \u2192`}
+        </button>
+      )}
+      {submitResult?.ok && (
+        <span className="picking-row-sent">Sent {'\u2713'}</span>
       )}
     </div>
   )
@@ -243,7 +316,7 @@ export default function OrderPage() {
 
       {noStore && !searching && (
         <div className="empty-state" style={{ padding: '20px 16px' }}>
-          <p>Set your Kroger store in Preferences to search products.</p>
+          <p>Set your store in Preferences to search products.</p>
         </div>
       )}
 
@@ -286,7 +359,7 @@ export default function OrderPage() {
 
           <div className="order-section">
             <div className="order-section-label">
-              Kroger results
+              {storeName} results
               {products.search_term !== activeItem && (
                 <span className="search-term-note"> for "{products.search_term}"</span>
               )}
@@ -351,11 +424,11 @@ export default function OrderPage() {
       <div className="order-summary-header">
         <div className="order-summary-title">Order Summary</div>
         <div className="order-summary-sub">
-          {order.selected.length} of {allItems.length} items selected
+          {pickedCount} of {totalCount} items selected
         </div>
       </div>
       <div className="order-summary-scroll">
-        {order.selected.length > 0 ? (
+        {pickedCount > 0 ? (
           <>
             <div className="order-summary-list-label">Selected so far</div>
             {order.selected.map(item => (
@@ -376,12 +449,6 @@ export default function OrderPage() {
               <span>Est. subtotal</span>
               <strong>{formatPrice(order.total_price)}</strong>
             </div>
-            {order.pending.length > 0 && (
-              <div className="order-summary-hint">
-                {order.pending.length} item{order.pending.length !== 1 ? 's' : ''} still need selection.
-                Keep going, or finalize now and the rest will carry over.
-              </div>
-            )}
           </>
         ) : (
           <div className="order-summary-empty">
@@ -390,10 +457,10 @@ export default function OrderPage() {
         )}
       </div>
       <div className="order-summary-footer">
-        {order.selected.length > 0 && (
+        {pickedCount > 0 && (
           <>
             {krogerAccounts && krogerAccounts.length === 0 ? (
-              <div className="submit-hint">Link a store account in Preferences to submit orders</div>
+              <div className="submit-hint">Connect your account in Preferences to submit orders</div>
             ) : (
               <>
                 {krogerAccounts && krogerAccounts.length > 1 && (
@@ -413,14 +480,14 @@ export default function OrderPage() {
                   </div>
                 )}
                 {submitResult?.ok ? (
-                  <div className="submit-success">Added to Kroger cart {'\u2713'}</div>
+                  <div className="submit-success">Sent to {storeName} {'\u2713'}</div>
                 ) : (
                   <button
                     className="order-finalize-btn"
                     onClick={handleSubmit}
                     disabled={submitting}
                   >
-                    {submitting ? 'Submitting...' : `Finalize on Kroger ${'\u2192'}`}
+                    {submitting ? 'Sending...' : `Send to ${storeName} ${'\u2192'}`}
                   </button>
                 )}
                 {submitResult && !submitResult.ok && (
@@ -436,14 +503,9 @@ export default function OrderPage() {
 
   return (
     <>
-      {/* Mobile header — hidden on desktop 3-col */}
+      {/* Mobile header */}
       <div className="page-header order-mobile-header">
         <h2 className="screen-heading">Order</h2>
-        <div className="screen-sub">
-          {order.pending.length > 0
-            ? `${order.pending.length} item${order.pending.length !== 1 ? 's' : ''} to pick`
-            : 'All items selected'}
-        </div>
       </div>
 
       {/* Mobile: store details */}
@@ -451,23 +513,50 @@ export default function OrderPage() {
         {storeDetails}
       </div>
 
-      {/* Mobile: horizontal queue strip */}
-      <div className="order-queue order-mobile-queue">
-        {allItems.map(item => {
-          const isSelected = !!item.product
-          const isActive = item.name === activeItem
-          return (
-            <button
-              key={item.name}
-              className={`queue-item ${isActive ? 'active' : ''} ${isSelected ? 'selected' : ''}`}
-              onClick={() => isSelected ? handleDeselect(item.name) : setActiveItem(item.name)}
-            >
-              <span className="queue-item-name">{item.name}</span>
-              {isSelected && <span className="queue-check">{'\u2713'}</span>}
-            </button>
-          )
-        })}
+      {/* Mobile: collapsed queue row */}
+      <div className="order-mobile-queue-row">
+        {mobileQueueRow}
       </div>
+
+      {/* Mobile: queue sheet */}
+      {showQueue && (
+        <Sheet onClose={() => setShowQueue(false)}>
+          <div className="sheet-title">Items to pick</div>
+          <div className="sheet-sub">{pickedCount} of {totalCount} selected</div>
+          <div className="queue-sheet-list">
+            {order.pending.length > 0 && (
+              <>
+                <div className="queue-sheet-section">Pending</div>
+                {order.pending.map(item => (
+                  <button
+                    key={item.name}
+                    className={`queue-sheet-item${item.name === activeItem ? ' active' : ''}`}
+                    onClick={() => { setActiveItem(item.name); setShowQueue(false) }}
+                  >
+                    <span>{item.name}</span>
+                    {skippedItems.has(item.name) && <span className="queue-sheet-skipped">skipped</span>}
+                  </button>
+                ))}
+              </>
+            )}
+            {order.selected.length > 0 && (
+              <>
+                <div className="queue-sheet-section">Picked</div>
+                {order.selected.map(item => (
+                  <button
+                    key={item.name}
+                    className="queue-sheet-item picked"
+                    onClick={() => { handleDeselect(item.name); setShowQueue(false) }}
+                  >
+                    <span>{item.name}</span>
+                    <span className="queue-check">{'\u2713'}</span>
+                  </button>
+                ))}
+              </>
+            )}
+          </div>
+        </Sheet>
+      )}
 
       {/* Desktop 3-column layout */}
       <div className="order-desktop-layout">
@@ -481,17 +570,11 @@ export default function OrderPage() {
         {centerPanel}
       </div>
 
-      {/* Mobile: order summary footer */}
-      {order.selected.length > 0 && (
+      {/* Mobile: send footer — only when done picking */}
+      {!activeItem && pickedCount > 0 && !submitResult?.ok && (
         <div className="order-footer order-mobile-footer">
-          <div className="order-summary">
-            <span>{order.total_items} item{order.total_items !== 1 ? 's' : ''}</span>
-            {order.total_price > 0 && (
-              <span> {'\u00B7'} {formatPrice(order.total_price)}</span>
-            )}
-          </div>
           {krogerAccounts && krogerAccounts.length === 0 ? (
-            <div className="submit-hint">Link a store account in Preferences</div>
+            <div className="submit-hint">Connect your account in Preferences</div>
           ) : (
             <>
               {krogerAccounts && krogerAccounts.length > 1 && (
@@ -509,24 +592,18 @@ export default function OrderPage() {
                   </select>
                 </div>
               )}
-              {submitResult?.ok ? (
-                <div className="submit-success">Added to Kroger cart {'\u2713'}</div>
-              ) : (
-                <button
-                  className="build-list-btn"
-                  onClick={handleSubmit}
-                  disabled={submitting}
-                >
-                  {submitting ? 'Submitting...' : `Finalize on Kroger ${'\u2192'}`}
-                </button>
-              )}
-              {submitResult && !submitResult.ok && (
-                <div className="submit-error">{submitResult.error}</div>
-              )}
+              <button
+                className="build-list-btn"
+                onClick={handleSubmit}
+                disabled={submitting}
+              >
+                {submitting ? 'Sending...' : `Send to ${storeName} ${'\u2192'}`}
+              </button>
             </>
           )}
         </div>
       )}
+
       {communityBrand && !communityConfirm && (
         <Sheet onClose={() => { setCommunityBrand(null); setCommunityValue('') }}>
           <div className="sheet-title">Who makes this?</div>
