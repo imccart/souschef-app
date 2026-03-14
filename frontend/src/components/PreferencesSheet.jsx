@@ -17,9 +17,13 @@ function AccordionSection({ title, count, children, defaultOpen = false }) {
   )
 }
 
-function RecipeItem({ recipe, onRemove, allIngredients }) {
-  const [expanded, setExpanded] = useState(false)
+function RecipeItem({ recipe, onRemove, allIngredients, defaultExpanded = false }) {
+  const [expanded, setExpanded] = useState(defaultExpanded)
   const [ingredients, setIngredients] = useState(null)
+
+  useEffect(() => {
+    if (defaultExpanded && ingredients === null) loadIngredients()
+  }, [])  // eslint-disable-line react-hooks/exhaustive-deps
   const [addText, setAddText] = useState('')
 
   const loadIngredients = async () => {
@@ -104,6 +108,7 @@ export default function PreferencesSheet({ onClose }) {
   const [addPantryText, setAddPantryText] = useState('')
   const [addRecipeText, setAddRecipeText] = useState('')
   const [addSideText, setAddSideText] = useState('')
+  const [newRecipeId, setNewRecipeId] = useState(null)
   const [members, setMembers] = useState(null)
   const [householdEmail, setHouseholdEmail] = useState('')
   const [betaEmail, setBetaEmail] = useState('')
@@ -184,8 +189,9 @@ export default function PreferencesSheet({ onClose }) {
     e.preventDefault()
     if (!addRecipeText.trim()) return
     try {
-      await api.addRecipe(addRecipeText.trim())
+      const result = await api.addRecipe(addRecipeText.trim())
       setAddRecipeText('')
+      if (result.id) setNewRecipeId(result.id)
       const data = await api.getRecipes()
       setRecipes(data.recipes)
     } catch { /* reload on next open */ }
@@ -424,7 +430,7 @@ export default function PreferencesSheet({ onClose }) {
             {recipes && recipes.filter(r => r.recipe_type !== 'side').length > 0 && (
               <div className="prefs-list">
                 {recipes.filter(r => r.recipe_type !== 'side').map(r => (
-                  <RecipeItem key={r.id} recipe={r} onRemove={handleRemoveRecipe} allIngredients={allIngredients} />
+                  <RecipeItem key={r.id} recipe={r} onRemove={handleRemoveRecipe} allIngredients={allIngredients} defaultExpanded={r.id === newRecipeId} />
                 ))}
               </div>
             )}
@@ -447,7 +453,7 @@ export default function PreferencesSheet({ onClose }) {
             {recipes && recipes.filter(r => r.recipe_type === 'side').length > 0 && (
               <div className="prefs-list">
                 {recipes.filter(r => r.recipe_type === 'side').map(r => (
-                  <RecipeItem key={r.id} recipe={r} onRemove={handleRemoveRecipe} allIngredients={allIngredients} />
+                  <RecipeItem key={r.id} recipe={r} onRemove={handleRemoveRecipe} allIngredients={allIngredients} defaultExpanded={r.id === newRecipeId} />
                 ))}
               </div>
             )}
@@ -455,8 +461,9 @@ export default function PreferencesSheet({ onClose }) {
               e.preventDefault()
               if (!addSideText.trim()) return
               try {
-                await api.addRecipe(addSideText.trim(), 'side')
+                const result = await api.addRecipe(addSideText.trim(), 'side')
                 setAddSideText('')
+                if (result.id) setNewRecipeId(result.id)
                 const data = await api.getRecipes()
                 setRecipes(data.recipes)
               } catch { /* reload on next open */ }
