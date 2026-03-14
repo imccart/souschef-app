@@ -566,7 +566,7 @@ def _migrate_recipes_unique_constraint(conn: DictConnection) -> None:
 
 
 def _migrate_side_text_to_recipe_id(conn: DictConnection) -> None:
-    """Backfill meals.side_recipe_id from meals.side text by looking up side recipes."""
+    """Create side recipes from free-text meal sides, then backfill side_recipe_id."""
     try:
         rows = conn.execute(text(
             """SELECT m.id, m.side, m.user_id FROM meals m
@@ -574,11 +574,38 @@ def _migrate_side_text_to_recipe_id(conn: DictConnection) -> None:
         )).fetchall()
     except Exception:
         return
+
+    # First pass: create side recipes that don't exist yet
+    seen = set()
     for r in rows:
         side_name = r["side"].strip()
         if not side_name:
             continue
-        # Look up the side recipe for this user
+        key = (side_name.lower(), r["user_id"])
+        if key in seen:
+            continue
+        seen.add(key)
+        exists = conn.execute(text(
+            """SELECT id FROM recipes
+               WHERE LOWER(name) = LOWER(:name) AND user_id = :user_id AND recipe_type = 'side'
+               LIMIT 1"""
+        ), {"name": side_name, "user_id": r["user_id"]}).fetchone()
+        if not exists:
+            conn.execute(text(
+                """INSERT INTO recipes (name, user_id, recipe_type, cuisine, effort, cleanup,
+                   outdoor, kid_friendly, premade, prep_minutes, cook_minutes, servings)
+                   VALUES (:name, :user_id, 'side', '', 'easy', 'easy', 0, 1, 0, 0, 0, 4)
+                   ON CONFLICT DO NOTHING"""
+            ), {"name": side_name, "user_id": r["user_id"]})
+            print(f"[db] Created side recipe from free text: {side_name}", flush=True)
+    if seen:
+        conn.commit()
+
+    # Second pass: link meals to their side recipes
+    for r in rows:
+        side_name = r["side"].strip()
+        if not side_name:
+            continue
         side_recipe = conn.execute(text(
             """SELECT id FROM recipes
                WHERE LOWER(name) = LOWER(:name) AND user_id = :user_id AND recipe_type = 'side'

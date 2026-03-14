@@ -1828,19 +1828,24 @@ async def add_recipe(body: dict, request: Request):
     if not name:
         return {"ok": False}
 
+    recipe_type = body.get("recipe_type", "meal")
+    if recipe_type not in ("meal", "side"):
+        recipe_type = "meal"
+
     existing = conn.execute(
-        text("SELECT id FROM recipes WHERE LOWER(name) = :name AND user_id = :user_id"),
-        {"name": name.lower(), "user_id": user_id},
+        text("SELECT id FROM recipes WHERE LOWER(name) = :name AND user_id = :user_id AND recipe_type = :rtype"),
+        {"name": name.lower(), "user_id": user_id, "rtype": recipe_type},
     ).fetchone()
     if existing:
         return {"ok": True, "id": existing["id"], "exists": True}
 
+    defaults = {"effort": "medium", "cleanup": "medium"} if recipe_type == "meal" else {"effort": "easy", "cleanup": "easy"}
     cursor = conn.execute(
         text("""INSERT INTO recipes (name, cuisine, effort, cleanup, outdoor, kid_friendly, premade,
-           prep_minutes, cook_minutes, servings, user_id)
-           VALUES (:name, '', 'medium', 'medium', 0, 1, 0, 0, 0, 4, :user_id)
+           prep_minutes, cook_minutes, servings, user_id, recipe_type)
+           VALUES (:name, '', :effort, :cleanup, 0, 1, 0, 0, 0, 4, :user_id, :rtype)
            RETURNING id"""),
-        {"name": name, "user_id": user_id},
+        {"name": name, "user_id": user_id, "rtype": recipe_type, **defaults},
     )
     conn.commit()
     return {"ok": True, "id": cursor.fetchone()["id"]}

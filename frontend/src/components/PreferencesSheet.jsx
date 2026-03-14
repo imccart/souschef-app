@@ -103,6 +103,7 @@ export default function PreferencesSheet({ onClose }) {
   const [addRegularText, setAddRegularText] = useState('')
   const [addPantryText, setAddPantryText] = useState('')
   const [addRecipeText, setAddRecipeText] = useState('')
+  const [addSideText, setAddSideText] = useState('')
   const [members, setMembers] = useState(null)
   const [householdEmail, setHouseholdEmail] = useState('')
   const [betaEmail, setBetaEmail] = useState('')
@@ -409,15 +410,15 @@ export default function PreferencesSheet({ onClose }) {
           <div className="prefs-section-hint">More integrations coming soon.</div>
         </AccordionSection>
 
-        {/* Kitchen — Meals, Regulars, Pantry */}
+        {/* Kitchen — Meals, Sides, Regulars, Pantry */}
         <AccordionSection title="Kitchen">
-          <AccordionSection title="Meals" count={recipes?.length || 0}>
+          <AccordionSection title="Meals" count={recipes ? recipes.filter(r => r.recipe_type !== 'side').length : 0}>
             <div className="prefs-section-hint">
               Your meal rotation. Add meals you make regularly.
             </div>
-            {recipes && recipes.length > 0 && (
+            {recipes && recipes.filter(r => r.recipe_type !== 'side').length > 0 && (
               <div className="prefs-list">
-                {recipes.map(r => (
+                {recipes.filter(r => r.recipe_type !== 'side').map(r => (
                   <RecipeItem key={r.id} recipe={r} onRemove={handleRemoveRecipe} allIngredients={allIngredients} />
                 ))}
               </div>
@@ -429,6 +430,38 @@ export default function PreferencesSheet({ onClose }) {
                 placeholder="Add a meal..."
                 value={addRecipeText}
                 onChange={(e) => setAddRecipeText(e.target.value)}
+              />
+              <button className="btn primary" type="submit">+</button>
+            </form>
+          </AccordionSection>
+
+          <AccordionSection title="Sides" count={recipes ? recipes.filter(r => r.recipe_type === 'side').length : 0}>
+            <div className="prefs-section-hint">
+              Side dishes paired with your meals.
+            </div>
+            {recipes && recipes.filter(r => r.recipe_type === 'side').length > 0 && (
+              <div className="prefs-list">
+                {recipes.filter(r => r.recipe_type === 'side').map(r => (
+                  <RecipeItem key={r.id} recipe={r} onRemove={handleRemoveRecipe} allIngredients={allIngredients} />
+                ))}
+              </div>
+            )}
+            <form onSubmit={async (e) => {
+              e.preventDefault()
+              if (!addSideText.trim()) return
+              try {
+                await api.addRecipe(addSideText.trim(), 'side')
+                setAddSideText('')
+                const data = await api.getRecipes()
+                setRecipes(data.recipes)
+              } catch { /* reload on next open */ }
+            }} className="prefs-add-row">
+              <input
+                className="prefs-add-input"
+                type="text"
+                placeholder="Add a side..."
+                value={addSideText}
+                onChange={(e) => setAddSideText(e.target.value)}
               />
               <button className="btn primary" type="submit">+</button>
             </form>

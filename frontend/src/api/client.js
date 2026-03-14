@@ -107,9 +107,9 @@ export const api = {
 
   // Recipes
   getRecipes: () => request('/recipes'),
-  addRecipe: (name) => request('/recipes', {
+  addRecipe: (name, recipeType) => request('/recipes', {
     method: 'POST',
-    body: JSON.stringify({ name }),
+    body: JSON.stringify({ name, recipe_type: recipeType || 'meal' }),
   }),
   deleteRecipe: (id) => request(`/recipes/${id}`, { method: 'DELETE' }),
   getRecipeIngredients: (id) => request(`/recipes/${id}/ingredients`),
