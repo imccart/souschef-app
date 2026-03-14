@@ -1,13 +1,12 @@
-"""SQLAlchemy Core database setup — supports SQLite (local) and PostgreSQL (production).
+"""SQLAlchemy Core database setup — PostgreSQL only.
 
 All table definitions live here. Connection management provides dict-like row access
-for backward compatibility with the sqlite3.Row pattern used throughout the codebase.
+via DictConnection/DictResult wrappers.
 """
 
 from __future__ import annotations
 
 import os
-from pathlib import Path
 
 from sqlalchemy import (
     Column,
@@ -19,27 +18,15 @@ from sqlalchemy import (
     Text,
     UniqueConstraint,
     create_engine,
-    event,
     text,
 )
-from sqlalchemy.engine import Engine
 
 
 # ── Engine Setup ──────────────────────────────────────────
 
-
-def _default_url() -> str:
-    """Build default database URL from env vars or standard path."""
-    # Legacy env var for SQLite path
-    souschef_db = os.environ.get("SOUSCHEF_DB")
-    if souschef_db:
-        return f"sqlite:///{souschef_db}"
-    # Default SQLite path
-    db_path = Path.home() / ".souschef" / "souschef.db"
-    return f"sqlite:///{db_path}"
-
-
-DATABASE_URL = os.environ.get("DATABASE_URL", _default_url())
+DATABASE_URL = os.environ.get("DATABASE_URL")
+if not DATABASE_URL:
+    raise RuntimeError("DATABASE_URL environment variable is required")
 
 # Railway uses postgres:// but SQLAlchemy requires postgresql://
 if DATABASE_URL.startswith("postgres://"):
@@ -48,23 +35,6 @@ if DATABASE_URL.startswith("postgres://"):
 engine = create_engine(DATABASE_URL, echo=False, pool_pre_ping=True)
 
 metadata = MetaData()
-
-
-# Enable foreign keys for SQLite (no-op for PostgreSQL)
-@event.listens_for(Engine, "connect")
-def _set_sqlite_pragma(dbapi_connection, connection_record):
-    if engine.dialect.name == "sqlite":
-        cursor = dbapi_connection.cursor()
-        cursor.execute("PRAGMA foreign_keys=ON")
-        cursor.close()
-
-
-def is_sqlite() -> bool:
-    return engine.dialect.name == "sqlite"
-
-
-def is_postgres() -> bool:
-    return engine.dialect.name == "postgresql"
 
 
 # ── Auth Tables ───────────────────────────────────────────

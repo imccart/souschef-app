@@ -6,7 +6,6 @@ in database.py; this module handles migrations and seeding.
 
 from __future__ import annotations
 
-import os
 from pathlib import Path
 
 import yaml
@@ -17,13 +16,9 @@ from souschef.database import (
     create_tables,
     engine,
     get_connection,
-    is_sqlite,
     metadata,
 )
 
-# Legacy exports for backward compat (some modules import DB_PATH)
-_DEFAULT_DB = str(Path.home() / ".souschef" / "souschef.db")
-DB_PATH = os.environ.get("SOUSCHEF_DB", _DEFAULT_DB)
 
 
 def get_conn(db_path: str | None = None) -> DictConnection:
@@ -78,14 +73,14 @@ def _run_column_migrations(conn: DictConnection) -> None:
         ("trip_items", "product_name", "TEXT NOT NULL DEFAULT ''"),
         ("trip_items", "product_brand", "TEXT NOT NULL DEFAULT ''"),
         ("trip_items", "product_size", "TEXT NOT NULL DEFAULT ''"),
-        ("trip_items", "product_price", "REAL" if is_sqlite() else "DOUBLE PRECISION"),
+        ("trip_items", "product_price", "DOUBLE PRECISION"),
         ("trip_items", "product_image", "TEXT NOT NULL DEFAULT ''"),
         ("trip_items", "selected_at", "TEXT"),
         ("grocery_trips", "order_source", "TEXT NOT NULL DEFAULT 'none'"),
         ("grocery_trips", "receipt_data", "TEXT"),
         ("grocery_trips", "receipt_parsed_at", "TEXT"),
         ("trip_items", "receipt_item", "TEXT NOT NULL DEFAULT ''"),
-        ("trip_items", "receipt_price", "REAL" if is_sqlite() else "DOUBLE PRECISION"),
+        ("trip_items", "receipt_price", "DOUBLE PRECISION"),
         ("trip_items", "receipt_upc", "TEXT NOT NULL DEFAULT ''"),
         ("trip_items", "receipt_status", "TEXT NOT NULL DEFAULT ''"),
         ("learning_dismissed", "kind", "TEXT NOT NULL DEFAULT 'regular'"),
@@ -521,17 +516,7 @@ def _migrate_default_user_id_rows(conn: DictConnection) -> None:
 
 def _migrate_recipes_unique_constraint(conn: DictConnection) -> None:
     """Drop global unique on recipes.name, add UNIQUE(name, user_id)."""
-    if is_sqlite():
-        # SQLite can't drop constraints; rebuild would be needed.
-        # Instead, just try to create the new index and skip if it fails.
-        try:
-            conn.execute(text(
-                "CREATE UNIQUE INDEX IF NOT EXISTS recipes_name_user_id_key ON recipes(name, user_id)"
-            ))
-        except Exception:
-            pass
-        return
-    # PostgreSQL: find and drop any unique constraint/index on recipes.name alone
+    # Find and drop any unique constraint/index on recipes.name alone
     try:
         rows = conn.execute(text("""
             SELECT con.conname
