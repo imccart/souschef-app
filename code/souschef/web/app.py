@@ -15,6 +15,8 @@ from fastapi.middleware.cors import CORSMiddleware
 
 from sqlalchemy import text
 
+import sys
+
 from souschef.db import ensure_db
 from souschef.web.api import router as api_router
 from souschef.web.auth import (
@@ -80,13 +82,21 @@ class AuthMiddleware(BaseHTTPMiddleware):
 
 app = FastAPI(title="Souschef")
 
-# Ensure DB tables exist before any request hits the middleware
-# (middleware queries household_members which must exist first)
-try:
-    ensure_db()
-except Exception as e:
-    print(f"[startup] FATAL: Database initialization failed: {e}", flush=True)
-    raise
+@app.on_event("startup")
+async def startup_event():
+    """Initialize database on startup."""
+    try:
+        print("[startup] Initializing database...", flush=True)
+        sys.stdout.flush()
+        ensure_db()
+        print("[startup] Database initialized successfully", flush=True)
+        sys.stdout.flush()
+    except Exception as e:
+        print(f"[startup] FATAL: {type(e).__name__}: {e}", flush=True)
+        import traceback
+        traceback.print_exc(file=sys.stdout)
+        sys.stdout.flush()
+        raise
 
 app.add_middleware(AuthMiddleware)
 app.add_middleware(
