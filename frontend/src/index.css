@@ -3206,6 +3206,23 @@ main {
   flex-wrap: wrap;
   gap: 8px;
 }
+.prefs-show-all {
+  display: block;
+  width: 100%;
+  background: none;
+  border: 1px dashed var(--border);
+  border-radius: 8px;
+  color: var(--text-muted);
+  font-size: 0.85rem;
+  padding: 10px;
+  margin-top: 8px;
+  cursor: pointer;
+  text-align: center;
+}
+.prefs-show-all:hover {
+  border-color: var(--accent-light);
+  color: var(--accent);
+}
 
 .prefs-note {
   font-size: 12px;

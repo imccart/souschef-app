@@ -109,6 +109,10 @@ export default function PreferencesSheet({ onClose }) {
   const [addRecipeText, setAddRecipeText] = useState('')
   const [addSideText, setAddSideText] = useState('')
   const [newRecipeId, setNewRecipeId] = useState(null)
+  const [showAllMeals, setShowAllMeals] = useState(false)
+  const [showAllSides, setShowAllSides] = useState(false)
+  const [showAllRegulars, setShowAllRegulars] = useState(false)
+  const [showAllPantry, setShowAllPantry] = useState(false)
   const [members, setMembers] = useState(null)
   const [householdEmail, setHouseholdEmail] = useState('')
   const [betaEmail, setBetaEmail] = useState('')
@@ -427,13 +431,6 @@ export default function PreferencesSheet({ onClose }) {
             <div className="prefs-section-hint">
               Your meal rotation. Add meals you make regularly.
             </div>
-            {recipes && recipes.filter(r => r.recipe_type !== 'side').length > 0 && (
-              <div className="prefs-list">
-                {recipes.filter(r => r.recipe_type !== 'side').map(r => (
-                  <RecipeItem key={r.id} recipe={r} onRemove={handleRemoveRecipe} allIngredients={allIngredients} defaultExpanded={r.id === newRecipeId} />
-                ))}
-              </div>
-            )}
             <form onSubmit={handleAddRecipe} className="prefs-add-row">
               <input
                 className="prefs-add-input"
@@ -444,19 +441,27 @@ export default function PreferencesSheet({ onClose }) {
               />
               <button className="btn primary" type="submit">+</button>
             </form>
+            {recipes && recipes.filter(r => r.recipe_type !== 'side').length > 0 && (
+              <>
+                {showAllMeals ? (
+                  <div className="prefs-list">
+                    {recipes.filter(r => r.recipe_type !== 'side').map(r => (
+                      <RecipeItem key={r.id} recipe={r} onRemove={handleRemoveRecipe} allIngredients={allIngredients} defaultExpanded={r.id === newRecipeId} />
+                    ))}
+                  </div>
+                ) : (
+                  <button className="prefs-show-all" onClick={() => setShowAllMeals(true)}>
+                    Show all ({recipes.filter(r => r.recipe_type !== 'side').length})
+                  </button>
+                )}
+              </>
+            )}
           </AccordionSection>
 
           <AccordionSection title="Sides" count={recipes ? recipes.filter(r => r.recipe_type === 'side').length : 0}>
             <div className="prefs-section-hint">
               Side dishes paired with your meals.
             </div>
-            {recipes && recipes.filter(r => r.recipe_type === 'side').length > 0 && (
-              <div className="prefs-list">
-                {recipes.filter(r => r.recipe_type === 'side').map(r => (
-                  <RecipeItem key={r.id} recipe={r} onRemove={handleRemoveRecipe} allIngredients={allIngredients} defaultExpanded={r.id === newRecipeId} />
-                ))}
-              </div>
-            )}
             <form onSubmit={async (e) => {
               e.preventDefault()
               if (!addSideText.trim()) return
@@ -477,28 +482,27 @@ export default function PreferencesSheet({ onClose }) {
               />
               <button className="btn primary" type="submit">+</button>
             </form>
+            {recipes && recipes.filter(r => r.recipe_type === 'side').length > 0 && (
+              <>
+                {showAllSides ? (
+                  <div className="prefs-list">
+                    {recipes.filter(r => r.recipe_type === 'side').map(r => (
+                      <RecipeItem key={r.id} recipe={r} onRemove={handleRemoveRecipe} allIngredients={allIngredients} defaultExpanded={r.id === newRecipeId} />
+                    ))}
+                  </div>
+                ) : (
+                  <button className="prefs-show-all" onClick={() => setShowAllSides(true)}>
+                    Show all ({recipes.filter(r => r.recipe_type === 'side').length})
+                  </button>
+                )}
+              </>
+            )}
           </AccordionSection>
 
           <AccordionSection title="Regulars" count={regulars?.length || 0}>
             <div className="prefs-section-hint">
               Items you consider buying every trip
             </div>
-            {regulars && regulars.length > 0 && (
-              <div className="prefs-list">
-                {Object.keys(regularGroups).sort().map(group => (
-                  <div key={group}>
-                    <div className="prefs-list-group">{group}</div>
-                    {regularGroups[group].map(r => (
-                      <div key={r.id} className="prefs-list-item">
-                        <span className="prefs-list-name">{r.name}</span>
-                        <button className="prefs-move" title="Move to Pantry" onClick={() => handleMoveToPantry(r.id, r.name)}>{'\u2192 pantry'}</button>
-                        <button className="prefs-remove" onClick={() => handleRemoveRegular(r.id)}>{'\u00D7'}</button>
-                      </div>
-                    ))}
-                  </div>
-                ))}
-              </div>
-            )}
             <div className="prefs-add-row">
               <AutocompleteInput
                 value={addRegularText}
@@ -525,23 +529,36 @@ export default function PreferencesSheet({ onClose }) {
                 }
               }}>+</button>
             </div>
+            {regulars && regulars.length > 0 && (
+              <>
+                {showAllRegulars ? (
+                  <div className="prefs-list">
+                    {Object.keys(regularGroups).sort().map(group => (
+                      <div key={group}>
+                        <div className="prefs-list-group">{group}</div>
+                        {regularGroups[group].map(r => (
+                          <div key={r.id} className="prefs-list-item">
+                            <span className="prefs-list-name">{r.name}</span>
+                            <button className="prefs-move" title="Move to Pantry" onClick={() => handleMoveToPantry(r.id, r.name)}>{'\u2192 pantry'}</button>
+                            <button className="prefs-remove" onClick={() => handleRemoveRegular(r.id)}>{'\u00D7'}</button>
+                          </div>
+                        ))}
+                      </div>
+                    ))}
+                  </div>
+                ) : (
+                  <button className="prefs-show-all" onClick={() => setShowAllRegulars(true)}>
+                    Show all ({regulars.length})
+                  </button>
+                )}
+              </>
+            )}
           </AccordionSection>
 
           <AccordionSection title="Pantry" count={pantry?.length || 0}>
             <div className="prefs-section-hint">
               Stuff you usually have — only buy when you're running low
             </div>
-            {pantry && pantry.length > 0 && (
-              <div className="prefs-list">
-                {pantry.map(p => (
-                  <div key={p.id} className="prefs-list-item">
-                    <span className="prefs-list-name">{p.name}</span>
-                    <button className="prefs-move" title="Move to Regulars" onClick={() => handleMoveToRegulars(p.name, p.id)}>{'\u2192 regular'}</button>
-                    <button className="prefs-remove" onClick={() => handleRemovePantry(p.id)}>{'\u00D7'}</button>
-                  </div>
-                ))}
-              </div>
-            )}
             <div className="prefs-add-row">
               <AutocompleteInput
                 value={addPantryText}
@@ -568,6 +585,25 @@ export default function PreferencesSheet({ onClose }) {
                 }
               }}>+</button>
             </div>
+            {pantry && pantry.length > 0 && (
+              <>
+                {showAllPantry ? (
+                  <div className="prefs-list">
+                    {pantry.map(p => (
+                      <div key={p.id} className="prefs-list-item">
+                        <span className="prefs-list-name">{p.name}</span>
+                        <button className="prefs-move" title="Move to Regulars" onClick={() => handleMoveToRegulars(p.name, p.id)}>{'\u2192 regular'}</button>
+                        <button className="prefs-remove" onClick={() => handleRemovePantry(p.id)}>{'\u00D7'}</button>
+                      </div>
+                    ))}
+                  </div>
+                ) : (
+                  <button className="prefs-show-all" onClick={() => setShowAllPantry(true)}>
+                    Show all ({pantry.length})
+                  </button>
+                )}
+              </>
+            )}
           </AccordionSection>
         </AccordionSection>
 
