@@ -565,58 +565,6 @@ def _migrate_recipes_unique_constraint(conn: DictConnection) -> None:
         pass
 
 
-def _migrate_side_text_to_recipe_id(conn: DictConnection) -> None:
-    """Create side recipes from free-text meal sides, then backfill side_recipe_id."""
-    try:
-        rows = conn.execute(text(
-            """SELECT m.id, m.side, m.user_id FROM meals m
-               WHERE m.side != '' AND m.side_recipe_id IS NULL"""
-        )).fetchall()
-    except Exception:
-        return
-
-    # First pass: create side recipes that don't exist yet
-    seen = set()
-    for r in rows:
-        side_name = r["side"].strip()
-        if not side_name:
-            continue
-        key = (side_name.lower(), r["user_id"])
-        if key in seen:
-            continue
-        seen.add(key)
-        exists = conn.execute(text(
-            """SELECT id FROM recipes
-               WHERE LOWER(name) = LOWER(:name) AND user_id = :user_id AND recipe_type = 'side'
-               LIMIT 1"""
-        ), {"name": side_name, "user_id": r["user_id"]}).fetchone()
-        if not exists:
-            conn.execute(text(
-                """INSERT INTO recipes (name, user_id, recipe_type, cuisine, effort, cleanup,
-                   outdoor, kid_friendly, premade, prep_minutes, cook_minutes, servings)
-                   VALUES (:name, :user_id, 'side', '', 'easy', 'easy', 0, 1, 0, 0, 0, 4)
-                   ON CONFLICT DO NOTHING"""
-            ), {"name": side_name, "user_id": r["user_id"]})
-            print(f"[db] Created side recipe from free text: {side_name}", flush=True)
-    if seen:
-        conn.commit()
-
-    # Second pass: link meals to their side recipes
-    for r in rows:
-        side_name = r["side"].strip()
-        if not side_name:
-            continue
-        side_recipe = conn.execute(text(
-            """SELECT id FROM recipes
-               WHERE LOWER(name) = LOWER(:name) AND user_id = :user_id AND recipe_type = 'side'
-               LIMIT 1"""
-        ), {"name": side_name, "user_id": r["user_id"]}).fetchone()
-        if side_recipe:
-            conn.execute(text(
-                "UPDATE meals SET side_recipe_id = :sid WHERE id = :mid"
-            ), {"sid": side_recipe["id"], "mid": r["id"]})
-
-
 # ── Seed Data ─────────────────────────────────────────────
 
 
@@ -638,9 +586,6 @@ def seed_from_yaml(conn: DictConnection, data_dir: str | None = None) -> None:
         _seed_recipes(conn, common_recipes_file, user_id="__library__")
     if recipes_file.exists():
         _seed_recipes(conn, recipes_file)
-
-    # Backfill side_recipe_id on existing meals
-    _migrate_side_text_to_recipe_id(conn)
 
     conn.commit()
 
@@ -766,7 +711,6 @@ def _seed_library_if_missing(conn: DictConnection) -> None:
     if common_file.exists():
         try:
             _seed_recipes(conn, common_file, user_id="__library__")
-            _migrate_side_text_to_recipe_id(conn)
             conn.commit()
         except Exception as e:
             print(f"[db] _seed_library_if_missing failed: {e}", flush=True)
@@ -801,116 +745,6 @@ def _kill_stale_connections(conn: DictConnection) -> None:
         pass  # Best-effort — don't block startup if this fails
 
 
-def _backfill_user_sides_from_library(conn: DictConnection) -> None:
-    """Deep-copy library side recipes (with ingredients) to users who need them."""
-    try:
-        # Find users with meals
-        users = conn.execute(text(
-            "SELECT DISTINCT user_id FROM meals WHERE user_id != '__library__'"
-        )).fetchall()
-        if not users:
-            return
-        lib_sides = conn.execute(text(
-            "SELECT id, name FROM recipes WHERE user_id = '__library__' AND recipe_type = 'side'"
-        )).fetchall()
-        if not lib_sides:
-            return
-        for u in users:
-            uid = u["user_id"]
-            copied = 0
-            for s in lib_sides:
-                # Check if user has this side already WITH ingredients
-                user_side = conn.execute(text(
-                    "SELECT id FROM recipes WHERE LOWER(name) = LOWER(:name) AND user_id = :uid AND recipe_type = 'side'"),
-                    {"name": s["name"], "uid": uid},
-                ).fetchone()
-                if user_side:
-                    has_ings = conn.execute(text(
-                        "SELECT 1 FROM recipe_ingredients WHERE recipe_id = :rid LIMIT 1"),
-                        {"rid": user_side["id"]},
-                    ).fetchone()
-                    if has_ings:
-                        continue
-                    # Side exists but has no ingredients — delete and recreate with ingredients
-                    old_id = user_side["id"]
-                    conn.execute(text("DELETE FROM recipes WHERE id = :id"), {"id": old_id})
-                    new_id = _deep_copy_recipe(conn, s["id"], uid)
-                    # Repoint any meals that referenced the old side recipe
-                    if new_id:
-                        conn.execute(text(
-                            "UPDATE meals SET side_recipe_id = :new_id WHERE side_recipe_id = :old_id AND user_id = :uid"
-                        ), {"new_id": new_id, "old_id": old_id, "uid": uid})
-                else:
-                    _deep_copy_recipe(conn, s["id"], uid)
-                copied += 1
-            if copied:
-                print(f"[db] Copied {copied} library sides (with ingredients) to user {uid}", flush=True)
-        # Relink all side_recipe_id by name — catches dangling refs and mismatches
-        sides_to_fix = conn.execute(text(
-            """SELECT m.id, m.side, m.user_id, m.side_recipe_id FROM meals m
-               WHERE m.side IS NOT NULL AND m.side != ''"""
-        )).fetchall()
-        fixed = 0
-        for m in sides_to_fix:
-            correct = conn.execute(text(
-                """SELECT id FROM recipes
-                   WHERE LOWER(name) = LOWER(:name) AND user_id = :uid AND recipe_type = 'side'
-                   LIMIT 1"""
-            ), {"name": m["side"], "uid": m["user_id"]}).fetchone()
-            if correct and (m["side_recipe_id"] is None or m["side_recipe_id"] != correct["id"]):
-                conn.execute(text(
-                    "UPDATE meals SET side_recipe_id = :rid WHERE id = :mid"
-                ), {"rid": correct["id"], "mid": m["id"]})
-                fixed += 1
-        if fixed:
-            print(f"[db] Relinked {fixed} meal side_recipe_id references", flush=True)
-
-        conn.commit()
-    except Exception as e:
-        print(f"[db] Side backfill error: {e}", flush=True)
-
-
-def _deep_copy_recipe(conn: DictConnection, lib_recipe_id: int, user_id: str) -> int | None:
-    """Copy a library recipe and its ingredients to a user. Returns new recipe id."""
-    lib = conn.execute(
-        text("SELECT * FROM recipes WHERE id = :id AND user_id = '__library__'"),
-        {"id": lib_recipe_id},
-    ).fetchone()
-    if not lib:
-        return None
-    existing = conn.execute(
-        text("SELECT id FROM recipes WHERE LOWER(name) = LOWER(:name) AND user_id = :uid AND recipe_type = :rtype"),
-        {"name": lib["name"], "uid": user_id, "rtype": lib["recipe_type"]},
-    ).fetchone()
-    if existing:
-        return existing["id"]
-    result = conn.execute(text(
-        """INSERT INTO recipes (name, cuisine, effort, cleanup, outdoor, kid_friendly, premade,
-           prep_minutes, cook_minutes, servings, notes, user_id, recipe_type)
-           VALUES (:name, :cuisine, :effort, :cleanup, :outdoor, :kid, :premade,
-                    :prep, :cook, :servings, :notes, :uid, :recipe_type)
-           RETURNING id"""
-    ), {
-        "name": lib["name"], "cuisine": lib["cuisine"], "effort": lib["effort"],
-        "cleanup": lib["cleanup"], "outdoor": lib["outdoor"], "kid": lib["kid_friendly"],
-        "premade": lib["premade"], "prep": lib["prep_minutes"], "cook": lib["cook_minutes"],
-        "servings": lib["servings"], "notes": lib["notes"], "uid": user_id,
-        "recipe_type": lib["recipe_type"],
-    })
-    new_id = result.fetchone()["id"]
-    ingredients = conn.execute(
-        text("SELECT * FROM recipe_ingredients WHERE recipe_id = :rid"),
-        {"rid": lib_recipe_id},
-    ).fetchall()
-    for ing in ingredients:
-        conn.execute(text(
-            """INSERT INTO recipe_ingredients (recipe_id, ingredient_id, quantity, unit, prep_note, component)
-               VALUES (:rid, :iid, :qty, :unit, :prep, :comp)"""
-        ), {"rid": new_id, "iid": ing["ingredient_id"], "qty": ing["quantity"],
-            "unit": ing["unit"], "prep": ing["prep_note"], "comp": ing["component"]})
-    return new_id
-
-
 def ensure_db(db_path: str | None = None) -> DictConnection:
     """Create tables, run migrations, seed if empty. Returns a connection."""
     global _db_initialized
@@ -931,7 +765,6 @@ def ensure_db(db_path: str | None = None) -> DictConnection:
                     conn.commit()
                 # Ensure library recipes exist even on existing databases
                 _seed_library_if_missing(conn)
-            _backfill_user_sides_from_library(conn)
             _db_initialized = True
         except Exception as e:
             print(f"[db] ensure_db error: {e}", flush=True)
