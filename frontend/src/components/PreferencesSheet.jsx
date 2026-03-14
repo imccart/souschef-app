@@ -292,8 +292,8 @@ export default function PreferencesSheet({ onClose }) {
         <div className="sheet-title">Preferences</div>
         <div className="sheet-sub">Configurable any time</div>
 
-        {/* Account */}
-        <AccordionSection title="Account" defaultOpen>
+        {/* About You */}
+        <AccordionSection title="About You" defaultOpen>
           <div className="prefs-account-field">
             <label className="prefs-field-label">Name</label>
             <div className="prefs-add-row">
@@ -506,8 +506,8 @@ export default function PreferencesSheet({ onClose }) {
           </AccordionSection>
         </AccordionSection>
 
-        {/* Product Details */}
-        <AccordionSection title="Product Details">
+        {/* Behind the Label */}
+        <AccordionSection title="Behind the Label">
           <div className="prefs-list">
             <div className="prefs-list-item">
               <span className="prefs-list-name">NOVA processing scores</span>

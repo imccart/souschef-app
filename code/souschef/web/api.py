@@ -1071,9 +1071,9 @@ async def search_order_products(item_name: str, request: Request, fulfillment: s
                (upc, nova_group, nutriscore, score_fetched_at, price, promo_price, in_stock, curbside, price_fetched_at)
                VALUES (:upc, :nova_group, :nutriscore, CURRENT_TIMESTAMP, :price, :promo_price, :in_stock, :curbside, CURRENT_TIMESTAMP)
                ON CONFLICT(upc) DO UPDATE SET
-               nova_group=COALESCE(excluded.nova_group, nova_group),
-               nutriscore=CASE WHEN excluded.nova_group IS NOT NULL THEN excluded.nutriscore ELSE nutriscore END,
-               score_fetched_at=CASE WHEN excluded.nova_group IS NOT NULL THEN excluded.score_fetched_at ELSE score_fetched_at END,
+               nova_group=COALESCE(excluded.nova_group, product_scores.nova_group),
+               nutriscore=CASE WHEN excluded.nova_group IS NOT NULL THEN excluded.nutriscore ELSE product_scores.nutriscore END,
+               score_fetched_at=CASE WHEN excluded.nova_group IS NOT NULL THEN excluded.score_fetched_at ELSE product_scores.score_fetched_at END,
                price=excluded.price, promo_price=excluded.promo_price,
                in_stock=excluded.in_stock, curbside=excluded.curbside,
                price_fetched_at=excluded.price_fetched_at"""),

@@ -142,21 +142,18 @@ export default function OrderPage() {
 
   const handleSkip = () => {
     if (!activeItem || !order) return
-    setSkippedItems(prev => new Set(prev).add(activeItem))
     const pending = order.pending
-    const unskippedAfter = pending.filter(p => p.name !== activeItem && !skippedItems.has(p.name))
+    const newSkipped = new Set(skippedItems)
+    newSkipped.add(activeItem)
+
+    const unskippedAfter = pending.filter(p => p.name !== activeItem && !newSkipped.has(p.name))
     if (unskippedAfter.length > 0) {
+      setSkippedItems(newSkipped)
       setActiveItem(unskippedAfter[0].name)
     } else {
-      // All skipped — cycle back through them
+      // All skipped — cycle back to the first pending item
       setSkippedItems(new Set())
-      const remaining = pending.filter(p => p.name !== activeItem)
-      if (remaining.length > 0) {
-        setActiveItem(remaining[0].name)
-      } else {
-        // This was the last pending item
-        setActiveItem(null)
-      }
+      setActiveItem(pending[0].name)
     }
   }
 
