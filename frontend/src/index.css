@@ -27,6 +27,7 @@ body {
 .app {
   min-height: 100dvh;
   padding-bottom: 72px;
+  overflow-x: hidden;
 }
 
 /* ── Error Boundary ─────────────────────── */

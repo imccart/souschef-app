@@ -132,7 +132,7 @@ function App() {
   return (
     <div className="app">
       <Nav page={page} setPage={setPage} prefsOpen={showPrefs} onTogglePrefs={() => setShowPrefs(p => !p)} isWide={isWide} />
-      <main {...(!isWide ? swipeHandlers : {})}>
+      <main {...(!isWide ? { onTouchStart: swipeHandlers.onTouchStart, onTouchMove: swipeHandlers.onTouchMove, onTouchEnd: swipeHandlers.onTouchEnd } : {})} style={!isWide ? swipeHandlers.style : undefined}>
         {feedbackResponses.map(fr => (
           <div key={fr.id} className="feedback-response-banner">
             <div className="feedback-response-text">{fr.response}</div>
