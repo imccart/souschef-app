@@ -912,6 +912,17 @@ main {
 
 /* ── Grocery List ───────────────────────── */
 
+.grocery-build-hint {
+  font-size: 0.8rem;
+  color: var(--text-muted);
+  text-align: center;
+  padding: 8px 16px;
+  margin-bottom: 8px;
+}
+.grocery-build-hint strong {
+  color: var(--accent);
+}
+
 .grocery-banner {
   display: flex;
   align-items: center;

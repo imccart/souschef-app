@@ -164,6 +164,9 @@ export default function GroceryPage({ sidebar = false }) {
 
   const listContent = (
     <>
+      <div className="grocery-build-hint">
+        Ready to shop? Tap <strong>Build My List</strong> to add regulars and start your trip.
+      </div>
       {showBanner && (
         <div className="grocery-banner">
           <span>This list was built from your meals, minus what's in your pantry and regulars.</span>

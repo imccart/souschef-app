@@ -416,7 +416,7 @@ def swap_meal(conn: DictConnection, user_id: str, slot_date: str) -> Meal:
 
     meal.recipe_id = recipe.id if recipe else None
     meal.recipe_name = recipe.name if recipe else "No match"
-    meal.on_grocery = False  # new meal needs explicit grocery toggle
+    meal.on_grocery = True
 
     used_side_ids = [m.side_recipe_id for m in week_meals if m.slot_date != slot_date and m.side_recipe_id]
     side_id, side_name = _assign_side(conn, user_id, used_side_ids)
@@ -500,7 +500,7 @@ def set_meal(
     meal.recipe_id = recipe.id
     meal.recipe_name = recipe.name
     meal.is_followup = False
-    meal.on_grocery = False  # new meal needs explicit grocery toggle
+    meal.on_grocery = True
 
     if side_name is not None:
         # User explicitly chose a side (or no side)
