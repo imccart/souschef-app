@@ -2,8 +2,13 @@
 
 from __future__ import annotations
 
+import logging
+
 from fastapi import APIRouter, Request, UploadFile, File
+from fastapi.responses import JSONResponse
 from sqlalchemy import text
+
+logger = logging.getLogger(__name__)
 
 from souschef.db import ensure_db
 
@@ -12,6 +17,31 @@ router = APIRouter(prefix="/api")
 
 def _conn():
     return ensure_db()
+
+
+# ── Per-user rate limiting for expensive endpoints ────────
+
+import time as _throttle_time
+
+_user_request_log: dict[str, list[float]] = {}  # {"endpoint:user_id": [timestamps]}
+
+
+def _check_throttle(user_id: str, endpoint: str, max_requests: int, window_seconds: int):
+    """Return a 429 JSONResponse if the user exceeds the rate limit, else None."""
+    key = f"{endpoint}:{user_id}"
+    now = _throttle_time.time()
+    timestamps = _user_request_log.get(key, [])
+    # Prune old entries
+    timestamps = [t for t in timestamps if now - t < window_seconds]
+    if len(timestamps) >= max_requests:
+        _user_request_log[key] = timestamps
+        return JSONResponse(
+            status_code=429,
+            content={"ok": False, "error": "Too many requests, please try again later"},
+        )
+    timestamps.append(now)
+    _user_request_log[key] = timestamps
+    return None
 
 
 # ── Meals ────────────────────────────────────────────────
@@ -975,6 +1005,12 @@ async def search_order_products(item_name: str, request: Request, fulfillment: s
     from souschef.stores import get_kroger_location_id
 
     user_id = request.state.user_id
+
+    # Rate limit: max 20 searches per user per minute
+    throttled = _check_throttle(user_id, "order_search", 20, 60)
+    if throttled:
+        return throttled
+
     conn = _conn()
 
     # Get user's Kroger location
@@ -1300,7 +1336,8 @@ async def submit_order(request: Request):
         add_to_cart(items, token=token)
         return {"ok": True, "count": len(items)}
     except Exception as e:
-        return {"ok": False, "error": str(e)}
+        logger.exception("Failed to add items to cart")
+        return {"ok": False, "error": "Failed to add items to cart"}
 
 
 # ── Receipt ───────────────────────────────────────────────
@@ -1410,7 +1447,8 @@ async def _process_receipt(receipt_type: str, content: str, request: Request):
     try:
         receipt_items = _parse_receipt_by_type(receipt_type, content)
     except Exception as e:
-        return {"ok": False, "error": f"Failed to parse receipt: {e}"}
+        logger.exception("Failed to parse receipt")
+        return {"ok": False, "error": "Failed to parse receipt"}
 
     if not receipt_items:
         return {"ok": False, "error": "No items found on receipt"}
@@ -1528,6 +1566,12 @@ async def _process_receipt(receipt_type: str, content: str, request: Request):
 @router.post("/receipt/upload")
 async def upload_receipt(body: dict, request: Request):
     """Upload and parse a receipt. Public endpoint accepts text only."""
+    # Rate limit: max 10 receipt uploads per user per minute
+    user_id = request.state.user_id
+    throttled = _check_throttle(user_id, "receipt_upload", 10, 60)
+    if throttled:
+        return throttled
+
     receipt_type = body.get("type", "text")
     content = body.get("content", "")
 
@@ -1545,6 +1589,12 @@ async def upload_receipt_file(request: Request, file: UploadFile = File(...)):
     import os
 
     user_id = request.state.user_id
+
+    # Rate limit: max 10 receipt uploads per user per minute (shared with /receipt/upload)
+    throttled = _check_throttle(user_id, "receipt_upload", 10, 60)
+    if throttled:
+        return throttled
+
     conn = _conn()
     trip = _get_active_trip(conn, user_id)
     if not trip:
@@ -1589,6 +1639,10 @@ async def resolve_receipt_item(body: dict, request: Request):
     status = body.get("status")
     if not name or not status:
         return {"ok": False, "error": "name and status required"}
+
+    ALLOWED_STATUSES = {"matched", "substituted", "not_fulfilled", "recover", "dismissed"}
+    if status not in ALLOWED_STATUSES:
+        return JSONResponse(status_code=400, content={"ok": False, "error": f"Invalid status '{status}'. Must be one of: {', '.join(sorted(ALLOWED_STATUSES))}"})
 
     if status == "recover":
         # Put item back on the active grocery list (un-order it)
@@ -2023,7 +2077,8 @@ async def add_store(body: dict, request: Request):
         store = do_add(_conn(), user_id, name, key, mode, api_type)
         return {"ok": True, "store": store}
     except ValueError as e:
-        return {"ok": False, "error": str(e)}
+        logger.error("Failed to add store: %s", e)
+        return {"ok": False, "error": "Failed to add store"}
 
 
 @router.delete("/stores/{key}")
