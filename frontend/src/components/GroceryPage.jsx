@@ -173,7 +173,7 @@ export default function GroceryPage({ sidebar = false }) {
       {!hasItems ? (
         <div className="empty-state">
           <div className="icon">{'\u{1F6D2}'}</div>
-          <p>No items yet. Add meals to your grocery list from the Plan page, or add regulars above.</p>
+          <p>No items yet. Tap the cart on a meal to add it, or use Build My List to add everything at once.</p>
         </div>
       ) : (
         sortedGroups.map(group => {
