@@ -110,6 +110,7 @@ def _run_column_migrations(conn: DictConnection) -> None:
     ]
 
     for table_name, col_name, col_def in migrations:
+        print(f"[db]   checking {table_name}.{col_name}...", flush=True)
         try:
             existing = [c["name"] for c in inspector.get_columns(table_name)]
         except Exception:
@@ -751,11 +752,33 @@ def _seed_library_if_missing(conn: DictConnection) -> None:
 _db_initialized = False
 
 
+def _kill_stale_connections(conn: DictConnection) -> None:
+    """Terminate idle-in-transaction connections from previous deploys.
+
+    These hold shared locks that block ALTER TABLE migrations, causing
+    cascading lock waits and failed health checks on redeploy.
+    """
+    try:
+        rows = conn.execute(text("""
+            SELECT pid FROM pg_stat_activity
+            WHERE datname = current_database()
+              AND pid != pg_backend_pid()
+              AND state = 'idle in transaction'
+        """)).fetchall()
+        for row in rows:
+            conn.execute(text("SELECT pg_terminate_backend(:pid)"), {"pid": row[0]})
+        if rows:
+            print(f"[db] Terminated {len(rows)} stale connections", flush=True)
+    except Exception:
+        pass  # Best-effort — don't block startup if this fails
+
+
 def ensure_db(db_path: str | None = None) -> DictConnection:
     """Create tables, run migrations, seed if empty. Returns a connection."""
     global _db_initialized
     conn = get_connection()
     if not _db_initialized:
+        _kill_stale_connections(conn)
         try:
             init_db(conn)
             row = conn.execute(text("SELECT COUNT(*) AS n FROM recipes")).fetchone()
