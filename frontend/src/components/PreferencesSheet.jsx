@@ -1,7 +1,6 @@
 import { useState, useEffect } from 'react'
 import { api } from '../api/client'
 import Sheet from './Sheet'
-import AutocompleteInput from './AutocompleteInput'
 
 function AccordionSection({ title, count, children, defaultOpen = false }) {
   const [open, setOpen] = useState(defaultOpen)
@@ -17,110 +16,7 @@ function AccordionSection({ title, count, children, defaultOpen = false }) {
   )
 }
 
-function RecipeItem({ recipe, onRemove, allIngredients, defaultExpanded = false }) {
-  const [expanded, setExpanded] = useState(defaultExpanded)
-  const [ingredients, setIngredients] = useState(null)
-  const [renamed, setRenamed] = useState(null)
-
-  useEffect(() => {
-    if (defaultExpanded && ingredients === null) loadIngredients()
-  }, [])  // eslint-disable-line react-hooks/exhaustive-deps
-  const [addText, setAddText] = useState('')
-
-  const loadIngredients = async () => {
-    try {
-      const data = await api.getRecipeIngredients(recipe.id)
-      setIngredients(data.ingredients)
-    } catch { /* leave as null */ }
-  }
-
-  const handleToggle = () => {
-    if (!expanded && ingredients === null) loadIngredients()
-    setExpanded(!expanded)
-  }
-
-  const handleAdd = async (name) => {
-    if (!name.trim()) return
-    try {
-      const result = await api.addRecipeIngredient(recipe.id, name.trim())
-      setAddText('')
-      if (result.renamed_from) {
-        setRenamed({ from: result.renamed_from, to: result.name })
-        setTimeout(() => setRenamed(null), 4000)
-      }
-      loadIngredients()
-    } catch { /* ignore */ }
-  }
-
-  const handleRemoveIngredient = async (riId) => {
-    try {
-      await api.removeRecipeIngredient(recipe.id, riId)
-      loadIngredients()
-    } catch { /* ignore */ }
-  }
-
-  const existingNames = new Set((ingredients || []).map(i => i.name.toLowerCase()))
-
-  return (
-    <div className="prefs-recipe-item">
-      <div className="prefs-list-item" onClick={handleToggle} style={{ cursor: 'pointer' }}>
-        <span className="prefs-accordion-arrow" style={{ marginRight: 6, fontSize: 11 }}>
-          {expanded ? '\u25B4' : '\u25BE'}
-        </span>
-        <span className="prefs-list-name">{recipe.name}</span>
-        {ingredients && <span className="prefs-list-meta">{ingredients.length} items</span>}
-        <button className="prefs-remove" onClick={(e) => { e.stopPropagation(); onRemove(recipe.id) }}>{'\u00D7'}</button>
-      </div>
-      {expanded && (
-        <div className="prefs-recipe-ingredients">
-          {ingredients && ingredients.length > 0 && (
-            <div className="prefs-ingredient-list">
-              {ingredients.map(ing => (
-                <div key={ing.id} className="prefs-ingredient-item">
-                  <span>{ing.name}</span>
-                  <button className="prefs-remove" onClick={() => handleRemoveIngredient(ing.id)}>{'\u00D7'}</button>
-                </div>
-              ))}
-            </div>
-          )}
-          {ingredients && ingredients.length === 0 && (
-            <div className="prefs-section-hint" style={{ marginTop: 0 }}>No ingredients yet</div>
-          )}
-          <div className="prefs-add-row">
-            <AutocompleteInput
-              value={addText}
-              onChange={setAddText}
-              onSubmit={handleAdd}
-              candidates={allIngredients || []}
-              exclude={existingNames}
-              placeholder="Add ingredient..."
-              inputClassName="prefs-add-input"
-            />
-            <button className="btn primary" onClick={() => addText.trim() && handleAdd(addText)}>+</button>
-          </div>
-          {renamed && <div className="prefs-renamed-hint">"{renamed.from}" added as "{renamed.to}"</div>}
-        </div>
-      )}
-    </div>
-  )
-}
-
 export default function PreferencesSheet({ onClose }) {
-  const [regulars, setRegulars] = useState(null)
-  const [pantry, setPantry] = useState(null)
-  const [recipes, setRecipes] = useState(null)
-  const [allIngredients, setAllIngredients] = useState(null)
-  const [addRegularText, setAddRegularText] = useState('')
-  const [addPantryText, setAddPantryText] = useState('')
-  const [addRecipeText, setAddRecipeText] = useState('')
-  const [addSideText, setAddSideText] = useState('')
-  const [mealDupe, setMealDupe] = useState(false)
-  const [sideDupe, setSideDupe] = useState(false)
-  const [newRecipeId, setNewRecipeId] = useState(null)
-  const [showAllMeals, setShowAllMeals] = useState(false)
-  const [showAllSides, setShowAllSides] = useState(false)
-  const [showAllRegulars, setShowAllRegulars] = useState(false)
-  const [showAllPantry, setShowAllPantry] = useState(false)
   const [members, setMembers] = useState(null)
   const [householdEmail, setHouseholdEmail] = useState('')
   const [betaEmail, setBetaEmail] = useState('')
@@ -137,15 +33,12 @@ export default function PreferencesSheet({ onClose }) {
   const [storeSearching, setStoreSearching] = useState(false)
   const [allowHousehold, setAllowHousehold] = useState(false)
   const [sharedAccountName, setSharedAccountName] = useState(null)
+
   useEffect(() => {
     api.getMe().then(data => {
       setUserEmail(data.email || '')
       setDisplayName(data.display_name || '')
     }).catch(() => {})
-    api.getRegulars().then(data => setRegulars(data.regulars)).catch(() => setRegulars([]))
-    api.getPantry().then(data => setPantry(data.items)).catch(() => setPantry([]))
-    api.getRecipes().then(data => setRecipes(data.recipes)).catch(() => setRecipes([]))
-    api.getGrocerySuggestions().then(data => setAllIngredients(data.suggestions)).catch(() => {})
     api.getHouseholdMembers().then(data => setMembers(data.members)).catch(() => {})
     api.getKrogerStatus().then(data => setKrogerConnected(data.connected)).catch(() => setKrogerConnected(false))
     api.getKrogerLocation().then(data => {
@@ -155,77 +48,10 @@ export default function PreferencesSheet({ onClose }) {
       const accounts = data.accounts || []
       const yours = accounts.find(a => a.is_you)
       if (yours && yours.allow_household != null) setAllowHousehold(yours.allow_household)
-      // If user doesn't have their own account but a household member shared theirs
       const shared = accounts.find(a => !a.is_you)
       if (!yours && shared) setSharedAccountName(shared.display_name)
     }).catch(() => {})
   }, [])
-
-  const handleRemoveRegular = async (id) => {
-    try {
-      await api.removeRegular(id)
-      const data = await api.getRegulars()
-      setRegulars(data.regulars)
-    } catch { /* reload on next open */ }
-  }
-
-  const handleRemovePantry = async (id) => {
-    try {
-      await api.removePantryItem(id)
-      const data = await api.getPantry()
-      setPantry(data.items)
-    } catch { /* reload on next open */ }
-  }
-
-  const handleMoveToPantry = async (id, name) => {
-    try {
-      await api.removeRegular(id)
-      await api.addPantryItem(name)
-      const [rData, pData] = await Promise.all([api.getRegulars(), api.getPantry()])
-      setRegulars(rData.regulars)
-      setPantry(pData.items)
-    } catch { /* reload on next open */ }
-  }
-
-  const handleMoveToRegulars = async (name, id) => {
-    // Optimistic: remove from pantry UI immediately
-    setPantry(prev => (prev || []).filter(p => p.id !== id))
-    try {
-      await api.removePantryItem(id)
-      await api.addRegular(name)
-      const rData = await api.getRegulars()
-      setRegulars(rData.regulars)
-    } catch {
-      // Revert on failure
-      const pData = await api.getPantry()
-      setPantry(pData.items)
-    }
-  }
-
-  const handleAddRecipe = async (e) => {
-    e.preventDefault()
-    if (!addRecipeText.trim() || mealDupe) return
-    try {
-      const result = await api.addRecipe(addRecipeText.trim())
-      setAddRecipeText('')
-      setMealDupe(false)
-      if (result.id) setNewRecipeId(result.id)
-      const data = await api.getRecipes()
-      setRecipes(data.recipes)
-    } catch { /* reload on next open */ }
-  }
-
-  const handleRemoveRecipe = async (id) => {
-    try {
-      const result = await api.deleteRecipe(id)
-      if (!result.ok) {
-        alert(result.error || 'Cannot remove this recipe')
-        return
-      }
-      const data = await api.getRecipes()
-      setRecipes(data.recipes)
-    } catch { /* reload on next open */ }
-  }
 
   const handleHouseholdInvite = async (e) => {
     e.preventDefault()
@@ -304,16 +130,6 @@ export default function PreferencesSheet({ onClose }) {
     } catch { /* ignore */ }
   }
 
-  // Group regulars by shopping_group
-  const regularGroups = {}
-  if (regulars) {
-    for (const r of regulars) {
-      const g = r.shopping_group || 'Other'
-      if (!regularGroups[g]) regularGroups[g] = []
-      regularGroups[g].push(r)
-    }
-  }
-
   const handleSaveName = async () => {
     try {
       await api.updateAccount({ display_name: displayName })
@@ -324,8 +140,7 @@ export default function PreferencesSheet({ onClose }) {
 
   return (
     <Sheet onClose={onClose} className="prefs-sheet">
-        <div className="sheet-title">Preferences</div>
-        <div className="sheet-sub">Configurable any time</div>
+        <div className="sheet-title">Account</div>
 
         {/* About You */}
         <AccordionSection title="About You">
@@ -444,199 +259,6 @@ export default function PreferencesSheet({ onClose }) {
             )}
           </div>
           <div className="prefs-section-hint">More integrations coming soon.</div>
-        </AccordionSection>
-
-        {/* Kitchen — Meals, Sides, Regulars, Pantry */}
-        <AccordionSection title="Kitchen">
-          <AccordionSection title="Meals" count={recipes ? recipes.filter(r => r.recipe_type !== 'side').length : 0}>
-            <div className="prefs-section-hint">
-              Your meal rotation. Add meals you make regularly.
-            </div>
-            <form onSubmit={handleAddRecipe} className="prefs-add-row">
-              <input
-                className={`prefs-add-input${mealDupe ? ' prefs-dupe' : ''}`}
-                type="text"
-                placeholder="Add a meal..."
-                value={addRecipeText}
-                onChange={(e) => {
-                  const val = e.target.value
-                  setAddRecipeText(val)
-                  setMealDupe(val.trim() && recipes && recipes.some(r => r.recipe_type !== 'side' && r.name.toLowerCase() === val.trim().toLowerCase()))
-                }}
-              />
-              <button className="btn primary" type="submit" disabled={mealDupe}>+</button>
-            </form>
-            {mealDupe && <div className="prefs-dupe-msg">Already exists</div>}
-            {recipes && recipes.filter(r => r.recipe_type !== 'side').length > 0 && (
-              <>
-                {showAllMeals ? (
-                  <div className="prefs-list">
-                    {recipes.filter(r => r.recipe_type !== 'side').map(r => (
-                      <RecipeItem key={r.id} recipe={r} onRemove={handleRemoveRecipe} allIngredients={allIngredients} defaultExpanded={r.id === newRecipeId} />
-                    ))}
-                  </div>
-                ) : (
-                  <button className="prefs-show-all" onClick={() => setShowAllMeals(true)}>
-                    Show all ({recipes.filter(r => r.recipe_type !== 'side').length})
-                  </button>
-                )}
-              </>
-            )}
-          </AccordionSection>
-
-          <AccordionSection title="Sides" count={recipes ? recipes.filter(r => r.recipe_type === 'side').length : 0}>
-            <div className="prefs-section-hint">
-              Side dishes paired with your meals.
-            </div>
-            <form onSubmit={async (e) => {
-              e.preventDefault()
-              if (!addSideText.trim() || sideDupe) return
-              try {
-                const result = await api.addRecipe(addSideText.trim(), 'side')
-                setAddSideText('')
-                setSideDupe(false)
-                if (result.id) setNewRecipeId(result.id)
-                const data = await api.getRecipes()
-                setRecipes(data.recipes)
-              } catch { /* reload on next open */ }
-            }} className="prefs-add-row">
-              <input
-                className={`prefs-add-input${sideDupe ? ' prefs-dupe' : ''}`}
-                type="text"
-                placeholder="Add a side..."
-                value={addSideText}
-                onChange={(e) => {
-                  const val = e.target.value
-                  setAddSideText(val)
-                  setSideDupe(val.trim() && recipes && recipes.some(r => r.recipe_type === 'side' && r.name.toLowerCase() === val.trim().toLowerCase()))
-                }}
-              />
-              <button className="btn primary" type="submit" disabled={sideDupe}>+</button>
-            </form>
-            {sideDupe && <div className="prefs-dupe-msg">Already exists</div>}
-            {recipes && recipes.filter(r => r.recipe_type === 'side').length > 0 && (
-              <>
-                {showAllSides ? (
-                  <div className="prefs-list">
-                    {recipes.filter(r => r.recipe_type === 'side').map(r => (
-                      <RecipeItem key={r.id} recipe={r} onRemove={handleRemoveRecipe} allIngredients={allIngredients} defaultExpanded={r.id === newRecipeId} />
-                    ))}
-                  </div>
-                ) : (
-                  <button className="prefs-show-all" onClick={() => setShowAllSides(true)}>
-                    Show all ({recipes.filter(r => r.recipe_type === 'side').length})
-                  </button>
-                )}
-              </>
-            )}
-          </AccordionSection>
-
-          <AccordionSection title="Regulars" count={regulars?.length || 0}>
-            <div className="prefs-section-hint">
-              Items you consider buying every trip
-            </div>
-            <div className="prefs-add-row">
-              <AutocompleteInput
-                value={addRegularText}
-                onChange={setAddRegularText}
-                onSubmit={async (name) => {
-                  if (!name.trim()) return
-                  await api.addRegular(name.trim())
-                  setAddRegularText('')
-                  const data = await api.getRegulars()
-                  setRegulars(data.regulars)
-                }}
-                candidates={allIngredients || []}
-                exclude={new Set((regulars || []).map(r => r.name.toLowerCase()))}
-                placeholder="Add a regular..."
-                inputClassName="prefs-add-input"
-              />
-              <button className="btn primary" onClick={() => {
-                if (addRegularText.trim()) {
-                  const name = addRegularText.trim()
-                  api.addRegular(name).then(() => {
-                    setAddRegularText('')
-                    api.getRegulars().then(data => setRegulars(data.regulars))
-                  })
-                }
-              }}>+</button>
-            </div>
-            {regulars && regulars.length > 0 && (
-              <>
-                {showAllRegulars ? (
-                  <div className="prefs-list">
-                    {Object.keys(regularGroups).sort().map(group => (
-                      <div key={group}>
-                        <div className="prefs-list-group">{group}</div>
-                        {regularGroups[group].map(r => (
-                          <div key={r.id} className="prefs-list-item">
-                            <span className="prefs-list-name">{r.name}</span>
-                            <button className="prefs-move" title="Move to Pantry" onClick={() => handleMoveToPantry(r.id, r.name)}>{'\u2192 pantry'}</button>
-                            <button className="prefs-remove" onClick={() => handleRemoveRegular(r.id)}>{'\u00D7'}</button>
-                          </div>
-                        ))}
-                      </div>
-                    ))}
-                  </div>
-                ) : (
-                  <button className="prefs-show-all" onClick={() => setShowAllRegulars(true)}>
-                    Show all ({regulars.length})
-                  </button>
-                )}
-              </>
-            )}
-          </AccordionSection>
-
-          <AccordionSection title="Pantry" count={pantry?.length || 0}>
-            <div className="prefs-section-hint">
-              Stuff you usually have — only buy when you're running low
-            </div>
-            <div className="prefs-add-row">
-              <AutocompleteInput
-                value={addPantryText}
-                onChange={setAddPantryText}
-                onSubmit={async (name) => {
-                  if (!name.trim()) return
-                  await api.addPantryItem(name.trim())
-                  setAddPantryText('')
-                  const data = await api.getPantry()
-                  setPantry(data.items)
-                }}
-                candidates={allIngredients || []}
-                exclude={new Set((pantry || []).map(p => p.name.toLowerCase()))}
-                placeholder="Add a pantry item..."
-                inputClassName="prefs-add-input"
-              />
-              <button className="btn primary" onClick={() => {
-                if (addPantryText.trim()) {
-                  const name = addPantryText.trim()
-                  api.addPantryItem(name).then(() => {
-                    setAddPantryText('')
-                    api.getPantry().then(data => setPantry(data.items))
-                  })
-                }
-              }}>+</button>
-            </div>
-            {pantry && pantry.length > 0 && (
-              <>
-                {showAllPantry ? (
-                  <div className="prefs-list">
-                    {pantry.map(p => (
-                      <div key={p.id} className="prefs-list-item">
-                        <span className="prefs-list-name">{p.name}</span>
-                        <button className="prefs-move" title="Move to Regulars" onClick={() => handleMoveToRegulars(p.name, p.id)}>{'\u2192 regular'}</button>
-                        <button className="prefs-remove" onClick={() => handleRemovePantry(p.id)}>{'\u00D7'}</button>
-                      </div>
-                    ))}
-                  </div>
-                ) : (
-                  <button className="prefs-show-all" onClick={() => setShowAllPantry(true)}>
-                    Show all ({pantry.length})
-                  </button>
-                )}
-              </>
-            )}
-          </AccordionSection>
         </AccordionSection>
 
         {/* Behind the Label */}

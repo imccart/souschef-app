@@ -3521,6 +3521,96 @@ main {
   padding-left: 26px;
 }
 
+/* ── Nav Icons ───────────────────────── */
+
+.nav-icons {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+/* ── My Kitchen Sheet ───────────────── */
+
+.kitchen-sheet {
+  max-height: 85vh;
+}
+@media (min-width: 1024px) {
+  .kitchen-sheet {
+    max-width: 600px;
+  }
+}
+
+.kitchen-tabs {
+  display: flex;
+  gap: 0;
+  border-radius: 8px;
+  overflow: hidden;
+  border: 1px solid var(--tan);
+  margin-bottom: 16px;
+}
+
+.kitchen-tab {
+  flex: 1;
+  padding: 8px 0;
+  text-align: center;
+  font-size: 13px;
+  font-weight: 500;
+  background: none;
+  border: none;
+  cursor: pointer;
+  color: var(--text-muted);
+  transition: background 0.15s, color 0.15s;
+}
+
+.kitchen-tab.active {
+  background: var(--accent);
+  color: white;
+}
+
+.kitchen-tab-content {
+  min-height: 200px;
+}
+
+.kitchen-detail-header {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  margin-bottom: 16px;
+}
+
+.kitchen-back {
+  background: none;
+  border: none;
+  font-size: 20px;
+  cursor: pointer;
+  color: var(--brown);
+  padding: 4px;
+}
+
+.kitchen-detail-title {
+  font-family: 'Playfair Display', serif;
+  font-size: 20px;
+  font-weight: 600;
+}
+
+.staple-toggle {
+  font-size: 11px;
+  padding: 2px 8px;
+  border-radius: 10px;
+  border: 1px solid var(--tan);
+  background: none;
+  cursor: pointer;
+  color: var(--text-muted);
+  white-space: nowrap;
+  transition: background 0.15s, color 0.15s, border-color 0.15s;
+}
+
+.staple-toggle.active {
+  background: var(--accent);
+  color: white;
+  border-color: var(--accent);
+}
+
 /* ── Welcome ──────────────────────────── */
 
 .welcome {

@@ -1,6 +1,7 @@
 import BentSpoonIcon from './BentSpoonIcon'
+import ApronIcon from './ApronIcon'
 
-export default function Nav({ page, setPage, prefsOpen, onTogglePrefs, isWide }) {
+export default function Nav({ page, setPage, kitchenOpen, onToggleKitchen, prefsOpen, onTogglePrefs, isWide }) {
   const link = (name, label) => (
     <a
       href="#"
@@ -23,11 +24,18 @@ export default function Nav({ page, setPage, prefsOpen, onTogglePrefs, isWide })
           {link('order', 'Order')}
           {link('receipt', 'Receipt')}
         </div>
-        <BentSpoonIcon
-          size={22}
-          active={prefsOpen}
-          onClick={onTogglePrefs}
-        />
+        <div className="nav-icons">
+          <BentSpoonIcon
+            size={22}
+            active={kitchenOpen}
+            onClick={onToggleKitchen}
+          />
+          <ApronIcon
+            size={22}
+            active={prefsOpen}
+            onClick={onTogglePrefs}
+          />
+        </div>
       </div>
     </nav>
   )
