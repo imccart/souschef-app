@@ -20,6 +20,7 @@ export default function MyKitchenSheet({ onClose }) {
 
   // Staples add state
   const [addStapleText, setAddStapleText] = useState('')
+  const [showStapleInfo, setShowStapleInfo] = useState(false)
 
   // Detail view state
   const [detailIngredients, setDetailIngredients] = useState(null)
@@ -331,7 +332,19 @@ export default function MyKitchenSheet({ onClose }) {
 
       {activeTab === 'staples' && (
         <div className="kitchen-tab-content">
-          <div className="prefs-section-hint">Things you buy every trip or always have on hand.</div>
+          <div className="prefs-section-hint">
+            Your go-to items.{' '}
+            <button className="staple-info-btn" onClick={() => setShowStapleInfo(v => !v)}>
+              {'\u24D8'}
+            </button>
+          </div>
+          {showStapleInfo && (
+            <div className="staple-info-box">
+              <strong>Every trip</strong> — automatically added to your grocery list each time you build it.<br />
+              <strong>Keep on hand</strong> — things you usually have at home; only added when you choose.<br />
+              <span style={{ marginTop: 4, display: 'inline-block' }}>These are just defaults. You can always add or skip items when building your list.</span>
+            </div>
+          )}
           <div className="prefs-add-row" style={{ marginBottom: 12 }}>
             <AutocompleteInput
               value={addStapleText}
@@ -356,15 +369,20 @@ export default function MyKitchenSheet({ onClose }) {
                   {stapleGroups[group].map(s => (
                     <div key={`${s.type}-${s.id}`} className="prefs-list-item">
                       <span className="prefs-list-name">{s.name}</span>
-                      <button
-                        className={`staple-toggle${s.type === 'regular' ? ' active' : ''}`}
-                        onClick={() => {
-                          if (s.type === 'regular') handleMoveToPantry(s.id, s.name)
-                          else handleMoveToRegulars(s.name, s.id)
-                        }}
-                      >
-                        {s.type === 'regular' ? 'Every trip' : 'On hand'}
-                      </button>
+                      <div className="staple-toggle-pair">
+                        <button
+                          className={`staple-toggle${s.type === 'regular' ? ' active' : ''}`}
+                          onClick={() => { if (s.type !== 'regular') handleMoveToRegulars(s.name, s.id) }}
+                        >
+                          Every trip
+                        </button>
+                        <button
+                          className={`staple-toggle${s.type === 'pantry' ? ' active' : ''}`}
+                          onClick={() => { if (s.type !== 'pantry') handleMoveToPantry(s.id, s.name) }}
+                        >
+                          Keep on hand
+                        </button>
+                      </div>
                       <button className="prefs-remove" onClick={() => {
                         if (s.type === 'regular') handleRemoveRegular(s.id)
                         else handleRemovePantry(s.id)

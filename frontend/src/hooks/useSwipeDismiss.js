@@ -13,12 +13,19 @@ export default function useSwipeDismiss(onClose, threshold = 80) {
   const sheetEl = useRef(null)
 
   const onTouchStart = useCallback((e) => {
-    // Walk up from the touch target to see if we're inside a scrollable container
+    // Only allow swipe-to-dismiss from the handle area or sheet chrome,
+    // never from scrollable content areas
     let el = e.target
     const sheet = e.currentTarget
+    // If touch started on the handle, always allow
+    if (el.classList.contains('sheet-handle')) {
+      startY.current = e.touches[0].clientY
+      sheetEl.current = sheet
+      return
+    }
+    // Walk up from the touch target — if any ancestor is scrollable, block dismiss
     while (el && el !== sheet) {
-      if (el.scrollHeight > el.clientHeight && el.scrollTop > 0) {
-        // Inside a scrollable area that isn't at top — don't track swipe
+      if (el.scrollHeight > el.clientHeight + 1) {
         startY.current = null
         return
       }

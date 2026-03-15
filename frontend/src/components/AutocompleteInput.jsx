@@ -25,6 +25,7 @@ export default function AutocompleteInput({
 }) {
   const [showSuggestions, setShowSuggestions] = useState(false)
   const [selectedIndex, setSelectedIndex] = useState(-1)
+  const [dropUp, setDropUp] = useState(false)
   const inputRef = useRef(null)
   const dropdownRef = useRef(null)
 
@@ -84,14 +85,26 @@ export default function AutocompleteInput({
         type="text"
         value={value}
         onChange={handleChange}
-        onFocus={() => { if (value.trim()) setShowSuggestions(true) }}
+        onFocus={() => {
+          if (value.trim()) setShowSuggestions(true)
+          // On mobile, scroll input into view above keyboard
+          setTimeout(() => {
+            if (inputRef.current) {
+              inputRef.current.scrollIntoView({ behavior: 'smooth', block: 'center' })
+              // Check if dropdown would be clipped below viewport
+              const rect = inputRef.current.getBoundingClientRect()
+              const spaceBelow = window.innerHeight - rect.bottom
+              setDropUp(spaceBelow < 220)
+            }
+          }, 300)
+        }}
         onKeyDown={handleKeyDown}
         placeholder={placeholder}
         className={inputClassName}
         autoComplete="off"
       />
       {showSuggestions && matches.length > 0 && (
-        <div className="autocomplete-dropdown" ref={dropdownRef}>
+        <div className={`autocomplete-dropdown${dropUp ? ' drop-up' : ''}`} ref={dropdownRef}>
           {matches.map((name, i) => (
             <div
               key={name}
