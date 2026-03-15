@@ -328,7 +328,7 @@ export default function PreferencesSheet({ onClose }) {
         <div className="sheet-sub">Configurable any time</div>
 
         {/* About You */}
-        <AccordionSection title="About You" defaultOpen>
+        <AccordionSection title="About You">
           <div className="prefs-account-field">
             <label className="prefs-field-label">Name</label>
             <div className="prefs-add-row">
