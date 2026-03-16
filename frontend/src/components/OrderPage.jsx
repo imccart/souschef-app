@@ -407,6 +407,29 @@ export default function OrderPage() {
         </div>
       )}
 
+      {pendingProduct && (
+        <div className="order-qty-prompt">
+          <div className="order-qty-label">How many?</div>
+          <div className="order-qty-product">{pendingProduct.name}</div>
+          <div className="order-qty-controls">
+            <button className="order-qty-btn" onClick={() => setPendingQty(q => Math.max(1, q - 1))}>{'\u2212'}</button>
+            <span className="order-qty-value">{pendingQty}</span>
+            <button className="order-qty-btn" onClick={() => setPendingQty(q => q + 1)}>+</button>
+          </div>
+          <button className="order-qty-confirm" onClick={handleConfirmQuantity}>Confirm</button>
+        </div>
+      )}
+
+      {showAnythingElse && (
+        <div className="order-anything-else">
+          <span>Anything else for <strong>{activeItem}</strong>?</span>
+          <div className="order-anything-else-btns">
+            <button className="order-grocery-btn" onClick={handleAnythingElseYes}>Yes</button>
+            <button className="order-grocery-btn" onClick={handleAnythingElseNo}>No</button>
+          </div>
+        </div>
+      )}
+
       {noStore && !searching && (
         <div className="empty-state" style={{ padding: '20px 16px' }}>
           <p>Set your store in Preferences to search products.</p>
@@ -532,28 +555,6 @@ export default function OrderPage() {
         </>
       )}
 
-      {pendingProduct && (
-        <div className="order-qty-prompt">
-          <div className="order-qty-label">How many?</div>
-          <div className="order-qty-product">{pendingProduct.name}</div>
-          <div className="order-qty-controls">
-            <button className="order-qty-btn" onClick={() => setPendingQty(q => Math.max(1, q - 1))}>{'\u2212'}</button>
-            <span className="order-qty-value">{pendingQty}</span>
-            <button className="order-qty-btn" onClick={() => setPendingQty(q => q + 1)}>+</button>
-          </div>
-          <button className="order-qty-confirm" onClick={handleConfirmQuantity}>Confirm</button>
-        </div>
-      )}
-
-      {showAnythingElse && (
-        <div className="order-anything-else">
-          <span>Anything else for <strong>{activeItem}</strong>?</span>
-          <div className="order-anything-else-btns">
-            <button className="order-grocery-btn" onClick={handleAnythingElseYes}>Yes</button>
-            <button className="order-grocery-btn" onClick={handleAnythingElseNo}>No</button>
-          </div>
-        </div>
-      )}
     </div>
   )
 
