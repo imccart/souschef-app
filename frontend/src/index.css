@@ -864,7 +864,7 @@ main {
 }
 
 /* Done item styling (bought or have-it) */
-.grocery-item.checked, .grocery-item.have-it { opacity: 0.6; }
+.grocery-item-row.checked, .grocery-item-row.have-it { opacity: 0.6; }
 .check.done {
   color: var(--green);
   font-size: 14px;
@@ -873,7 +873,7 @@ main {
 .item-name.done-text { text-decoration: line-through; color: var(--text-muted); }
 
 /* Skipped item styling (swipe to skip) */
-.grocery-item.skipped { opacity: 0.35; cursor: pointer; }
+.grocery-item-row.skipped { opacity: 0.35; cursor: pointer; }
 .item-name.skipped-text { text-decoration: line-through; color: var(--text-muted); }
 
 .fresh-start-btn {
@@ -1116,29 +1116,63 @@ main {
   color: var(--green, #5a8a5e);
 }
 
-.grocery-item {
-  display: flex;
-  align-items: center;
-  gap: 10px;
+.grocery-item-row {
   padding: 10px 0;
-  min-height: 44px;
   border-bottom: 1px solid var(--warm-white);
-  cursor: pointer;
   user-select: none;
   -webkit-tap-highlight-color: transparent;
   transition: opacity 0.2s;
-  font-size: 16px;
+  font-size: 15px;
+}
+.grocery-item-row:last-child { border-bottom: none; }
+
+.grocery-item-top {
+  display: flex;
+  align-items: center;
+  gap: 8px;
 }
 
-.grocery-item:last-child { border-bottom: none; }
-.grocery-item:active { opacity: 0.6; }
+.grocery-item-bottom {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  margin-top: 4px;
+  padding-left: 0;
+}
 
-.grocery-item.checked .item-name {
+.grocery-item-actions {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  margin-left: auto;
+}
+
+.grocery-skip-btn {
+  background: none;
+  border: none;
+  color: var(--text-muted);
+  font-size: 12px;
+  font-family: 'DM Sans', sans-serif;
+  cursor: pointer;
+  padding: 3px 6px;
+  -webkit-tap-highlight-color: transparent;
+}
+.grocery-skip-btn:hover { color: var(--accent); }
+
+.grocery-item-undo {
+  margin-left: auto;
+  font-size: 12px;
+  color: var(--accent);
+  cursor: pointer;
+}
+
+.grocery-item-row.checked .item-name,
+.grocery-item-row.have-it .item-name {
   text-decoration: line-through;
   color: var(--text-muted);
 }
 
-.grocery-item .check {
+.grocery-item-row .check {
   width: 20px;
   height: 20px;
   border-radius: 50%;
@@ -1151,7 +1185,7 @@ main {
   transition: all 0.2s;
 }
 
-.grocery-item.checked .check {
+.grocery-item-row.checked .check {
   background: var(--green);
   border-color: var(--green);
   color: white;
@@ -1502,13 +1536,14 @@ main {
   margin-bottom: 12px;
 }
 
-.col-grocery .grocery-item {
+.col-grocery .grocery-item-row {
   padding: 5px 0;
   font-size: 13px;
-  gap: 8px;
 }
 
-.col-grocery .grocery-item .check {
+.col-grocery .grocery-item-top { gap: 6px; }
+
+.col-grocery .grocery-item-row .check {
   width: 16px;
   height: 16px;
   font-size: 10px;
@@ -1520,9 +1555,8 @@ main {
 }
 
 /* Compact toggle in sidebar */
-.col-grocery .grocery-item-toggle {
-  margin-left: auto;
-}
+.col-grocery .grocery-item-actions { gap: 6px; }
+.col-grocery .grocery-skip-btn { font-size: 10px; padding: 2px 4px; }
 .col-grocery .toggle-seg {
   font-size: 10px;
   padding: 2px 7px;
@@ -1813,11 +1847,11 @@ main {
 
 /* ── Ordered item state ────────────────── */
 
-.grocery-item.ordered {
+.grocery-item-row.ordered {
   cursor: default;
 }
 
-.grocery-item .check.ordered {
+.grocery-item-row .check.ordered {
   background: var(--accent-bg);
   border-color: var(--accent-light);
   color: var(--accent);

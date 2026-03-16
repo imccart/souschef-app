@@ -442,17 +442,22 @@ export default function GroceryPage({ sidebar = false }) {
     const isHaveIt = haveItSet.has(nameLower)
     const isDone = isChecked || isHaveIt
     const stateClass = isChecked ? 'checked' : isHaveIt ? 'have-it' : isOrdered ? 'ordered' : isSkipped ? 'skipped' : ''
+    const hasMeals = item.for_meals && item.for_meals.length > 0
 
     if (isOrdered) {
       return (
-        <div key={item.name} className={`grocery-item ordered`}>
-          <span className="check ordered">{'\u2191'}</span>
-          <span className="item-name ordered-text">
-            {item.name}
-            {item.meal_count > 1 && <span className="multi-badge">x{item.meal_count}</span>}
-          </span>
-          {item.for_meals && item.for_meals.length > 0 && (
-            <span className="item-meals">{item.for_meals.join(', ')} {'\u00B7'} ordered</span>
+        <div key={item.name} className="grocery-item-row ordered">
+          <div className="grocery-item-top">
+            <span className="check ordered">{'\u2191'}</span>
+            <span className="item-name ordered-text">
+              {item.name}
+              {item.meal_count > 1 && <span className="multi-badge">x{item.meal_count}</span>}
+            </span>
+          </div>
+          {hasMeals && (
+            <div className="grocery-item-bottom">
+              <span className="item-meals">{item.for_meals.join(', ')} {'\u00B7'} ordered</span>
+            </div>
           )}
         </div>
       )
@@ -462,52 +467,62 @@ export default function GroceryPage({ sidebar = false }) {
       return (
         <div
           key={item.name}
-          className="grocery-item skipped"
+          className="grocery-item-row skipped"
           onClick={() => handleSkip(item.name)}
         >
-          <span className="item-name skipped-text">
-            {item.name}
-            {item.meal_count > 1 && <span className="multi-badge">x{item.meal_count}</span>}
-          </span>
-          {item.for_meals && item.for_meals.length > 0 && (
-            <span className="item-meals">{item.for_meals.join(', ')}</span>
-          )}
+          <div className="grocery-item-top">
+            <span className="item-name skipped-text">
+              {item.name}
+              {item.meal_count > 1 && <span className="multi-badge">x{item.meal_count}</span>}
+            </span>
+            <span className="grocery-item-undo">Undo</span>
+          </div>
         </div>
       )
     }
 
     const itemContent = (
       <>
-        {isDone && <span className="check done">{'\u2713'}</span>}
-        <span className={`item-name ${isDone ? 'done-text' : ''}`}>
-          {item.name}
-          {item.meal_count > 1 && <span className="multi-badge">x{item.meal_count}</span>}
-        </span>
-        {item.for_meals && item.for_meals.length > 0 && (
-          <span className="item-meals">{item.for_meals.join(', ')}</span>
-        )}
-        <div className="grocery-item-toggle">
+        <div className="grocery-item-top">
+          {isDone && <span className="check done">{'\u2713'}</span>}
+          <span className={`item-name ${isDone ? 'done-text' : ''}`}>
+            {item.name}
+            {item.meal_count > 1 && <span className="multi-badge">x{item.meal_count}</span>}
+          </span>
           <button
-            className={`toggle-seg bought ${isChecked ? 'active' : ''}`}
-            onClick={() => handleBought(item.name)}
-          >Bought</button>
-          <button
-            className={`toggle-seg have-it ${isHaveIt ? 'active' : ''}`}
-            onClick={() => handleHaveIt(item.name)}
-          >Have it</button>
+            className="recat-btn"
+            title="Move to different aisle"
+            onClick={(e) => { e.stopPropagation(); setRecatItem(item.name) }}
+          >{'\u2630'}</button>
         </div>
-        <button
-          className="recat-btn"
-          title="Move to different aisle"
-          onClick={(e) => { e.stopPropagation(); setRecatItem(item.name) }}
-        >{'\u2630'}</button>
+        <div className="grocery-item-bottom">
+          {hasMeals && (
+            <span className="item-meals">{item.for_meals.join(', ')}</span>
+          )}
+          <div className="grocery-item-actions">
+            <button
+              className="grocery-skip-btn"
+              onClick={() => handleSkip(item.name)}
+            >Skip</button>
+            <div className="grocery-item-toggle">
+              <button
+                className={`toggle-seg bought ${isChecked ? 'active' : ''}`}
+                onClick={() => handleBought(item.name)}
+              >Bought</button>
+              <button
+                className={`toggle-seg have-it ${isHaveIt ? 'active' : ''}`}
+                onClick={() => handleHaveIt(item.name)}
+              >Have it</button>
+            </div>
+          </div>
+        </div>
       </>
     )
 
     return (
       <SwipeableItem
         key={item.name}
-        className={`grocery-item ${stateClass}`}
+        className={`grocery-item-row ${stateClass}`}
         onSwipeRight={() => handleSkip(item.name)}
       >
         {itemContent}
