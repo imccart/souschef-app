@@ -504,7 +504,7 @@ export default function GroceryPage({ sidebar = false }) {
               className="grocery-skip-btn"
               onClick={() => handleSkip(item.name)}
               title="Don't need this time"
-            >Skip</button>
+            >Nevermind</button>
             <div className="grocery-item-toggle">
               <button
                 className={`toggle-seg bought ${isChecked ? 'active' : ''}`}

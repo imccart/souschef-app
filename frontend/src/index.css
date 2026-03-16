@@ -3081,19 +3081,20 @@ main {
   margin-left: 2px;
 }
 
-.picking-row-skip {
+.picking-row-nav {
   padding: 10px 14px;
   background: none;
   border: none;
-  border-left: 1.5px solid var(--tan);
   font-size: 18px;
   color: var(--accent);
   cursor: pointer;
   flex-shrink: 0;
   line-height: 1;
 }
+.picking-row-nav:first-child { border-right: 1.5px solid var(--tan); }
+.picking-row-nav:last-child { border-left: 1.5px solid var(--tan); }
 
-.picking-row-skip:active {
+.picking-row-nav:active {
   background: var(--tan);
 }
 

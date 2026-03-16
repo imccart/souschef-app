@@ -231,6 +231,14 @@ export default function OrderPage() {
     } catch { /* silent */ }
   }
 
+  const handlePrev = () => {
+    if (!activeItem || !order) return
+    const allNames = [...order.pending.map(p => p.name), ...order.selected.map(s => s.name)]
+    const idx = allNames.indexOf(activeItem)
+    if (idx > 0) setActiveItem(allNames[idx - 1])
+    else if (allNames.length > 0) setActiveItem(allNames[allNames.length - 1])
+  }
+
   const handleDeselect = async (itemName) => {
     try {
       const data = await api.deselectProduct(itemName)
@@ -303,13 +311,14 @@ export default function OrderPage() {
   // Mobile collapsed queue row
   const mobileQueueRow = activeItem ? (
     <div className="picking-row">
+      <button className="picking-row-nav" onClick={handlePrev}>{'\u2190'}</button>
       <div className="picking-row-main" onClick={() => setShowQueue(true)}>
         <span className="picking-row-label">Picking for</span>
         <span className="picking-row-item">{activeItem}</span>
         <span className="picking-row-progress">[{pickedCount}/{totalCount}]</span>
         <span className="picking-row-expand">{'\u25BE'}</span>
       </div>
-      <button className="picking-row-skip" onClick={handleSkip}>{'\u2192'}</button>
+      <button className="picking-row-nav" onClick={handleSkip}>{'\u2192'}</button>
     </div>
   ) : (
     <div className="picking-row done">
@@ -374,7 +383,7 @@ export default function OrderPage() {
             <div className="order-item-actions">
               <button className="order-grocery-btn" onClick={() => handleGroceryAction('bought')}>Bought</button>
               <button className="order-grocery-btn" onClick={() => handleGroceryAction('have_it')}>Have it</button>
-              <button className="order-grocery-btn skip" onClick={() => handleGroceryAction('skip')}>Skip</button>
+              <button className="order-grocery-btn skip" onClick={() => handleGroceryAction('skip')}>Nevermind</button>
             </div>
           </div>
           <form className="modifier-form" onSubmit={e => {
