@@ -119,14 +119,6 @@ def _run_column_migrations(conn: DictConnection) -> None:
         ("grocery_trips", "pantry_checked", "INTEGER NOT NULL DEFAULT 0"),
     ]
 
-    # Set statement_timeout so ALTER TABLE fails fast if blocked by old instance locks.
-    # Columns that timeout will be added on the next deploy once the old instance is gone.
-    try:
-        conn.execute(text("SET statement_timeout = '3000'"))
-        conn.commit()
-    except Exception:
-        pass
-
     for table_name, col_name, col_def in migrations:
         try:
             conn.execute(text(
@@ -135,25 +127,10 @@ def _run_column_migrations(conn: DictConnection) -> None:
             conn.commit()
         except Exception as e:
             print(f"[db]   {table_name}.{col_name} skipped: {e}", flush=True)
-            # Rollback the failed transaction so the connection is usable for the next statement
             try:
-                conn.execute(text("SELECT 1"))
+                conn.raw.rollback()
             except Exception:
-                # Connection is in failed transaction state, need to rollback via raw connection
-                try:
-                    conn.raw.rollback()
-                except Exception:
-                    pass
-
-    # Reset statement_timeout
-    try:
-        conn.execute(text("SET statement_timeout = '0'"))
-        conn.commit()
-    except Exception:
-        try:
-            conn.raw.rollback()
-        except Exception:
-            pass
+                pass
 
 
 def _migrate_accepted_to_on_grocery(conn: DictConnection) -> None:
@@ -809,6 +786,16 @@ def ensure_db(db_path: str | None = None) -> DictConnection:
     conn = get_connection()
     if not _db_initialized:
         _kill_stale_connections(conn)
+
+        # Set statement_timeout on the connection so ANY DDL/schema query
+        # fails fast if the old instance is still holding locks.
+        # The app will start without migrations and they'll succeed next deploy.
+        try:
+            conn.execute(text("SET statement_timeout = '5000'"))
+            conn.commit()
+        except Exception:
+            pass
+
         try:
             init_db(conn)
             row = conn.execute(text("SELECT COUNT(*) AS n FROM recipes")).fetchone()
@@ -823,12 +810,22 @@ def ensure_db(db_path: str | None = None) -> DictConnection:
                     conn.commit()
                 # Ensure library recipes exist even on existing databases
                 _seed_library_if_missing(conn)
-            _db_initialized = True
         except Exception as e:
-            print(f"[db] ensure_db error: {e}", flush=True)
-            import traceback
-            traceback.print_exc()
-            import sys
-            sys.stderr.flush()
-            raise
+            print(f"[db] ensure_db error (non-fatal, will retry next deploy): {e}", flush=True)
+            try:
+                conn.raw.rollback()
+            except Exception:
+                pass
+
+        # Reset statement_timeout and mark as initialized either way
+        # so the app starts even if migrations failed
+        try:
+            conn.execute(text("SET statement_timeout = '0'"))
+            conn.commit()
+        except Exception:
+            try:
+                conn.raw.rollback()
+            except Exception:
+                pass
+        _db_initialized = True
     return conn
