@@ -9,7 +9,7 @@ from __future__ import annotations
 from pathlib import Path
 
 import yaml
-from sqlalchemy import inspect, text
+from sqlalchemy import text
 
 from souschef.database import (
     DictConnection,
@@ -62,11 +62,11 @@ def init_db(conn: DictConnection) -> None:
 
 
 def _run_column_migrations(conn: DictConnection) -> None:
-    """Add columns that may be missing on older databases."""
-    inspector = inspect(engine)
+    """Add columns that may be missing on older databases.
 
-    # Map of table -> list of (column_name, column_def_sqlite, column_def_pg)
-    # We check if the column exists first, then add it with the appropriate SQL.
+    Uses ADD COLUMN IF NOT EXISTS (PostgreSQL 9.6+) to avoid needing
+    the inspector, which can hang when the old instance holds locks.
+    """
     migrations = [
         ("ingredients", "root", "TEXT NOT NULL DEFAULT ''"),
         ("essentials", "search_term", "TEXT NOT NULL DEFAULT ''"),
@@ -119,18 +119,12 @@ def _run_column_migrations(conn: DictConnection) -> None:
     ]
 
     for table_name, col_name, col_def in migrations:
-        print(f"[db]   checking {table_name}.{col_name}...", flush=True)
         try:
-            existing = [c["name"] for c in inspector.get_columns(table_name)]
+            conn.execute(text(
+                f"ALTER TABLE {table_name} ADD COLUMN IF NOT EXISTS {col_name} {col_def}"
+            ))
         except Exception:
-            continue  # table doesn't exist
-        if col_name not in existing:
-            try:
-                conn.execute(text(
-                    f"ALTER TABLE {table_name} ADD COLUMN {col_name} {col_def}"
-                ))
-            except Exception:
-                pass
+            pass
 
 
 def _migrate_accepted_to_on_grocery(conn: DictConnection) -> None:
