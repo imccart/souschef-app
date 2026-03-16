@@ -1152,7 +1152,7 @@ async def search_order_products(item_name: str, request: Request, fulfillment: s
 
     # Return cached response if fresh
     ff = fulfillment if fulfillment in ("curbside", "delivery") else "curbside"
-    cache_key = f"{item_name.lower().strip()}:{ff}"
+    cache_key = f"{item_name.lower().strip()}:{ff}:{start}"
     now = _time.time()
     if cache_key in _search_cache:
         ts, resp = _search_cache[cache_key]
