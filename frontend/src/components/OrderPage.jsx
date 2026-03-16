@@ -66,6 +66,7 @@ export default function OrderPage() {
   const [modifier, setModifier] = useState('')
   const [products, setProducts] = useState(null)
   const [searching, setSearching] = useState(false)
+  const [loadingMore, setLoadingMore] = useState(false)
   const [submitting, setSubmitting] = useState(false)
   const [submitResult, setSubmitResult] = useState(null)
   const [krogerAccounts, setKrogerAccounts] = useState(null)
@@ -122,6 +123,22 @@ export default function OrderPage() {
       console.error('Search failed:', err)
       setSearching(false)
     })
+  }
+
+  const loadMore = () => {
+    if (!products || !products.has_more || loadingMore) return
+    const nextStart = (products.start || 1) + products.products.length
+    const term = modifier ? `${modifier} ${activeItem}` : activeItem
+    setLoadingMore(true)
+    api.searchProducts(term, fulfillment, nextStart).then(data => {
+      setProducts(prev => ({
+        ...prev,
+        products: [...prev.products, ...data.products],
+        start: data.start,
+        has_more: data.has_more,
+      }))
+      setLoadingMore(false)
+    }).catch(() => setLoadingMore(false))
   }
 
   useEffect(() => {
@@ -436,6 +453,11 @@ export default function OrderPage() {
                   </button>
                 ))}
               </div>
+            )}
+            {products.has_more && (
+              <button className="load-more-btn" onClick={loadMore} disabled={loadingMore}>
+                {loadingMore ? 'Loading...' : 'More results'}
+              </button>
             )}
           </div>
         </>

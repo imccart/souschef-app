@@ -2265,6 +2265,24 @@ main {
   gap: 10px;
 }
 
+.load-more-btn {
+  display: block;
+  width: 100%;
+  padding: 12px;
+  margin-top: 12px;
+  background: none;
+  border: 1px dashed var(--tan);
+  border-radius: 8px;
+  color: var(--accent);
+  font-family: 'DM Sans', sans-serif;
+  font-size: 14px;
+  font-weight: 500;
+  cursor: pointer;
+  -webkit-tap-highlight-color: transparent;
+}
+.load-more-btn:hover { border-color: var(--accent); }
+.load-more-btn:disabled { color: var(--text-muted); cursor: default; }
+
 .product-card {
   background: white;
   border: 1.5px solid var(--tan);

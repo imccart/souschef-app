@@ -1125,9 +1125,9 @@ _SEARCH_CACHE_TTL = 300  # 5 minutes
 _SEARCH_CACHE_MAX = 50
 
 @router.get("/order/search/{item_name:path}")
-async def search_order_products(item_name: str, request: Request, fulfillment: str = "curbside"):
+async def search_order_products(item_name: str, request: Request, fulfillment: str = "curbside", start: int = 1):
     """Search Kroger products for a grocery item. Returns products + preferences.
-    fulfillment: 'curbside' (pickup) or 'delivery'."""
+    fulfillment: 'curbside' (pickup) or 'delivery'. start: pagination offset (1-based)."""
     import time as _time
     from concurrent.futures import ThreadPoolExecutor
     from souschef.kroger import (
@@ -1193,7 +1193,7 @@ async def search_order_products(item_name: str, request: Request, fulfillment: s
 
     # Search Kroger
     try:
-        products = search_products_fast(search_term, limit=12, fulfillment=ff, location_id=user_location_id)
+        products = search_products_fast(search_term, limit=12, start=start, fulfillment=ff, location_id=user_location_id)
     except Exception as e:
         import traceback
         traceback.print_exc()
@@ -1207,7 +1207,7 @@ async def search_order_products(item_name: str, request: Request, fulfillment: s
 
     cached = {}
     if products:
-        upcs = [p.upc for p in products[:6]]
+        upcs = [p.upc for p in products]
         placeholders = ", ".join(f":p{i}" for i in range(len(upcs)))
         params = {f"p{i}": upc for i, upc in enumerate(upcs)}
         rows = conn.execute(
@@ -1221,7 +1221,7 @@ async def search_order_products(item_name: str, request: Request, fulfillment: s
 
     # --- Prices: use today's cache or fill from Kroger ---
     need_price = []
-    for p in products[:6]:
+    for p in products:
         c = cached.get(p.upc)
         if c and c["price_fetched_at"] and c["price_fetched_at"][:10] == _today:
             p.price = c["price"] if c["price"] is not None else p.price
@@ -1239,7 +1239,7 @@ async def search_order_products(item_name: str, request: Request, fulfillment: s
 
     # --- Scores: use cached or fetch from Open Food Facts ---
     need_scores = []
-    for p in products[:6]:
+    for p in products:
         c = cached.get(p.upc)
         if c and c["nova_group"] is not None and c["score_fetched_at"] > _score_cutoff:
             p.nova_group = c["nova_group"]
@@ -1257,7 +1257,7 @@ async def search_order_products(item_name: str, request: Request, fulfillment: s
             pool.map(_fetch_score, need_scores)
 
     # --- Save everything to cache ---
-    for p in products[:6]:
+    for p in products:
         conn.execute(
             text("""INSERT INTO product_scores
                (upc, nova_group, nutriscore, score_fetched_at, price, promo_price, in_stock, curbside, price_fetched_at)
@@ -1327,8 +1327,10 @@ async def search_order_products(item_name: str, request: Request, fulfillment: s
     response = {
         "item_name": item_name,
         "search_term": search_term,
-        "preferences": pref_list,
+        "preferences": pref_list if start == 1 else [],  # only show prefs on first page
         "products": result,
+        "start": start,
+        "has_more": len(products) == 12,  # if we got a full page, there's probably more
     }
     # Evict expired entries, then oldest if over max size
     expired = [k for k, (ts, _) in _search_cache.items() if now - ts >= _SEARCH_CACHE_TTL]

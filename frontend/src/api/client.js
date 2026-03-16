@@ -49,7 +49,13 @@ export const api = {
 
   // Order
   getOrder: () => request('/order'),
-  searchProducts: (itemName, fulfillment) => request(`/order/search/${encodeURIComponent(itemName)}${fulfillment ? `?fulfillment=${fulfillment}` : ''}`),
+  searchProducts: (itemName, fulfillment, start) => {
+    const params = new URLSearchParams()
+    if (fulfillment) params.set('fulfillment', fulfillment)
+    if (start > 1) params.set('start', start)
+    const qs = params.toString()
+    return request(`/order/search/${encodeURIComponent(itemName)}${qs ? `?${qs}` : ''}`)
+  },
   selectProduct: (itemName, product) => request('/order/select', {
     method: 'POST',
     body: JSON.stringify({ item_name: itemName, product }),
