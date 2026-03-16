@@ -143,7 +143,7 @@ async def health_db():
     conn = get_connection()
     try:
         # Max connections
-        max_conn = conn.execute(text("SHOW max_connections")).fetchone()
+        max_conn = conn.execute(text("SELECT current_setting('max_connections') AS val")).fetchone()
 
         # Active connections
         active = conn.execute(text("""
@@ -204,7 +204,7 @@ async def health_db():
         pool = engine.pool.status()
 
         return {
-            "max_connections": max_conn[0] if max_conn else "unknown",
+            "max_connections": max_conn["val"] if max_conn else "unknown",
             "connections": {
                 "total": active["total"],
                 "active": active["active"],
