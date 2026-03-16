@@ -379,7 +379,7 @@ def save_preference(conn: DictConnection, user_id: str, search_term: str, produc
            ON CONFLICT(search_term, upc) DO UPDATE SET
                product_description = excluded.product_description,
                size = excluded.size,
-               times_picked = times_picked + 1,
+               times_picked = product_preferences.times_picked + 1,
                last_picked = CURRENT_TIMESTAMP,
                source = excluded.source,
                order_id = excluded.order_id"""),
