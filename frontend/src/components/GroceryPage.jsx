@@ -154,9 +154,9 @@ export default function GroceryPage({ sidebar = false }) {
     for (const item of items) {
       totalItems++
       const nameLower = item.name.toLowerCase()
-      if (checkedSet.has(nameLower) || skippedSet.has(nameLower) || haveItSet.has(nameLower)) {
+      if (checkedSet.has(nameLower) || skippedSet.has(nameLower) || haveItSet.has(nameLower) || orderedSet.has(nameLower)) {
         doneCount++
-      } else if (!orderedSet.has(nameLower)) {
+      } else {
         groupRemaining++
       }
     }
@@ -431,7 +431,7 @@ export default function GroceryPage({ sidebar = false }) {
   )
 
   const isItemHidden = (nameLower) => {
-    return hideDone && (checkedSet.has(nameLower) || skippedSet.has(nameLower) || haveItSet.has(nameLower))
+    return hideDone && (checkedSet.has(nameLower) || skippedSet.has(nameLower) || haveItSet.has(nameLower) || orderedSet.has(nameLower))
   }
 
   const renderItem = (item) => {
