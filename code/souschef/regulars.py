@@ -27,24 +27,26 @@ class Regular:
 def list_regulars(
     conn: DictConnection, user_id: str, active_only: bool = True
 ) -> list[Regular]:
-    """List regulars, resolving shopping_group: user override > regular's own > ingredient aisle."""
+    """List regulars. Returns raw shopping_group from the regulars table.
+
+    Group resolution (user override > ingredient aisle > keyword) is done
+    by the API layer via _infer_item_group, not here.
+    """
     query = """
-        SELECT r.*, COALESCE(ug.shopping_group, NULLIF(r.shopping_group, ''), i.aisle) AS resolved_group
+        SELECT r.*
         FROM regulars r
-        LEFT JOIN ingredients i ON i.id = r.ingredient_id
-        LEFT JOIN user_item_groups ug ON ug.user_id = r.user_id AND LOWER(ug.item_name) = LOWER(r.name)
         WHERE r.user_id = :user_id
     """
     if active_only:
         query += " AND r.active = 1"
-    query += " ORDER BY resolved_group, r.name"
+    query += " ORDER BY r.name"
     rows = conn.execute(text(query), {"user_id": user_id}).fetchall()
     return [
         Regular(
             id=r["id"],
             name=r["name"],
             ingredient_id=r["ingredient_id"],
-            shopping_group=r["resolved_group"] or "Other",
+            shopping_group=r["shopping_group"] or "",
             store_pref=r["store_pref"],
             active=bool(r["active"]),
         )

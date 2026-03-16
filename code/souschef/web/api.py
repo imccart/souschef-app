@@ -555,7 +555,7 @@ def _build_trip_from_meals(conn, trip_id: int, mw, user_id: str) -> None:
                 ):
                     continue
 
-                group = item.aisle or "Other"
+                group = _infer_item_group(conn, item.ingredient_name.lower(), user_id)
                 for_meals = ",".join(item_meals) if item_meals else ""
                 conn.execute(
                     text("""INSERT INTO trip_items
@@ -619,13 +619,6 @@ def _refresh_trip_meal_items(conn, trip_id: int, mw, user_id: str) -> None:
 
     grocery_meals = [m for m in mw.meals if m.on_grocery]
 
-    # Load user group overrides so they take priority over ingredient defaults
-    override_rows = conn.execute(
-        text("SELECT LOWER(item_name) AS item_name, shopping_group FROM user_item_groups WHERE user_id = :user_id"),
-        {"user_id": user_id},
-    ).fetchall()
-    user_overrides = {r["item_name"]: r["shopping_group"] for r in override_rows}
-
     # Build fresh meal items
     fresh_meal_items: dict[str, dict] = {}
     if grocery_meals:
@@ -634,7 +627,7 @@ def _refresh_trip_meal_items(conn, trip_id: int, mw, user_id: str) -> None:
         for items in by_store.values():
             for item in items:
                 name_lower = item.ingredient_name.lower()
-                group = user_overrides.get(name_lower, item.aisle or "Other")
+                group = _infer_item_group(conn, name_lower, user_id)
                 for_meals = ",".join(item.meals) if item.meals else ""
                 fresh_meal_items[name_lower] = {
                     "name": name_lower,
@@ -1859,7 +1852,7 @@ async def get_regulars(request: Request):
             {
                 "id": r.id,
                 "name": r.name,
-                "shopping_group": r.shopping_group,
+                "shopping_group": _infer_item_group(conn, r.name, user_id),
                 "store_pref": r.store_pref,
                 "active": r.active,
             }
@@ -2203,34 +2196,19 @@ async def get_pantry(request: Request):
     user_id = request.state.user_id
     conn = _conn()
     items = list_pantry(conn, user_id)
-
-    # Look up shopping groups: user override > ingredient aisle > 'Other'
-    override_rows = conn.execute(
-        text("SELECT LOWER(item_name) AS item_name, shopping_group FROM user_item_groups WHERE user_id = :user_id"),
-        {"user_id": user_id},
-    ).fetchall()
-    user_overrides = {r["item_name"]: r["shopping_group"] for r in override_rows}
-
-    result = []
-    for p in items:
-        name_lower = p.ingredient_name.lower()
-        group = user_overrides.get(name_lower)
-        if not group:
-            ing = conn.execute(
-                text("SELECT aisle FROM ingredients WHERE id = :id"),
-                {"id": p.ingredient_id},
-            ).fetchone()
-            group = ing["aisle"] if ing and ing["aisle"] else "Other"
-        result.append({
-            "id": p.id,
-            "ingredient_id": p.ingredient_id,
-            "name": p.ingredient_name,
-            "quantity": p.quantity,
-            "unit": p.unit,
-            "shopping_group": group,
-        })
-
-    return {"items": result}
+    return {
+        "items": [
+            {
+                "id": p.id,
+                "ingredient_id": p.ingredient_id,
+                "name": p.ingredient_name,
+                "quantity": p.quantity,
+                "unit": p.unit,
+                "shopping_group": _infer_item_group(conn, p.ingredient_name, user_id),
+            }
+            for p in items
+        ]
+    }
 
 
 @router.post("/pantry")
