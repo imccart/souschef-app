@@ -27,11 +27,12 @@ class Regular:
 def list_regulars(
     conn: DictConnection, user_id: str, active_only: bool = True
 ) -> list[Regular]:
-    """List regulars, resolving shopping_group from linked ingredient when available."""
+    """List regulars, resolving shopping_group: user override > regular's own > ingredient aisle."""
     query = """
-        SELECT r.*, COALESCE(i.aisle, r.shopping_group) AS resolved_group
+        SELECT r.*, COALESCE(ug.shopping_group, NULLIF(r.shopping_group, ''), i.aisle) AS resolved_group
         FROM regulars r
         LEFT JOIN ingredients i ON i.id = r.ingredient_id
+        LEFT JOIN user_item_groups ug ON ug.user_id = r.user_id AND LOWER(ug.item_name) = LOWER(r.name)
         WHERE r.user_id = :user_id
     """
     if active_only:
