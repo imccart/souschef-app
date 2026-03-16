@@ -84,48 +84,11 @@ def _run_column_migrations(conn: DictConnection) -> None:
     the inspector, which can hang when the old instance holds locks.
     Sets a short lock_timeout so ALTER TABLE fails fast instead of blocking.
     """
+    # Only new columns that don't yet exist in production.
+    # Old columns (pre-session 20) are already in the DB — no need to re-attempt.
+    # When adding columns in the future, add them here and remove them once
+    # confirmed deployed (they become part of the schema in database.py).
     migrations = [
-        ("ingredients", "root", "TEXT NOT NULL DEFAULT ''"),
-        ("essentials", "search_term", "TEXT NOT NULL DEFAULT ''"),
-        ("product_preferences", "source", "TEXT NOT NULL DEFAULT 'picked'"),
-        ("product_preferences", "order_id", "TEXT NOT NULL DEFAULT ''"),
-        ("product_preferences", "rating", "INTEGER NOT NULL DEFAULT 0"),
-        ("grocery_lists", "start_date", "TEXT NOT NULL DEFAULT ''"),
-        ("grocery_lists", "end_date", "TEXT NOT NULL DEFAULT ''"),
-        ("meals", "on_grocery", "INTEGER NOT NULL DEFAULT 0"),
-        ("trip_items", "ordered", "INTEGER NOT NULL DEFAULT 0"),
-        ("trip_items", "ordered_at", "TEXT"),
-        ("trip_items", "product_upc", "TEXT NOT NULL DEFAULT ''"),
-        ("trip_items", "product_name", "TEXT NOT NULL DEFAULT ''"),
-        ("trip_items", "product_brand", "TEXT NOT NULL DEFAULT ''"),
-        ("trip_items", "product_size", "TEXT NOT NULL DEFAULT ''"),
-        ("trip_items", "product_price", "DOUBLE PRECISION"),
-        ("trip_items", "product_image", "TEXT NOT NULL DEFAULT ''"),
-        ("trip_items", "selected_at", "TEXT"),
-        ("grocery_trips", "order_source", "TEXT NOT NULL DEFAULT 'none'"),
-        ("grocery_trips", "receipt_data", "TEXT"),
-        ("grocery_trips", "receipt_parsed_at", "TEXT"),
-        ("trip_items", "receipt_item", "TEXT NOT NULL DEFAULT ''"),
-        ("trip_items", "receipt_price", "DOUBLE PRECISION"),
-        ("trip_items", "receipt_upc", "TEXT NOT NULL DEFAULT ''"),
-        ("trip_items", "receipt_status", "TEXT NOT NULL DEFAULT ''"),
-        ("learning_dismissed", "kind", "TEXT NOT NULL DEFAULT 'regular'"),
-        ("meals", "user_id", "TEXT NOT NULL DEFAULT 'default'"),
-        ("grocery_trips", "user_id", "TEXT NOT NULL DEFAULT 'default'"),
-        ("regulars", "user_id", "TEXT NOT NULL DEFAULT 'default'"),
-        ("pantry", "user_id", "TEXT NOT NULL DEFAULT 'default'"),
-        ("product_preferences", "user_id", "TEXT NOT NULL DEFAULT 'default'"),
-        ("learning_dismissed", "user_id", "TEXT NOT NULL DEFAULT 'default'"),
-        ("meal_item_overrides", "user_id", "TEXT NOT NULL DEFAULT 'default'"),
-        ("recipes", "user_id", "TEXT NOT NULL DEFAULT 'default'"),
-        ("stores", "location_id", "TEXT NOT NULL DEFAULT ''"),
-        ("recipes", "recipe_type", "TEXT NOT NULL DEFAULT 'meal'"),
-        ("meals", "side_recipe_id", "INTEGER"),
-        ("user_feedback", "status", "TEXT NOT NULL DEFAULT 'open'"),
-        ("user_feedback", "response", "TEXT"),
-        ("user_feedback", "responded_at", "TEXT"),
-        ("user_feedback", "dismissed", "INTEGER NOT NULL DEFAULT 0"),
-        ("user_kroger_tokens", "allow_household", "INTEGER NOT NULL DEFAULT 0"),
         ("trip_items", "skipped", "INTEGER NOT NULL DEFAULT 0"),
         ("trip_items", "skipped_at", "TEXT"),
         ("trip_items", "have_it", "INTEGER NOT NULL DEFAULT 0"),
@@ -789,7 +752,7 @@ def _kill_stale_connections(conn: DictConnection) -> None:
               AND state = 'idle in transaction'
         """)).fetchall()
         for row in rows:
-            conn.execute(text("SELECT pg_terminate_backend(:pid)"), {"pid": row[0]})
+            conn.execute(text("SELECT pg_terminate_backend(:pid)"), {"pid": row["pid"]})
         if rows:
             print(f"[db] Terminated {len(rows)} stale connections", flush=True)
     except Exception:
@@ -803,7 +766,39 @@ def ensure_db(db_path: str | None = None) -> DictConnection:
     if not _db_initialized:
         _kill_stale_connections(conn)
 
-        # Skip all DDL/migrations — diagnosed via /health/db endpoint
-        print("[db] Skipping init_db (diagnosing lock issues)", flush=True)
+        # Set statement_timeout so migrations fail fast if old instance holds locks.
+        try:
+            conn.execute(text("SET statement_timeout = '5000'"))
+            conn.commit()
+        except Exception:
+            pass
+
+        try:
+            init_db(conn)
+            row = conn.execute(text("SELECT COUNT(*) AS n FROM recipes")).fetchone()
+            if row["n"] == 0:
+                seed_from_yaml(conn)
+            else:
+                data_dir = str(Path(__file__).resolve().parents[2] / "data")
+                ing_db = Path(data_dir) / "seed_ingredient_database.yaml"
+                if ing_db.exists():
+                    _seed_ingredient_database(conn, ing_db)
+                    conn.commit()
+                _seed_library_if_missing(conn)
+        except Exception as e:
+            print(f"[db] ensure_db error (non-fatal): {e}", flush=True)
+            try:
+                conn.raw.rollback()
+            except Exception:
+                pass
+
+        try:
+            conn.execute(text("SET statement_timeout = '0'"))
+            conn.commit()
+        except Exception:
+            try:
+                conn.raw.rollback()
+            except Exception:
+                pass
         _db_initialized = True
     return conn
