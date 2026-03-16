@@ -1080,7 +1080,7 @@ async def get_order(request: Request):
 
     rows = conn.execute(
         text("""SELECT * FROM trip_items WHERE trip_id = :trip_id
-           AND checked = 0
+           AND checked = 0 AND skipped = 0 AND have_it = 0
            ORDER BY shopping_group, name"""),
         {"trip_id": trip["id"]},
     ).fetchall()
