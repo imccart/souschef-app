@@ -133,7 +133,7 @@ export default function GroceryPage({ sidebar = false }) {
   if (loading) return <><div className="loading">Gathering ingredients...</div><FeedbackFab page="grocery" /></>
   if (loadError) return <><div className="loading">Something went wrong loading your list. Try refreshing.</div><FeedbackFab page="grocery" /></>
 
-  const { items_by_group, checked, ordered, skipped, have_it, start_date, end_date, regulars_added, pantry_checked } = grocery
+  const { items_by_group, checked, ordered, skipped, have_it, start_date, end_date, regulars_state, pantry_state } = grocery
   const checkedSet = new Set((checked || []).map(n => n.toLowerCase()))
   const orderedSet = new Set((ordered || []).map(n => n.toLowerCase()))
   const skippedSet = new Set((skipped || []).map(n => n.toLowerCase()))
@@ -341,102 +341,91 @@ export default function GroceryPage({ sidebar = false }) {
     setPantryExpanded(false)
   }
 
-  // Inline prompt cards
+  // Inline prompt cards — "prompt" = full card, "done" = compact row
+  const renderPromptCard = (state, expanded, label, doneLabel, onExpand, onSubmit, onDismiss, data, checkedSet, setChecked, groupField) => {
+    if (expanded) {
+      return (
+        <div className="grocery-prompt-card">
+          <div className="grocery-prompt-body">
+            <div className="grocery-prompt-title">{label}</div>
+            <div className="grocery-prompt-desc">
+              {groupField ? 'Uncheck anything you don\'t need this time.' : 'Check anything you need to restock.'}
+            </div>
+            {data && data.length > 0 ? (
+              <div className="grocery-prompt-checklist">
+                {data.map(item => (
+                  <div
+                    key={item.id}
+                    className="grocery-prompt-check-item"
+                    onClick={() => {
+                      setChecked(prev => {
+                        const next = new Set(prev)
+                        next.has(item.name) ? next.delete(item.name) : next.add(item.name)
+                        return next
+                      })
+                    }}
+                  >
+                    <div className={`grocery-prompt-check ${checkedSet.has(item.name) ? 'active' : ''}`}>
+                      {checkedSet.has(item.name) && '\u2713'}
+                    </div>
+                    <span>{item.name}</span>
+                    {groupField && item[groupField] && <span className="grocery-prompt-group">{item[groupField]}</span>}
+                  </div>
+                ))}
+              </div>
+            ) : (
+              <div className="grocery-prompt-empty">
+                {groupField ? 'No active regulars yet.' : 'No pantry items yet. Add them in My Kitchen.'}
+              </div>
+            )}
+            <div className="grocery-prompt-actions">
+              <button className="grocery-prompt-dismiss" onClick={onDismiss}>
+                {groupField ? 'Not this time' : 'Skip'}
+              </button>
+              <button className="grocery-prompt-submit" onClick={onSubmit}>
+                Add to list {checkedSet.size > 0 ? `(${checkedSet.size})` : ''}
+              </button>
+            </div>
+          </div>
+        </div>
+      )
+    }
+
+    if (state === 'done') {
+      return (
+        <button className="grocery-prompt-compact" onClick={onExpand}>
+          <span className="grocery-prompt-compact-check">{'\u2713'}</span>
+          <span>{doneLabel}</span>
+          <span className="grocery-prompt-compact-edit">Update</span>
+        </button>
+      )
+    }
+
+    // state === 'prompt'
+    return (
+      <div className="grocery-prompt-card">
+        <button className="grocery-prompt-trigger" onClick={onExpand}>
+          <BentSpoonIcon size={18} />
+          <span>{label}</span>
+          <span className="grocery-prompt-arrow">{'\u203A'}</span>
+        </button>
+      </div>
+    )
+  }
+
   const promptCards = (
     <>
-      {!regulars_added && (
-        <div className="grocery-prompt-card">
-          {!regularsExpanded ? (
-            <button className="grocery-prompt-trigger" onClick={handleRegularsExpand}>
-              <BentSpoonIcon size={18} />
-              <span>Add your regulars</span>
-              <span className="grocery-prompt-arrow">{'\u203A'}</span>
-            </button>
-          ) : (
-            <div className="grocery-prompt-body">
-              <div className="grocery-prompt-title">Regulars</div>
-              <div className="grocery-prompt-desc">Uncheck anything you don't need this time.</div>
-              {regularsData && regularsData.length > 0 ? (
-                <div className="grocery-prompt-checklist">
-                  {regularsData.map(r => (
-                    <div
-                      key={r.id}
-                      className="grocery-prompt-check-item"
-                      onClick={() => {
-                        setRegularsChecked(prev => {
-                          const next = new Set(prev)
-                          next.has(r.name) ? next.delete(r.name) : next.add(r.name)
-                          return next
-                        })
-                      }}
-                    >
-                      <div className={`grocery-prompt-check ${regularsChecked.has(r.name) ? 'active' : ''}`}>
-                        {regularsChecked.has(r.name) && '\u2713'}
-                      </div>
-                      <span>{r.name}</span>
-                      {r.shopping_group && <span className="grocery-prompt-group">{r.shopping_group}</span>}
-                    </div>
-                  ))}
-                </div>
-              ) : (
-                <div className="grocery-prompt-empty">No active regulars yet.</div>
-              )}
-              <div className="grocery-prompt-actions">
-                <button className="grocery-prompt-dismiss" onClick={handleRegularsDismiss}>Not this time</button>
-                <button className="grocery-prompt-submit" onClick={handleRegularsSubmit}>
-                  Add to list {regularsChecked.size > 0 ? `(${regularsChecked.size})` : ''}
-                </button>
-              </div>
-            </div>
-          )}
-        </div>
+      {renderPromptCard(
+        regulars_state, regularsExpanded,
+        'Add your regulars', 'Regulars added',
+        handleRegularsExpand, handleRegularsSubmit, handleRegularsDismiss,
+        regularsData, regularsChecked, setRegularsChecked, 'shopping_group'
       )}
-
-      {!pantry_checked && (
-        <div className="grocery-prompt-card">
-          {!pantryExpanded ? (
-            <button className="grocery-prompt-trigger" onClick={handlePantryExpand}>
-              <BentSpoonIcon size={18} />
-              <span>Running low on anything?</span>
-              <span className="grocery-prompt-arrow">{'\u203A'}</span>
-            </button>
-          ) : (
-            <div className="grocery-prompt-body">
-              <div className="grocery-prompt-title">Pantry check</div>
-              <div className="grocery-prompt-desc">Check anything you need to restock.</div>
-              {pantryData && pantryData.length > 0 ? (
-                <div className="grocery-prompt-checklist">
-                  {pantryData.map(p => (
-                    <div
-                      key={p.id}
-                      className="grocery-prompt-check-item"
-                      onClick={() => {
-                        setPantryChecked(prev => {
-                          const next = new Set(prev)
-                          next.has(p.name) ? next.delete(p.name) : next.add(p.name)
-                          return next
-                        })
-                      }}
-                    >
-                      <div className={`grocery-prompt-check ${pantryChecked.has(p.name) ? 'active' : ''}`}>
-                        {pantryChecked.has(p.name) && '\u2713'}
-                      </div>
-                      <span>{p.name}</span>
-                    </div>
-                  ))}
-                </div>
-              ) : (
-                <div className="grocery-prompt-empty">No pantry items yet. Add them in My Kitchen.</div>
-              )}
-              <div className="grocery-prompt-actions">
-                <button className="grocery-prompt-dismiss" onClick={handlePantryDismiss}>Skip</button>
-                <button className="grocery-prompt-submit" onClick={handlePantrySubmit}>
-                  Add to list {pantryChecked.size > 0 ? `(${pantryChecked.size})` : ''}
-                </button>
-              </div>
-            </div>
-          )}
-        </div>
+      {renderPromptCard(
+        pantry_state, pantryExpanded,
+        'Running low on anything?', 'Pantry checked',
+        handlePantryExpand, handlePantrySubmit, handlePantryDismiss,
+        pantryData, pantryChecked, setPantryChecked, null
       )}
     </>
   )

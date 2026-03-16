@@ -726,6 +726,25 @@ main {
   -webkit-tap-highlight-color: transparent;
 }
 .grocery-prompt-arrow { margin-left: auto; color: var(--text-muted); font-size: 20px; }
+.grocery-prompt-compact {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  width: 100%;
+  padding: 8px 16px;
+  margin-bottom: 6px;
+  background: none;
+  border: 1px dashed var(--tan);
+  border-radius: 8px;
+  font-family: 'DM Sans', sans-serif;
+  font-size: 13px;
+  color: var(--text-muted);
+  cursor: pointer;
+  -webkit-tap-highlight-color: transparent;
+}
+.grocery-prompt-compact:hover { border-color: var(--accent); color: var(--dark); }
+.grocery-prompt-compact-check { color: var(--green); font-size: 14px; }
+.grocery-prompt-compact-edit { margin-left: auto; font-size: 12px; color: var(--accent); }
 .grocery-prompt-body { padding: 16px; }
 .grocery-prompt-title {
   font-family: 'Playfair Display', serif;

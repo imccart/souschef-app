@@ -457,6 +457,31 @@ async def get_candidates(date: str, request: Request):
 # ── Grocery (trip-based) ──────────────────────────────────
 
 
+def _prompt_state(trip, flag_col: str, ts_col: str) -> str:
+    """Return 'prompt' (show full card), 'done' (compact), based on flag + age.
+
+    - Not acted on → 'prompt'
+    - Acted on within 3 days → 'done'
+    - Acted on 3+ days ago → 'prompt' (resurface)
+    """
+    from datetime import datetime, timedelta, timezone
+    try:
+        if not trip[flag_col]:
+            return "prompt"
+        ts_str = trip[ts_col] if ts_col in trip.keys() else None
+        if not ts_str:
+            return "done"  # acted on but no timestamp (legacy)
+        acted_at = datetime.fromisoformat(ts_str.replace("Z", "+00:00"))
+        if acted_at.tzinfo is None:
+            acted_at = acted_at.replace(tzinfo=timezone.utc)
+        age = datetime.now(timezone.utc) - acted_at
+        if age > timedelta(days=3):
+            return "prompt"
+        return "done"
+    except (KeyError, Exception):
+        return "prompt"
+
+
 def _get_active_trip(conn, user_id: str):
     """Return the most recent active trip row, or None."""
     return conn.execute(
@@ -716,8 +741,8 @@ async def get_grocery(request: Request):
         "ordered": ordered_names,
         "skipped": skipped_names,
         "have_it": have_it_names,
-        "regulars_added": bool(trip["regulars_added"]) if "regulars_added" in trip.keys() else False,
-        "pantry_checked": bool(trip["pantry_checked"]) if "pantry_checked" in trip.keys() else False,
+        "regulars_state": _prompt_state(trip, "regulars_added", "regulars_added_at"),
+        "pantry_state": _prompt_state(trip, "pantry_checked", "pantry_checked_at"),
     }
 
 
@@ -929,7 +954,7 @@ async def add_regulars_to_grocery(body: dict, request: Request):
 
     # Mark regulars as handled for this trip
     conn.execute(
-        text("UPDATE grocery_trips SET regulars_added = 1 WHERE id = :id"),
+        text("UPDATE grocery_trips SET regulars_added = 1, regulars_added_at = CURRENT_TIMESTAMP WHERE id = :id"),
         {"id": trip["id"]},
     )
     conn.commit()
@@ -962,7 +987,7 @@ async def add_pantry_to_grocery(body: dict, request: Request):
 
     # Mark pantry as handled for this trip
     conn.execute(
-        text("UPDATE grocery_trips SET pantry_checked = 1 WHERE id = :id"),
+        text("UPDATE grocery_trips SET pantry_checked = 1, pantry_checked_at = CURRENT_TIMESTAMP WHERE id = :id"),
         {"id": trip["id"]},
     )
     conn.commit()
