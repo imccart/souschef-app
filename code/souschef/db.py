@@ -111,6 +111,8 @@ def _run_column_migrations(conn: DictConnection) -> None:
         ("user_kroger_tokens", "allow_household", "INTEGER NOT NULL DEFAULT 0"),
         ("trip_items", "skipped", "INTEGER NOT NULL DEFAULT 0"),
         ("trip_items", "skipped_at", "TEXT"),
+        ("trip_items", "have_it", "INTEGER NOT NULL DEFAULT 0"),
+        ("trip_items", "have_it_at", "TEXT"),
         ("trip_items", "added_at", "TEXT DEFAULT CURRENT_TIMESTAMP"),
         ("grocery_trips", "regulars_added", "INTEGER NOT NULL DEFAULT 0"),
         ("grocery_trips", "pantry_checked", "INTEGER NOT NULL DEFAULT 0"),

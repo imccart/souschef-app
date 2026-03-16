@@ -1,4 +1,4 @@
-import { useState, useEffect } from 'react'
+import { useState, useEffect, useRef, useCallback } from 'react'
 import { api } from '../api/client'
 import AutocompleteInput from './AutocompleteInput'
 import Sheet from './Sheet'
@@ -10,6 +10,85 @@ const GROUP_ORDER = [
   'Canned Goods', 'Frozen', 'Breakfast & Beverages', 'Snacks',
   'Personal Care', 'Household', 'Cleaning', 'Pets', 'Other'
 ]
+
+const SWIPE_THRESHOLD = 50
+
+function SwipeableItem({ children, onSwipeRight, className }) {
+  const startX = useRef(null)
+  const startY = useRef(null)
+  const locked = useRef(null)
+  const [offsetX, setOffsetX] = useState(0)
+  const [transitioning, setTransitioning] = useState(false)
+
+  const onTouchStart = useCallback((e) => {
+    startX.current = e.touches[0].clientX
+    startY.current = e.touches[0].clientY
+    locked.current = null
+    setTransitioning(false)
+  }, [])
+
+  const onTouchMove = useCallback((e) => {
+    if (startX.current === null) return
+    const dx = e.touches[0].clientX - startX.current
+    const dy = e.touches[0].clientY - startY.current
+
+    if (locked.current === null && (Math.abs(dx) > 8 || Math.abs(dy) > 8)) {
+      locked.current = Math.abs(dx) > Math.abs(dy) ? 'horizontal' : 'vertical'
+    }
+
+    if (locked.current !== 'horizontal') return
+
+    e.stopPropagation()
+    // Only allow rightward swipe
+    setOffsetX(Math.max(0, dx))
+  }, [])
+
+  const onTouchEnd = useCallback((e) => {
+    if (startX.current === null) return
+    const dx = e.changedTouches[0].clientX - startX.current
+    startX.current = null
+    startY.current = null
+
+    if (locked.current === 'horizontal') {
+      e.stopPropagation()
+    }
+    locked.current = null
+
+    if (dx > SWIPE_THRESHOLD) {
+      setTransitioning(true)
+      setOffsetX(300)
+      setTimeout(() => {
+        onSwipeRight()
+        setOffsetX(0)
+        setTransitioning(false)
+      }, 200)
+    } else {
+      setTransitioning(true)
+      setOffsetX(0)
+      setTimeout(() => setTransitioning(false), 150)
+    }
+  }, [onSwipeRight])
+
+  const style = offsetX !== 0 || transitioning
+    ? {
+        transform: `translateX(${offsetX}px)`,
+        transition: transitioning ? 'transform 0.2s ease-out' : 'none',
+        opacity: offsetX > SWIPE_THRESHOLD ? 0.5 : 1,
+      }
+    : undefined
+
+  return (
+    <div
+      className={className}
+      onTouchStart={onTouchStart}
+      onTouchMove={onTouchMove}
+      onTouchEnd={onTouchEnd}
+      style={style}
+    >
+      {children}
+    </div>
+  )
+}
 
 export default function GroceryPage({ sidebar = false }) {
   const [grocery, setGrocery] = useState(null)
@@ -53,10 +132,11 @@ export default function GroceryPage({ sidebar = false }) {
   if (loading) return <><div className="loading">Gathering ingredients...</div><FeedbackFab page="grocery" /></>
   if (loadError) return <><div className="loading">Something went wrong loading your list. Try refreshing.</div><FeedbackFab page="grocery" /></>
 
-  const { items_by_group, checked, ordered, skipped, start_date, end_date, regulars_added, pantry_checked } = grocery
+  const { items_by_group, checked, ordered, skipped, have_it, start_date, end_date, regulars_added, pantry_checked } = grocery
   const checkedSet = new Set((checked || []).map(n => n.toLowerCase()))
   const orderedSet = new Set((ordered || []).map(n => n.toLowerCase()))
   const skippedSet = new Set((skipped || []).map(n => n.toLowerCase()))
+  const haveItSet = new Set((have_it || []).map(n => n.toLowerCase()))
 
   const onListSet = new Set()
   for (const group of Object.values(items_by_group)) {
@@ -73,7 +153,7 @@ export default function GroceryPage({ sidebar = false }) {
     for (const item of items) {
       totalItems++
       const nameLower = item.name.toLowerCase()
-      if (checkedSet.has(nameLower) || skippedSet.has(nameLower)) {
+      if (checkedSet.has(nameLower) || skippedSet.has(nameLower) || haveItSet.has(nameLower)) {
         doneCount++
       } else if (!orderedSet.has(nameLower)) {
         groupRemaining++
@@ -105,17 +185,20 @@ export default function GroceryPage({ sidebar = false }) {
     setCollapsedGroups(prev => ({ ...prev, [group]: currentlyExpanded }))
   }
 
-  const handleToggle = async (name) => {
+  const handleBought = async (name) => {
     const prev = grocery
+    const nl = name.toLowerCase()
     const newChecked = new Set(checkedSet)
     const newSkipped = new Set(skippedSet)
-    if (newChecked.has(name.toLowerCase())) {
-      newChecked.delete(name.toLowerCase())
+    const newHaveIt = new Set(haveItSet)
+    if (newChecked.has(nl)) {
+      newChecked.delete(nl)
     } else {
-      newChecked.add(name.toLowerCase())
-      newSkipped.delete(name.toLowerCase())
+      newChecked.add(nl)
+      newSkipped.delete(nl)
+      newHaveIt.delete(nl)
     }
-    setGrocery({ ...grocery, checked: [...newChecked], skipped: [...newSkipped] })
+    setGrocery({ ...grocery, checked: [...newChecked], skipped: [...newSkipped], have_it: [...newHaveIt] })
     try {
       await api.toggleGroceryItem(name)
     } catch {
@@ -123,12 +206,34 @@ export default function GroceryPage({ sidebar = false }) {
     }
   }
 
+  const handleHaveIt = async (name) => {
+    const prev = grocery
+    const nl = name.toLowerCase()
+    const newHaveIt = new Set(haveItSet)
+    const newChecked = new Set(checkedSet)
+    const newSkipped = new Set(skippedSet)
+    if (newHaveIt.has(nl)) {
+      newHaveIt.delete(nl)
+    } else {
+      newHaveIt.add(nl)
+      newChecked.delete(nl)
+      newSkipped.delete(nl)
+    }
+    setGrocery({ ...grocery, have_it: [...newHaveIt], checked: [...newChecked], skipped: [...newSkipped] })
+    try {
+      await api.haveItGroceryItem(name)
+    } catch {
+      setGrocery(prev)
+    }
+  }
+
   const handleSkip = async (name) => {
     const prev = grocery
-    const newSkipped = new Set(skippedSet)
-    const newChecked = new Set(checkedSet)
-    if (newSkipped.has(name.toLowerCase())) {
-      newSkipped.delete(name.toLowerCase())
+    const nl = name.toLowerCase()
+    if (skippedSet.has(nl)) {
+      // Unskip: tap on skipped item to restore
+      const newSkipped = new Set(skippedSet)
+      newSkipped.delete(nl)
       setGrocery({ ...grocery, skipped: [...newSkipped] })
       try {
         await api.unskipGroceryItem(name)
@@ -136,9 +241,13 @@ export default function GroceryPage({ sidebar = false }) {
         setGrocery(prev)
       }
     } else {
-      newSkipped.add(name.toLowerCase())
-      newChecked.delete(name.toLowerCase())
-      setGrocery({ ...grocery, skipped: [...newSkipped], checked: [...newChecked] })
+      const newSkipped = new Set(skippedSet)
+      const newChecked = new Set(checkedSet)
+      const newHaveIt = new Set(haveItSet)
+      newSkipped.add(nl)
+      newChecked.delete(nl)
+      newHaveIt.delete(nl)
+      setGrocery({ ...grocery, skipped: [...newSkipped], checked: [...newChecked], have_it: [...newHaveIt] })
       try {
         await api.skipGroceryItem(name)
       } catch {
@@ -195,7 +304,6 @@ export default function GroceryPage({ sidebar = false }) {
   }
 
   const handleRegularsDismiss = async () => {
-    // Dismiss without adding — mark as handled with empty selection
     try {
       const result = await api.addRegulars([])
       setGrocery(result)
@@ -333,14 +441,95 @@ export default function GroceryPage({ sidebar = false }) {
   )
 
   const isItemHidden = (nameLower) => {
-    return hideDone && (checkedSet.has(nameLower) || skippedSet.has(nameLower))
+    return hideDone && (checkedSet.has(nameLower) || skippedSet.has(nameLower) || haveItSet.has(nameLower))
+  }
+
+  const renderItem = (item) => {
+    const nameLower = item.name.toLowerCase()
+    const isChecked = checkedSet.has(nameLower)
+    const isOrdered = orderedSet.has(nameLower)
+    const isSkipped = skippedSet.has(nameLower)
+    const isHaveIt = haveItSet.has(nameLower)
+    const isDone = isChecked || isHaveIt
+    const stateClass = isChecked ? 'checked' : isHaveIt ? 'have-it' : isOrdered ? 'ordered' : isSkipped ? 'skipped' : ''
+
+    if (isOrdered) {
+      return (
+        <div key={item.name} className={`grocery-item ordered`}>
+          <span className="check ordered">{'\u2191'}</span>
+          <span className="item-name ordered-text">
+            {item.name}
+            {item.meal_count > 1 && <span className="multi-badge">x{item.meal_count}</span>}
+          </span>
+          {item.for_meals && item.for_meals.length > 0 && (
+            <span className="item-meals">{item.for_meals.join(', ')} {'\u00B7'} ordered</span>
+          )}
+        </div>
+      )
+    }
+
+    if (isSkipped) {
+      return (
+        <div
+          key={item.name}
+          className="grocery-item skipped"
+          onClick={() => handleSkip(item.name)}
+        >
+          <span className="item-name skipped-text">
+            {item.name}
+            {item.meal_count > 1 && <span className="multi-badge">x{item.meal_count}</span>}
+          </span>
+          {item.for_meals && item.for_meals.length > 0 && (
+            <span className="item-meals">{item.for_meals.join(', ')}</span>
+          )}
+        </div>
+      )
+    }
+
+    const itemContent = (
+      <>
+        {isDone && <span className="check done">{'\u2713'}</span>}
+        <span className={`item-name ${isDone ? 'done-text' : ''}`}>
+          {item.name}
+          {item.meal_count > 1 && <span className="multi-badge">x{item.meal_count}</span>}
+        </span>
+        {item.for_meals && item.for_meals.length > 0 && (
+          <span className="item-meals">{item.for_meals.join(', ')}</span>
+        )}
+        <div className="grocery-item-toggle">
+          <button
+            className={`toggle-seg bought ${isChecked ? 'active' : ''}`}
+            onClick={() => handleBought(item.name)}
+          >Bought</button>
+          <button
+            className={`toggle-seg have-it ${isHaveIt ? 'active' : ''}`}
+            onClick={() => handleHaveIt(item.name)}
+          >Have it</button>
+        </div>
+        <button
+          className="recat-btn"
+          title="Move to different aisle"
+          onClick={(e) => { e.stopPropagation(); setRecatItem(item.name) }}
+        >{'\u2630'}</button>
+      </>
+    )
+
+    return (
+      <SwipeableItem
+        key={item.name}
+        className={`grocery-item ${stateClass}`}
+        onSwipeRight={() => handleSkip(item.name)}
+      >
+        {itemContent}
+      </SwipeableItem>
+    )
   }
 
   const listContent = (
     <>
       {hasItems && doneCount > 0 && (
         <button className="hide-checked-toggle" onClick={() => setHideDone(h => !h)}>
-          {hideDone ? `Show checked & skipped` : `Hide checked & skipped`} ({doneCount})
+          {hideDone ? `Show done` : `Hide done`} ({doneCount})
         </button>
       )}
       {!hasItems ? (
@@ -369,57 +558,7 @@ export default function GroceryPage({ sidebar = false }) {
                   <span className="group-left-count done">{'\u2713'} done</span>
                 )}
               </button>
-              {expanded && items.filter(item => !isItemHidden(item.name.toLowerCase())).map(item => {
-                const nameLower = item.name.toLowerCase()
-                const isChecked = checkedSet.has(nameLower)
-                const isOrdered = orderedSet.has(nameLower)
-                const isSkipped = skippedSet.has(nameLower)
-                const stateClass = isChecked ? 'checked' : isOrdered ? 'ordered' : isSkipped ? 'skipped' : ''
-                return (
-                  <div
-                    key={item.name}
-                    className={`grocery-item ${stateClass}`}
-                  >
-                    {isOrdered ? (
-                      <>
-                        <span className="check ordered">{'\u2191'}</span>
-                        <span className="item-name ordered-text">
-                          {item.name}
-                          {item.meal_count > 1 && <span className="multi-badge">x{item.meal_count}</span>}
-                        </span>
-                        {item.for_meals && item.for_meals.length > 0 && (
-                          <span className="item-meals">{item.for_meals.join(', ')} {'\u00B7'} ordered</span>
-                        )}
-                      </>
-                    ) : (
-                      <>
-                        <span className={`item-name ${isChecked ? 'done-text' : isSkipped ? 'skipped-text' : ''}`}>
-                          {item.name}
-                          {item.meal_count > 1 && <span className="multi-badge">x{item.meal_count}</span>}
-                        </span>
-                        {item.for_meals && item.for_meals.length > 0 && (
-                          <span className="item-meals">{item.for_meals.join(', ')}</span>
-                        )}
-                        <div className="grocery-item-toggle">
-                          <button
-                            className={`toggle-seg bought ${isChecked ? 'active' : ''}`}
-                            onClick={() => handleToggle(item.name)}
-                          >Bought</button>
-                          <button
-                            className={`toggle-seg skip ${isSkipped ? 'active' : ''}`}
-                            onClick={() => handleSkip(item.name)}
-                          >Skip</button>
-                        </div>
-                        <button
-                          className="recat-btn"
-                          title="Move to different aisle"
-                          onClick={(e) => { e.stopPropagation(); setRecatItem(item.name) }}
-                        >{'\u2630'}</button>
-                      </>
-                    )}
-                  </div>
-                )
-              })}
+              {expanded && items.filter(item => !isItemHidden(item.name.toLowerCase())).map(renderItem)}
             </div>
           )
         })

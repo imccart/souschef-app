@@ -76,6 +76,7 @@ export const api = {
   getActiveTrip: () => request('/grocery/active-trip'),
   skipGroceryItem: (name) => request(`/grocery/skip/${encodeURIComponent(name)}`, { method: 'POST' }),
   unskipGroceryItem: (name) => request(`/grocery/unskip/${encodeURIComponent(name)}`, { method: 'POST' }),
+  haveItGroceryItem: (name) => request(`/grocery/have-it/${encodeURIComponent(name)}`, { method: 'POST' }),
   addRegulars: (selected) => request('/grocery/add-regulars', {
     method: 'POST',
     body: JSON.stringify({ selected }),

@@ -676,6 +676,7 @@ async def get_grocery(request: Request):
     checked_names: list[str] = []
     ordered_names: list[str] = []
     skipped_names: list[str] = []
+    have_it_names: list[str] = []
 
     for r in rows:
         group = r["shopping_group"] or "Other"
@@ -694,6 +695,8 @@ async def get_grocery(request: Request):
             ordered_names.append(r["name"].lower())
         if r["skipped"]:
             skipped_names.append(r["name"].lower())
+        if r["have_it"]:
+            have_it_names.append(r["name"].lower())
 
     return {
         "start_date": mw.start_date,
@@ -702,6 +705,7 @@ async def get_grocery(request: Request):
         "checked": checked_names,
         "ordered": ordered_names,
         "skipped": skipped_names,
+        "have_it": have_it_names,
         "regulars_added": bool(trip["regulars_added"]),
         "pantry_checked": bool(trip["pantry_checked"]),
     }
@@ -782,9 +786,9 @@ async def toggle_grocery_item(item_name: str, request: Request):
     if row:
         new_checked = 0 if row["checked"] else 1
         if new_checked:
-            # Clear skipped state when marking as bought
+            # Clear skipped/have_it state when marking as bought
             conn.execute(
-                text("UPDATE trip_items SET checked = 1, checked_at = CURRENT_TIMESTAMP, skipped = 0, skipped_at = NULL WHERE id = :id"),
+                text("UPDATE trip_items SET checked = 1, checked_at = CURRENT_TIMESTAMP, skipped = 0, skipped_at = NULL, have_it = 0, have_it_at = NULL WHERE id = :id"),
                 {"id": row["id"]},
             )
             # If checking off an item not ordered via Kroger, it's in-store
@@ -819,7 +823,7 @@ async def skip_grocery_item(item_name: str, request: Request):
         return await get_grocery(request)
 
     conn.execute(
-        text("UPDATE trip_items SET skipped = 1, skipped_at = CURRENT_TIMESTAMP, checked = 0, checked_at = NULL WHERE trip_id = :trip_id AND LOWER(name) = LOWER(:name)"),
+        text("UPDATE trip_items SET skipped = 1, skipped_at = CURRENT_TIMESTAMP, checked = 0, checked_at = NULL, have_it = 0, have_it_at = NULL WHERE trip_id = :trip_id AND LOWER(name) = LOWER(:name)"),
         {"trip_id": trip["id"], "name": item_name},
     )
     conn.commit()
@@ -839,6 +843,37 @@ async def unskip_grocery_item(item_name: str, request: Request):
         text("UPDATE trip_items SET skipped = 0, skipped_at = NULL WHERE trip_id = :trip_id AND LOWER(name) = LOWER(:name)"),
         {"trip_id": trip["id"], "name": item_name},
     )
+    conn.commit()
+    return await get_grocery(request)
+
+
+@router.post("/grocery/have-it/{item_name:path}")
+async def have_it_grocery_item(item_name: str, request: Request):
+    """Mark an item as already on hand."""
+    user_id = request.state.user_id
+    conn = _conn()
+    trip = _get_active_trip(conn, user_id)
+    if not trip:
+        return await get_grocery(request)
+
+    row = conn.execute(
+        text("SELECT id, have_it FROM trip_items WHERE trip_id = :trip_id AND LOWER(name) = LOWER(:name)"),
+        {"trip_id": trip["id"], "name": item_name},
+    ).fetchone()
+
+    if row:
+        if row["have_it"]:
+            # Un-have-it: return to active
+            conn.execute(
+                text("UPDATE trip_items SET have_it = 0, have_it_at = NULL WHERE id = :id"),
+                {"id": row["id"]},
+            )
+        else:
+            # Have it: clear other states
+            conn.execute(
+                text("UPDATE trip_items SET have_it = 1, have_it_at = CURRENT_TIMESTAMP, checked = 0, checked_at = NULL, skipped = 0, skipped_at = NULL WHERE id = :id"),
+                {"id": row["id"]},
+            )
     conn.commit()
     return await get_grocery(request)
 

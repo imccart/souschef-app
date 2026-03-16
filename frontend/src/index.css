@@ -840,13 +840,22 @@ main {
   background: var(--green);
   color: white;
 }
-.toggle-seg.skip.active {
-  background: var(--tan);
-  color: var(--brown);
+.toggle-seg.have-it.active {
+  background: var(--green);
+  color: white;
 }
 
-/* Skipped item styling */
-.grocery-item.skipped { opacity: 0.5; }
+/* Done item styling (bought or have-it) */
+.grocery-item.checked, .grocery-item.have-it { opacity: 0.6; }
+.check.done {
+  color: var(--green);
+  font-size: 14px;
+  flex-shrink: 0;
+}
+.item-name.done-text { text-decoration: line-through; color: var(--text-muted); }
+
+/* Skipped item styling (swipe to skip) */
+.grocery-item.skipped { opacity: 0.35; cursor: pointer; }
 .item-name.skipped-text { text-decoration: line-through; color: var(--text-muted); }
 
 .fresh-start-btn {

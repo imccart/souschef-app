@@ -254,6 +254,8 @@ trip_items = Table(
     Column("checked_at", Text),
     Column("skipped", Integer, nullable=False, server_default=text("0")),
     Column("skipped_at", Text),
+    Column("have_it", Integer, nullable=False, server_default=text("0")),
+    Column("have_it_at", Text),
     Column("added_at", Text, server_default=text("CURRENT_TIMESTAMP")),
     Column("ordered", Integer, nullable=False, server_default=text("0")),
     Column("ordered_at", Text),
