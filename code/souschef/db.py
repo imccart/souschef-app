@@ -33,7 +33,10 @@ def init_db(conn: DictConnection) -> None:
     print("[db] Tables created", flush=True)
 
     print("[db] Running column migrations...", flush=True)
-    _run_column_migrations(conn)
+    try:
+        _run_column_migrations(conn)
+    except Exception as e:
+        print(f"[db] Column migrations failed (non-fatal): {e}", flush=True)
     print("[db] Column migrations done", flush=True)
 
     # One-time data migrations
@@ -66,6 +69,7 @@ def _run_column_migrations(conn: DictConnection) -> None:
 
     Uses ADD COLUMN IF NOT EXISTS (PostgreSQL 9.6+) to avoid needing
     the inspector, which can hang when the old instance holds locks.
+    Sets a short lock_timeout so ALTER TABLE fails fast instead of blocking.
     """
     migrations = [
         ("ingredients", "root", "TEXT NOT NULL DEFAULT ''"),
@@ -118,13 +122,21 @@ def _run_column_migrations(conn: DictConnection) -> None:
         ("grocery_trips", "pantry_checked", "INTEGER NOT NULL DEFAULT 0"),
     ]
 
-    for table_name, col_name, col_def in migrations:
-        try:
-            conn.execute(text(
-                f"ALTER TABLE {table_name} ADD COLUMN IF NOT EXISTS {col_name} {col_def}"
-            ))
-        except Exception:
-            pass
+    # Use a separate connection with lock_timeout so we fail fast
+    # instead of blocking forever if the old instance holds locks.
+    # Columns that fail will be added on the next deploy.
+    from souschef.database import engine
+    with engine.connect() as raw_conn:
+        raw_conn.execute(text("SET lock_timeout = '3s'"))
+        for table_name, col_name, col_def in migrations:
+            try:
+                raw_conn.execute(text(
+                    f"ALTER TABLE {table_name} ADD COLUMN IF NOT EXISTS {col_name} {col_def}"
+                ))
+                raw_conn.commit()
+            except Exception as e:
+                print(f"[db]   {table_name}.{col_name} skipped: {e}", flush=True)
+                raw_conn.rollback()
 
 
 def _migrate_accepted_to_on_grocery(conn: DictConnection) -> None:
