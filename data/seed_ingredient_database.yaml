@@ -647,9 +647,13 @@ ingredients:
   # BREAD & BAKERY (~50 items)
   # ============================================================
 
+  - name: bread
+    aisle: Bread & Bakery
+    is_pantry_staple: 0
   - name: sliced bread
     aisle: Bread & Bakery
     is_pantry_staple: 0
+    root: bread
   - name: white bread
     aisle: Bread & Bakery
     is_pantry_staple: 0
