@@ -6,8 +6,6 @@ export default function ReceiptPage() {
   const [receipt, setReceipt] = useState(null)
   const [uploading, setUploading] = useState(false)
   const [uploadResult, setUploadResult] = useState(null)
-  const [pasteText, setPasteText] = useState('')
-  const [showPaste, setShowPaste] = useState(false)
   const [collapsedSections, setCollapsedSections] = useState({})
 
   const toggleSection = (key) => {
@@ -21,24 +19,6 @@ export default function ReceiptPage() {
   }
 
   useEffect(loadReceipt, [])
-
-  const handlePasteSubmit = async () => {
-    if (!pasteText.trim()) return
-    setUploading(true)
-    setUploadResult(null)
-    try {
-      const result = await api.uploadReceipt('text', pasteText.trim())
-      setUploadResult(result)
-      if (result.ok) {
-        loadReceipt()
-        setShowPaste(false)
-        setPasteText('')
-      }
-    } catch {
-      setUploadResult({ ok: false, error: 'Failed to upload receipt' })
-    }
-    setUploading(false)
-  }
 
   const handleFileUpload = async (e) => {
     const file = e.target.files?.[0]
@@ -118,42 +98,15 @@ export default function ReceiptPage() {
       {/* Upload section — show when items still need a receipt */}
       {hasAnyActivity && canUploadMore && (
         <div className="receipt-upload">
-          <div className="receipt-upload-label">
-            {receipt.has_receipt ? 'Upload another receipt' : 'Upload your receipt'}
-          </div>
-          <div className="receipt-upload-actions">
-            <label className="receipt-btn">
-              Upload PDF or image
-              <input
-                type="file"
-                accept=".pdf,.jpg,.jpeg,.png,.webp,.eml"
-                onChange={handleFileUpload}
-                style={{ display: 'none' }}
-              />
-            </label>
-            <button className="receipt-btn" onClick={() => setShowPaste(!showPaste)}>
-              Paste receipt text
-            </button>
-          </div>
-
-          {showPaste && (
-            <div className="receipt-paste">
-              <textarea
-                className="receipt-textarea"
-                placeholder="Paste your receipt email, order confirmation, or item list here..."
-                value={pasteText}
-                onChange={e => setPasteText(e.target.value)}
-                rows={8}
-              />
-              <button
-                className="build-list-btn"
-                onClick={handlePasteSubmit}
-                disabled={uploading || !pasteText.trim()}
-              >
-                {uploading ? 'Parsing...' : 'Parse Receipt'}
-              </button>
-            </div>
-          )}
+          <label className="receipt-upload-btn">
+            {receipt.has_receipt ? 'Upload another receipt' : 'Upload receipt'}
+            <input
+              type="file"
+              accept=".pdf,.jpg,.jpeg,.png,.webp"
+              onChange={handleFileUpload}
+              style={{ display: 'none' }}
+            />
+          </label>
 
           {uploading && (
             <div className="receipt-processing">Reading the receipt...</div>

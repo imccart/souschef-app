@@ -3202,26 +3202,16 @@ main {
 
 .receipt-upload {
   padding: 16px 0;
-  border-bottom: 1px solid var(--tan);
   margin-bottom: 16px;
 }
 
-.receipt-upload-label {
-  font-size: 13px;
-  font-weight: 600;
-  color: var(--dark);
-  margin-bottom: 10px;
-}
-
-.receipt-upload-actions {
-  display: flex;
-  gap: 8px;
-  flex-wrap: wrap;
-}
-
-.receipt-btn {
-  padding: 8px 16px;
-  font-size: 13px;
+.receipt-upload-btn {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  padding: 10px 20px;
+  font-size: 14px;
+  font-weight: 500;
   font-family: 'DM Sans', sans-serif;
   border: 1.5px solid var(--tan);
   border-radius: 8px;
@@ -3230,7 +3220,7 @@ main {
   cursor: pointer;
 }
 
-.receipt-btn:hover {
+.receipt-upload-btn:hover {
   border-color: var(--accent-light);
 }
 
@@ -3241,28 +3231,6 @@ main {
   font-style: italic;
 }
 
-.receipt-paste {
-  margin-top: 12px;
-}
-
-.receipt-textarea {
-  width: 100%;
-  padding: 10px 12px;
-  font-size: 13px;
-  font-family: 'DM Sans', sans-serif;
-  border: 1.5px solid var(--tan);
-  border-radius: 8px;
-  background: var(--warm-white);
-  color: var(--dark);
-  resize: vertical;
-  outline: none;
-  box-sizing: border-box;
-  margin-bottom: 10px;
-}
-
-.receipt-textarea:focus {
-  border-color: var(--accent-light);
-}
 
 .receipt-section {
   margin-bottom: 20px;
@@ -3441,11 +3409,9 @@ main {
 
 /* Receipt — mobile */
 @media (max-width: 640px) {
-  .receipt-textarea { font-size: 16px; }
   .receipt-section-label { font-size: 12px; }
   .receipt-item-actions { flex-wrap: wrap; }
   .receipt-resolve-btn { flex: 1 1 auto; min-width: 120px; text-align: center; }
-  .receipt-upload-label { font-size: 14px; }
 }
 
 /* Receipt — desktop max-width */
