@@ -2203,18 +2203,34 @@ async def get_pantry(request: Request):
     user_id = request.state.user_id
     conn = _conn()
     items = list_pantry(conn, user_id)
-    return {
-        "items": [
-            {
-                "id": p.id,
-                "ingredient_id": p.ingredient_id,
-                "name": p.ingredient_name,
-                "quantity": p.quantity,
-                "unit": p.unit,
-            }
-            for p in items
-        ]
-    }
+
+    # Look up shopping groups: user override > ingredient aisle > 'Other'
+    override_rows = conn.execute(
+        text("SELECT LOWER(item_name) AS item_name, shopping_group FROM user_item_groups WHERE user_id = :user_id"),
+        {"user_id": user_id},
+    ).fetchall()
+    user_overrides = {r["item_name"]: r["shopping_group"] for r in override_rows}
+
+    result = []
+    for p in items:
+        name_lower = p.ingredient_name.lower()
+        group = user_overrides.get(name_lower)
+        if not group:
+            ing = conn.execute(
+                text("SELECT aisle FROM ingredients WHERE id = :id"),
+                {"id": p.ingredient_id},
+            ).fetchone()
+            group = ing["aisle"] if ing and ing["aisle"] else "Other"
+        result.append({
+            "id": p.id,
+            "ingredient_id": p.ingredient_id,
+            "name": p.ingredient_name,
+            "quantity": p.quantity,
+            "unit": p.unit,
+            "shopping_group": group,
+        })
+
+    return {"items": result}
 
 
 @router.post("/pantry")
