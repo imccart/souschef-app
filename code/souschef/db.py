@@ -27,37 +27,53 @@ def get_conn(db_path: str | None = None) -> DictConnection:
 
 
 def init_db(conn: DictConnection) -> None:
-    """Create tables and run additive migrations."""
-    print("[db] Creating tables...", flush=True)
-    create_tables()
-    print("[db] Tables created", flush=True)
+    """Create tables and run additive migrations.
 
+    On an established DB, create_tables() and data migrations are all no-ops
+    but they still do schema introspection that can hang if the old instance
+    holds locks. We check if the DB is already set up and skip them.
+    """
+    # Check if DB is already established (has users table with data)
+    try:
+        row = conn.execute(text("SELECT 1 FROM users LIMIT 1")).fetchone()
+        db_exists = row is not None
+    except Exception:
+        db_exists = False
+
+    if not db_exists:
+        # Fresh DB — run full init
+        print("[db] Fresh DB, creating tables...", flush=True)
+        create_tables()
+        print("[db] Tables created", flush=True)
+
+        print("[db] Running data migrations...", flush=True)
+        for name, fn in [
+            ("accepted_to_on_grocery", _migrate_accepted_to_on_grocery),
+            ("ratings_to_table", _migrate_ratings_to_table),
+            ("to_regulars", _migrate_to_regulars),
+            ("slots_to_meals", _migrate_slots_to_meals),
+            ("shopping_groups", _migrate_shopping_groups),
+            ("regulars_default_inactive", _migrate_regulars_default_inactive),
+            ("grocery_to_trips", _migrate_grocery_to_trips),
+            ("onboarding_marker", _migrate_onboarding_marker),
+            ("create_default_user", _migrate_create_default_user),
+            ("create_households", _migrate_create_households),
+            ("stores_to_db", _migrate_stores_to_db),
+            ("default_user_id_rows", _migrate_default_user_id_rows),
+            ("recipes_unique_constraint", _migrate_recipes_unique_constraint),
+            ("sides_to_junction", _migrate_sides_to_junction),
+        ]:
+            print(f"[db] Migration: {name}...", flush=True)
+            fn(conn)
+        conn.commit()
+    else:
+        print("[db] DB exists, skipping create_tables and data migrations", flush=True)
+
+    # Column migrations always run (idempotent, fast with IF NOT EXISTS)
     print("[db] Running column migrations...", flush=True)
     _run_column_migrations(conn)
     print("[db] Column migrations done", flush=True)
 
-    # One-time data migrations
-    for name, fn in [
-        ("accepted_to_on_grocery", _migrate_accepted_to_on_grocery),
-        ("ratings_to_table", _migrate_ratings_to_table),
-        ("to_regulars", _migrate_to_regulars),
-        ("slots_to_meals", _migrate_slots_to_meals),
-        ("shopping_groups", _migrate_shopping_groups),
-        ("regulars_default_inactive", _migrate_regulars_default_inactive),
-        ("grocery_to_trips", _migrate_grocery_to_trips),
-        ("onboarding_marker", _migrate_onboarding_marker),
-        ("create_default_user", _migrate_create_default_user),
-        ("create_households", _migrate_create_households),
-        ("stores_to_db", _migrate_stores_to_db),
-        ("default_user_id_rows", _migrate_default_user_id_rows),
-        ("recipes_unique_constraint", _migrate_recipes_unique_constraint),
-        ("sides_to_junction", _migrate_sides_to_junction),
-    ]:
-        print(f"[db] Migration: {name}...", flush=True)
-        fn(conn)
-
-    print("[db] All migrations done, committing...", flush=True)
-    conn.commit()
     print("[db] init_db complete", flush=True)
 
 
