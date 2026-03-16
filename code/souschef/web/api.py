@@ -1161,24 +1161,9 @@ async def search_order_products(item_name: str, request: Request, fulfillment: s
         else:
             del _search_cache[cache_key]
 
-    # Normalize item name, then use ingredient root as search term if available.
-    # But if normalization changed the name significantly (fuzzy match to a different item),
-    # prefer the user's original name for the search.
-    canonical, ing_id = _normalize_name(conn, item_name)
-    original = item_name.strip().lower()
-    ing = None
-    if ing_id:
-        ing = conn.execute(
-            text("SELECT root, name FROM ingredients WHERE id = :id"),
-            {"id": ing_id},
-        ).fetchone()
-    # Use root if the canonical match is close to the original, otherwise use original
-    if ing and ing["root"] and canonical == original:
-        search_term = ing["root"].strip()
-    elif ing and ing["root"] and original in canonical:
-        search_term = ing["root"].strip()
-    else:
-        search_term = original
+    # Use the item name as-is for the Kroger search. The ingredient 'root' field
+    # is for dedup (e.g., "apple juice" and "orange juice" → "juice"), not for search.
+    search_term = item_name.strip().lower()
 
     # Get preferences first
     prefs = get_preferred_products(conn, user_id, item_name, limit=3)
