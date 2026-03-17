@@ -1552,16 +1552,23 @@ async def submit_order(request: Request):
             return {"ok": False, "error": "No linked store account. Connect in Preferences."}
 
     items = [{"upc": r["product_upc"]} for r in rows]
+    # Mark submitted BEFORE calling Kroger — if the process dies mid-request,
+    # items won't re-appear on the order page for a duplicate submit
+    conn.execute(
+        text("UPDATE trip_items SET submitted_at = CURRENT_TIMESTAMP WHERE trip_id = :trip_id AND product_upc != '' AND ordered = 1 AND submitted_at IS NULL"),
+        {"trip_id": trip["id"]},
+    )
+    conn.commit()
     try:
         add_to_cart(items, token=token)
-        # Mark all submitted items so they don't show again in the order flow
+        return {"ok": True, "count": len(items)}
+    except Exception as e:
+        # Roll back submitted_at so user can retry
         conn.execute(
-            text("UPDATE trip_items SET submitted_at = CURRENT_TIMESTAMP WHERE trip_id = :trip_id AND product_upc != '' AND ordered = 1 AND submitted_at IS NULL"),
+            text("UPDATE trip_items SET submitted_at = NULL WHERE trip_id = :trip_id AND product_upc != '' AND ordered = 1"),
             {"trip_id": trip["id"]},
         )
         conn.commit()
-        return {"ok": True, "count": len(items)}
-    except Exception as e:
         logger.exception("Failed to add items to cart")
         return {"ok": False, "error": "Failed to add items to cart"}
 
