@@ -55,42 +55,18 @@ def _load_image_for_api(image_path: str) -> tuple[str, str]:
 
 
 def parse_receipt_image(image_path: str, grocery_names: list[str] | None = None) -> list[dict]:
-    """Parse a receipt image using Claude Vision.
+    """Parse a receipt image using Claude Vision (two-step pipeline).
 
-    If grocery_names is provided, returns pre-matched results via single-call pipeline.
-    Otherwise falls back to text-based parsing.
-    Returns list of {item, raw, qty, price}.
+    Step 1: Pure OCR — extract raw text lines and prices from the image.
+    Step 2: Text-only decode + match — decode abbreviations and match to grocery list.
+
+    Returns list of {item, raw, qty, price, grocery_match?}.
     """
     image_data, media_type = _load_image_for_api(image_path)
     client = _get_client()
 
-    grocery_context = ""
-    if grocery_names:
-        grocery_context = (
-            "\n\nSTEP 3: Match items to my grocery list ONLY when clearly the same product.\n"
-            f"Grocery list: {json.dumps(grocery_names)}\n\n"
-            "MATCHING RULES:\n"
-            "- Hot dog franks (e.g. NTHN ANG BF FRNKS) match 'hot dogs'\n"
-            "- BLPK BUNS match 'hot dog buns'\n"
-            "- CARROTS match 'carrot'\n"
-            "- BANANA ORGNC means Organic Bananas, NOT orange juice\n"
-            "- BREAD BUTTER WINE is a wine brand, NOT bread — it is an extra\n"
-            "- OM NACHOS GRANDE is an Oscar Mayer Lunchable, NOT tortilla chips — extra\n"
-            "- ST BCN CHS EGG BIT is Starbucks Egg Bites snack, NOT eggs — extra\n"
-            "- Frozen meals (Michelinas, Lunchables) do NOT match basic ingredients\n"
-            "- ORGNC means Organic, not Orange\n"
-            "- If unsure, put it in extras. Do NOT force matches.\n\n"
-            "Return ONLY valid JSON (no markdown, no explanation):\n"
-            '{"matched": [{"grocery_name": "...", "receipt_item": "...", "raw": "...", "price": 0.00}], '
-            '"extras": [{"receipt_item": "...", "raw": "...", "price": 0.00}]}'
-        )
-    else:
-        grocery_context = (
-            "\n\nReturn ONLY a valid JSON array (no markdown, no explanation). Each object:\n"
-            '{"item": "decoded name", "raw": "exact receipt text", "price": 0.00, "qty": 1}'
-        )
-
-    message = client.messages.create(
+    # ── Step 1: Pure OCR — extract raw text exactly as printed ──
+    ocr_response = client.messages.create(
         model="claude-sonnet-4-20250514",
         max_tokens=2048,
         messages=[{
@@ -107,52 +83,117 @@ def parse_receipt_image(image_path: str, grocery_names: list[str] | None = None)
                 {
                     "type": "text",
                     "text": (
-                        "Read this grocery receipt and extract every purchased item.\n\n"
-                        "STEP 1: Identify item lines vs non-item lines.\n"
-                        "ITEM lines have: product name, then a price like 3.67, then a letter (B, T, or F).\n"
-                        "SKIP lines starting with SC (savings/discounts).\n"
-                        "SKIP lines like 1 @ 4/5.00 or weight lines (2.70 lb @ 0.69).\n"
-                        "SKIP TAX, BALANCE, TOTAL, KROGER PLUS CUSTOMER, payment info, store header.\n"
-                        "PC after an item name is a price code, not part of the product name.\n\n"
-                        "STEP 2: For each item, provide raw (exact receipt text), item/receipt_item "
-                        "(decoded name), and price.\n\n"
-                        "Common grocery receipt abbreviations: NTHN=Nathan's, BLPK=Ballpark, "
-                        "OM/OSCM=Oscar Mayer, ST=Starbucks, TYFR=Taylor Farms, MICHELINA=Michelina's, "
-                        "BF=Beef, FRNKS=Franks, CHS=Cheese, BCN=Bacon, ORGNC=Organic, STO=Store brand."
-                        + grocery_context
+                        "Extract every ITEM LINE from this grocery receipt. Copy the text EXACTLY "
+                        "as printed — do NOT decode abbreviations, do NOT guess what words mean.\n\n"
+                        "ITEM lines have: abbreviated product name, then a price (like 3.67), "
+                        "then usually a tax letter (B, T, or F).\n\n"
+                        "SKIP these non-item lines:\n"
+                        "- Lines starting with SC (savings/coupons)\n"
+                        "- Lines like '1 @ 4/5.00' or weight lines ('2.70 lb @ 0.69')\n"
+                        "- TAX, BALANCE DUE, TOTAL, KROGER PLUS, payment info, store header/footer\n"
+                        "- 'PC' after a product name is a price code marker, include it in raw text\n\n"
+                        "Return ONLY a JSON array (no markdown). Each object:\n"
+                        '{"raw": "EXACT text as printed", "price": 3.67}\n\n'
+                        "Example: if the receipt says 'NTHN ANG BF FRNKS    4.99 B', return:\n"
+                        '{"raw": "NTHN ANG BF FRNKS", "price": 4.99}'
                     ),
                 },
             ],
         }],
     )
 
-    result_text = message.content[0].text
-    parsed = _extract_json(result_text)
+    ocr_text = ocr_response.content[0].text
+    ocr_items = _extract_json(ocr_text)
+    if not isinstance(ocr_items, list) or not ocr_items:
+        return []
 
-    if grocery_names and isinstance(parsed, dict):
-        # Single-call pipeline returned {matched, extras} — flatten to item list
-        # with grocery_match metadata for _process_receipt to use
+    print(f"[receipt] OCR extracted {len(ocr_items)} lines", flush=True)
+    for item in ocr_items:
+        print(f"[receipt]   raw={item.get('raw', '?')!r}  price={item.get('price', '?')}", flush=True)
+
+    # ── Step 2: Decode abbreviations + match to grocery list (text-only) ──
+    raw_lines = [item.get("raw", "") for item in ocr_items]
+
+    if grocery_names:
+        decode_prompt = (
+            "I have raw text from a Kroger grocery receipt and a grocery shopping list. "
+            "For each receipt line, decode the abbreviation into the full product name, "
+            "then decide if it matches something on my grocery list.\n\n"
+            "Common Kroger abbreviations:\n"
+            "- NTHN = Nathan's, BLPK = Ballpark, OM/OSCM/OSCT = Oscar Mayer\n"
+            "- ST = Starbucks, TYFR = Taylor Farms, MICHELINA = Michelina's\n"
+            "- BF = Beef, FRNKS = Franks, CHS = Cheese, BCN = Bacon\n"
+            "- ORGNC = Organic, STO = Store brand, HNBRG = Hamburger\n"
+            "- LNCH/LNCHBL = Lunchable, PBLE = portable, CRR = probably not 'carrot'\n"
+            "- SHCS = Sliced Cheese, BNS = Buns\n\n"
+            "MATCHING RULES — be strict:\n"
+            "- Only match if the product IS the grocery item (same food category)\n"
+            "- Hot dog franks → 'hot dogs'. Buns → 'hot dog buns'. Carrots → 'carrot'.\n"
+            "- Lunchables are NOT carrot, NOT eggs, NOT any basic ingredient\n"
+            "- Starbucks Egg Bites are NOT 'eggs' — they're a prepared snack\n"
+            "- Hamburger Buns/Sliced Cheese are NOT 'hot dog buns'\n"
+            "- Banana/Organic Bananas are NOT bread, NOT orange juice\n"
+            "- Frozen meals do NOT match basic ingredients\n"
+            "- A product that CONTAINS an ingredient is NOT a match (egg bites ≠ eggs)\n"
+            "- When in doubt, do NOT match. Unmatched items are fine.\n\n"
+            f"Receipt lines: {json.dumps(raw_lines)}\n"
+            f"Grocery list: {json.dumps(grocery_names)}\n\n"
+            "Return ONLY valid JSON (no markdown):\n"
+            '{"items": [{"raw": "exact receipt text", "decoded": "full product name", '
+            '"grocery_match": "grocery list item or null"}]}'
+        )
+    else:
+        decode_prompt = (
+            "Decode these Kroger grocery receipt abbreviations into full product names.\n\n"
+            "Common abbreviations: NTHN=Nathan's, BLPK=Ballpark, OM/OSCM/OSCT=Oscar Mayer, "
+            "ST=Starbucks, TYFR=Taylor Farms, BF=Beef, FRNKS=Franks, CHS=Cheese, "
+            "BCN=Bacon, ORGNC=Organic, STO=Store brand, HNBRG=Hamburger.\n\n"
+            f"Receipt lines: {json.dumps(raw_lines)}\n\n"
+            "Return ONLY a JSON array (no markdown). Each object:\n"
+            '{"raw": "exact receipt text", "decoded": "full product name"}'
+        )
+
+    decode_response = client.messages.create(
+        model="claude-sonnet-4-20250514",
+        max_tokens=2048,
+        messages=[{"role": "user", "content": decode_prompt}],
+    )
+
+    decoded = _extract_json(decode_response.content[0].text)
+
+    # Build price lookup from OCR step
+    price_by_raw = {item.get("raw", ""): item.get("price") for item in ocr_items}
+
+    if grocery_names and isinstance(decoded, dict):
         items = []
-        for m in parsed.get("matched", []):
-            items.append({
-                "item": m.get("receipt_item", m.get("item", "")),
-                "raw": m.get("raw", ""),
-                "price": m.get("price"),
-                "qty": m.get("qty", 1),
-                "grocery_match": m.get("grocery_name", ""),
-            })
-        for e in parsed.get("extras", []):
-            items.append({
-                "item": e.get("receipt_item", e.get("item", "")),
-                "raw": e.get("raw", ""),
-                "price": e.get("price"),
-                "qty": e.get("qty", 1),
-            })
+        for d in decoded.get("items", []):
+            raw = d.get("raw", "")
+            entry = {
+                "item": d.get("decoded", raw),
+                "raw": raw,
+                "price": price_by_raw.get(raw, d.get("price")),
+                "qty": 1,
+            }
+            match = d.get("grocery_match")
+            if match and match != "null" and match.lower() != "null":
+                entry["grocery_match"] = match
+                print(f"[receipt]   matched: {raw!r} → {d.get('decoded', '?')!r} → {match!r}", flush=True)
+            else:
+                print(f"[receipt]   extra: {raw!r} → {d.get('decoded', '?')!r}", flush=True)
+            items.append(entry)
         return items
 
-    # Standard list of items
-    if isinstance(parsed, list):
-        return parsed
+    if isinstance(decoded, list):
+        items = []
+        for d in decoded:
+            raw = d.get("raw", "")
+            items.append({
+                "item": d.get("decoded", raw),
+                "raw": raw,
+                "price": price_by_raw.get(raw, d.get("price")),
+                "qty": 1,
+            })
+        return items
 
     return []
 
