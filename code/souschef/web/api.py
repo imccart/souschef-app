@@ -1711,6 +1711,7 @@ async def _process_receipt(receipt_type: str, content: str, request: Request):
     )
 
     # Dedup: find receipt items already matched in prior uploads
+    # Check both receipt_item (decoded name) and raw text stored in receipt_data
     already_matched_rows = conn.execute(
         text("""SELECT LOWER(receipt_item) AS ri FROM trip_items
            WHERE trip_id = :trip_id AND receipt_status IN ('matched', 'substituted') AND receipt_item != ''"""),
@@ -1718,12 +1719,26 @@ async def _process_receipt(receipt_type: str, content: str, request: Request):
     ).fetchall()
     already_matched_names = {r["ri"] for r in already_matched_rows}
 
-    # Filter out previously matched receipt items
+    # Also check existing extras to avoid re-inserting
+    try:
+        existing_extras = conn.execute(
+            text("SELECT LOWER(item_name) AS name FROM receipt_extra_items WHERE trip_id = :trip_id"),
+            {"trip_id": trip["id"]},
+        ).fetchall()
+        already_extra_names = {r["name"] for r in existing_extras}
+    except Exception:
+        already_extra_names = set()
+
+    # Filter out previously matched receipt items (check both raw and decoded names)
     new_receipt_items = []
     previously_matched = 0
     for ri in receipt_items:
         ri_name = (ri.get("item") or "").lower().strip()
-        if ri_name and ri_name in already_matched_names:
+        ri_raw = (ri.get("raw") or "").lower().strip()
+        if (ri_name and ri_name in already_matched_names) or \
+           (ri_raw and ri_raw in already_matched_names) or \
+           (ri_name and ri_name in already_extra_names) or \
+           (ri_raw and ri_raw in already_extra_names):
             previously_matched += 1
         else:
             new_receipt_items.append(ri)
@@ -1793,7 +1808,7 @@ async def _process_receipt(receipt_type: str, content: str, request: Request):
 
         # Remaining receipt items after pass 2
         matched_grocery_names = {m["grocery_name"].lower() for m in diff2["matched"]}
-        receipt_remaining = diff2.get("added", [])
+        receipt_remaining = diff2.get("unmatched", [])
 
         # Name-only items not on receipt
         for r in name_rows:
@@ -1835,11 +1850,14 @@ async def _process_receipt(receipt_type: str, content: str, request: Request):
     # Save unmatched receipt items as extras
     if receipt_remaining:
         for ri in receipt_remaining:
+            display_name = ri.get("item") or ri.get("raw") or ""
+            if not display_name:
+                continue
             try:
                 conn.execute(
                     text("""INSERT INTO receipt_extra_items (trip_id, item_name, price, upc, brand)
                        VALUES (:trip_id, :item_name, :price, :upc, :brand)"""),
-                    {"trip_id": trip["id"], "item_name": ri.get("item", ""),
+                    {"trip_id": trip["id"], "item_name": display_name,
                      "price": ri.get("price"), "upc": ri.get("upc", ""),
                      "brand": ri.get("brand", "")},
                 )

@@ -76,22 +76,33 @@ def parse_receipt_image(image_path: str) -> list[dict]:
                 {
                     "type": "text",
                     "text": (
-                        "Parse this grocery receipt. Extract every purchased item as JSON.\n"
-                        "Return ONLY a JSON array, no other text. Each object should have:\n"
-                        '- "item": the FULL interpreted product name. Grocery receipts use heavy '
-                        "abbreviations — you must decode them into the actual brand and product name. Examples:\n"
-                        '  "NTHN ANG BF FRNKS" → "Nathan\'s Angus Beef Franks"\n'
-                        '  "BLPK BUN" → "Ballpark Buns"\n'
-                        '  "KR CRTS CELLO" → "Kroger Carrots Cello Bag"\n'
-                        '  "ORG BNNNAS" → "Organic Bananas"\n'
-                        '  "GRK YGRT VNL" → "Greek Yogurt Vanilla"\n'
-                        '  "SM CRFT MAC CH" → "Smart Craft Mac and Cheese"\n'
-                        "  Always include the brand name if recognizable from the abbreviation.\n"
+                        "Parse this grocery store receipt image. Extract every purchased item as JSON.\n"
+                        "Return ONLY a JSON array, no other text.\n\n"
+                        "CRITICAL: Read the receipt text EXACTLY as printed. Do NOT guess or decode "
+                        "abbreviations — preserve the raw text character by character. For example, if "
+                        'the receipt says "TYFR SLAD KIT", write exactly "TYFR SLAD KIT", do NOT '
+                        'guess "Taylor Farms Salad Kit" or "Tylenol Salad Kit".\n\n'
+                        "Each object should have:\n"
+                        '- "raw": the EXACT text as printed on the receipt (verbatim, no interpretation)\n'
+                        '- "item": your best guess at the full product name (decode abbreviations here). '
+                        "Common grocery brand abbreviations: NTHN=Nathan's, BLPK=Ballpark, OM/OSCM=Oscar Mayer, "
+                        "ST=Starbucks, TYFR=Taylor Farms, PRSL=Fresh Express, KR/KRG=Kroger, GV=Great Value, "
+                        "MICHELINA=Michelina's, BCN=Bacon, CHS=Cheese, BF=Beef, FRNKS=Franks, "
+                        "ORGNC=Organic, STO=Store brand. If unsure, just clean up the raw text slightly.\n"
                         '- "qty": quantity (integer, default 1)\n'
                         '- "price": total price for that line item (float)\n'
-                        '- "upc": the UPC/barcode number if visible on the receipt (string, omit if not present)\n'
-                        "Ignore subtotals, tax, totals, savings lines, store info, and payment lines.\n"
-                        "If an item was voided or removed, skip it.\n"
+                        '- "upc": the UPC/barcode number if visible (string, omit if not present)\n\n'
+                        "SKIP these lines (they are NOT purchased items):\n"
+                        "- Lines starting with 'SC' or containing 'SAVINGS' or 'COUPON' (these are discounts)\n"
+                        "- Lines like 'X @ Y/Z.ZZ' or 'X.XX lb @ X.XX /lb' (quantity/weight pricing)\n"
+                        "- TAX, BALANCE, TOTAL, SUBTOTAL lines\n"
+                        "- KROGER PLUS CUSTOMER, loyalty card, payment method lines\n"
+                        "- Store name, address, phone number, cashier info\n"
+                        "- 'Age Restricted' lines\n"
+                        "- Any line that is clearly a discount amount (usually indented with SC prefix)\n\n"
+                        "The letter at the end of each price line (B, T, F) is a tax code — ignore it, "
+                        "it is not part of the item name. 'PC' appearing after item names is a price code marker, "
+                        "not part of the item name either.\n"
                     ),
                 },
             ],
