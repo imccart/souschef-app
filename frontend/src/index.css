@@ -1523,6 +1523,33 @@ main {
 .empty-state .icon { font-size: 32px; margin-bottom: 8px; }
 .empty-state p { margin-bottom: 16px; }
 
+.closed-sign {
+  display: inline-block;
+  background: var(--cream, #faf7f2);
+  border: 2px solid var(--tan, #c9b99a);
+  border-radius: 10px;
+  padding: 18px 32px 14px;
+  position: relative;
+  box-shadow: 0 2px 8px rgba(0,0,0,0.06);
+  transform: rotate(-3deg);
+}
+
+.closed-sign-hole {
+  width: 8px;
+  height: 8px;
+  border-radius: 50%;
+  border: 1.5px solid var(--tan, #c9b99a);
+  margin: 0 auto 10px;
+}
+
+.closed-sign-text {
+  font-family: 'Playfair Display', serif;
+  font-size: 18px;
+  font-style: italic;
+  color: var(--dark, #2c2420);
+  letter-spacing: 0.3px;
+}
+
 .loading {
   text-align: center;
   padding: 40px;
