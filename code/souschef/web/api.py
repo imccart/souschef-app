@@ -1964,7 +1964,7 @@ async def upload_receipt_file(request: Request, file: UploadFile = File(...)):
     with tempfile.NamedTemporaryFile(delete=False, suffix=suffix) as tmp:
         content = await file.read()
         tmp.write(content)
-        logger.info(f"Receipt upload: {file.filename}, {len(content)} bytes, suffix={suffix}")
+        print(f"[receipt] Upload: {file.filename}, {len(content)} bytes, suffix={suffix}", flush=True)
         tmp_path = tmp.name
 
     try:
