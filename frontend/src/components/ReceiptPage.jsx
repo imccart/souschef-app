@@ -1,12 +1,17 @@
 import { useState, useEffect } from 'react'
 import { api } from '../api/client'
 import FeedbackFab from './FeedbackFab'
+import CameraCapture from './CameraCapture'
+
+const hasCamera = typeof navigator !== 'undefined'
+  && !!navigator.mediaDevices?.getUserMedia
 
 export default function ReceiptPage() {
   const [receipt, setReceipt] = useState(null)
   const [uploading, setUploading] = useState(false)
   const [uploadResult, setUploadResult] = useState(null)
   const [collapsedSections, setCollapsedSections] = useState({})
+  const [showCamera, setShowCamera] = useState(false)
 
   const toggleSection = (key) => {
     setCollapsedSections(prev => ({ ...prev, [key]: !prev[key] }))
@@ -20,15 +25,9 @@ export default function ReceiptPage() {
 
   useEffect(loadReceipt, [])
 
-  const handleFileUpload = async (e) => {
-    const file = e.target.files?.[0]
-    if (!file) return
+  const uploadFormData = async (formData) => {
     setUploading(true)
     setUploadResult(null)
-
-    const formData = new FormData()
-    formData.append('file', file)
-
     try {
       const res = await fetch('/api/receipt/upload-file', {
         method: 'POST',
@@ -42,7 +41,22 @@ export default function ReceiptPage() {
       setUploadResult({ ok: false, error: err.message })
     }
     setUploading(false)
+  }
+
+  const handleFileUpload = async (e) => {
+    const file = e.target.files?.[0]
+    if (!file) return
+    const formData = new FormData()
+    formData.append('file', file)
+    await uploadFormData(formData)
     e.target.value = '' // reset file input
+  }
+
+  const handleCameraCapture = async (blob) => {
+    setShowCamera(false)
+    const formData = new FormData()
+    formData.append('file', new File([blob], 'receipt.jpg', { type: 'image/jpeg' }))
+    await uploadFormData(formData)
   }
 
   const handleResolve = async (name, status) => {
@@ -97,18 +111,33 @@ export default function ReceiptPage() {
         </div>
       </div>
 
+      {/* Camera overlay */}
+      {showCamera && (
+        <CameraCapture
+          onCapture={handleCameraCapture}
+          onClose={() => setShowCamera(false)}
+        />
+      )}
+
       {/* Upload section — show when items still need a receipt */}
       {hasAnyActivity && canUploadMore && (
         <div className="receipt-upload">
-          <label className="receipt-upload-btn">
-            {receipt.has_receipt ? 'Upload another receipt' : 'Upload receipt'}
-            <input
-              type="file"
-              accept=".pdf,.jpg,.jpeg,.png,.webp"
-              onChange={handleFileUpload}
-              style={{ display: 'none' }}
-            />
-          </label>
+          <div className="receipt-upload-buttons">
+            {hasCamera && (
+              <button className="receipt-upload-btn" onClick={() => setShowCamera(true)}>
+                Take photo
+              </button>
+            )}
+            <label className="receipt-upload-btn secondary">
+              Choose from library
+              <input
+                type="file"
+                accept=".pdf,.jpg,.jpeg,.png,.webp"
+                onChange={handleFileUpload}
+                style={{ display: 'none' }}
+              />
+            </label>
+          </div>
 
           {uploading && (
             <div className="receipt-processing">Reading the receipt...</div>
