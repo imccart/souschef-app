@@ -83,15 +83,21 @@ def parse_receipt_image(image_path: str, grocery_names: list[str] | None = None)
                 {
                     "type": "text",
                     "text": (
-                        "Extract every ITEM LINE from this grocery receipt. Copy the text EXACTLY "
-                        "as printed — do NOT decode abbreviations, do NOT guess what words mean.\n\n"
+                        "Extract every PURCHASED ITEM from this grocery receipt. Copy the product name "
+                        "EXACTLY as printed — do NOT decode abbreviations, do NOT guess what words mean.\n\n"
                         "ITEM lines have: abbreviated product name, then a price (like 3.67), "
                         "then usually a tax letter (B, T, or F).\n\n"
-                        "SKIP these non-item lines:\n"
-                        "- Lines starting with SC (savings/coupons)\n"
+                        "SKIP ALL of these — they are NOT purchased items:\n"
+                        "- KROGER SAVINGS, KROGER PLUS SAVINGS, YOUR SAVINGS, TOTAL SAVINGS\n"
+                        "- Any line starting with SC (savings/coupon discounts)\n"
+                        "- Negative prices (refunds/discounts like -1.00)\n"
                         "- Lines like '1 @ 4/5.00' or weight lines ('2.70 lb @ 0.69')\n"
-                        "- TAX, BALANCE DUE, TOTAL, KROGER PLUS, payment info, store header/footer\n"
-                        "- 'PC' after a product name is a price code marker, include it in raw text\n\n"
+                        "- TAX, BALANCE DUE, TOTAL, KROGER PLUS CUSTOMER, CHANGE\n"
+                        "- Payment lines (VISA, DEBIT, CREDIT, CASH)\n"
+                        "- Store header/footer, date, time, register number, cashier\n"
+                        "- 'PC' or 'MFG' after a product name is a code, not part of the name\n\n"
+                        "The word KROGER followed by SAVINGS is ALWAYS a discount line, never a product. "
+                        "Even if you read it as 'KROGER SMOKIES' or similar — it is KROGER SAVINGS.\n\n"
                         "Return ONLY a JSON array (no markdown). Each object:\n"
                         '{"raw": "EXACT text as printed", "price": 3.67}\n\n'
                         "Example: if the receipt says 'NTHN ANG BF FRNKS    4.99 B', return:\n"
@@ -107,7 +113,31 @@ def parse_receipt_image(image_path: str, grocery_names: list[str] | None = None)
     if not isinstance(ocr_items, list) or not ocr_items:
         return []
 
-    print(f"[receipt] OCR extracted {len(ocr_items)} lines", flush=True)
+    # Filter out non-item lines that OCR may have included
+    _skip_patterns = re.compile(
+        r"(?i)(kroger\s*sav|kroger\s*plus|your\s*sav|total\s*sav|"
+        r"^sc\s|^tax\s|balance|"
+        r"visa|debit|credit|change\s*due|"
+        r"kroger\s*smok)",  # common OCR misread of "KROGER SAVINGS"
+    )
+    filtered = []
+    for item in ocr_items:
+        raw = item.get("raw", "")
+        price = item.get("price")
+        # Skip negative prices (discounts/refunds)
+        if isinstance(price, (int, float)) and price < 0:
+            print(f"[receipt]   SKIP (negative): {raw!r}", flush=True)
+            continue
+        if _skip_patterns.search(raw):
+            print(f"[receipt]   SKIP (pattern): {raw!r}", flush=True)
+            continue
+        filtered.append(item)
+    ocr_items = filtered
+
+    if not ocr_items:
+        return []
+
+    print(f"[receipt] OCR extracted {len(ocr_items)} item lines", flush=True)
     for item in ocr_items:
         print(f"[receipt]   raw={item.get('raw', '?')!r}  price={item.get('price', '?')}", flush=True)
 
@@ -116,26 +146,34 @@ def parse_receipt_image(image_path: str, grocery_names: list[str] | None = None)
 
     if grocery_names:
         decode_prompt = (
-            "I have raw text from a Kroger grocery receipt and a grocery shopping list. "
-            "For each receipt line, decode the abbreviation into the full product name, "
-            "then decide if it matches something on my grocery list.\n\n"
+            "I have raw text lines from a Kroger grocery receipt and my grocery shopping list. "
+            "For each receipt line:\n"
+            "1. Decode the abbreviation into the full product name\n"
+            "2. Decide if it matches something on my grocery list\n\n"
             "Common Kroger abbreviations:\n"
             "- NTHN = Nathan's, BLPK = Ballpark, OM/OSCM/OSCT = Oscar Mayer\n"
             "- ST = Starbucks, TYFR = Taylor Farms, MICHELINA = Michelina's\n"
             "- BF = Beef, FRNKS = Franks, CHS = Cheese, BCN = Bacon\n"
             "- ORGNC = Organic, STO = Store brand, HNBRG = Hamburger\n"
-            "- LNCH/LNCHBL = Lunchable, PBLE = portable, CRR = probably not 'carrot'\n"
-            "- SHCS = Sliced Cheese, BNS = Buns\n\n"
-            "MATCHING RULES — be strict:\n"
-            "- Only match if the product IS the grocery item (same food category)\n"
-            "- Hot dog franks → 'hot dogs'. Buns → 'hot dog buns'. Carrots → 'carrot'.\n"
-            "- Lunchables are NOT carrot, NOT eggs, NOT any basic ingredient\n"
-            "- Starbucks Egg Bites are NOT 'eggs' — they're a prepared snack\n"
-            "- Hamburger Buns/Sliced Cheese are NOT 'hot dog buns'\n"
-            "- Banana/Organic Bananas are NOT bread, NOT orange juice\n"
-            "- Frozen meals do NOT match basic ingredients\n"
-            "- A product that CONTAINS an ingredient is NOT a match (egg bites ≠ eggs)\n"
-            "- When in doubt, do NOT match. Unmatched items are fine.\n\n"
+            "- LNCH/LNCHBL = Lunchable, PBLE = Portable\n"
+            "- BNS/BUN = Buns, SHCS = Sliced Cheese\n\n"
+            "MATCHING RULES — extremely strict, most items should NOT match:\n"
+            "- A match means: if I wrote this item on my grocery list, THIS is the exact "
+            "product I would grab off the shelf to fulfill it.\n"
+            "- 'hot dogs' = a package of hot dog franks (Nathan's, Oscar Mayer, etc.)\n"
+            "- 'hot dog buns' = a package of hot dog buns specifically, NOT hamburger buns, "
+            "NOT pretzel buns, NOT any other kind of bread/bun\n"
+            "- 'carrot' = a bag/bunch of carrots, NOT a product that happens to contain "
+            "the letters C-R-R in its abbreviation\n"
+            "- 'eggs' = a carton of eggs, NOT egg bites, NOT any prepared food with egg\n"
+            "- 'pickles' = a jar of pickles, NOT pickle-flavored anything\n"
+            "- 'bread' = a loaf of bread, NOT any baked good\n"
+            "- A product must BE the grocery item, not merely CONTAIN it as an ingredient\n"
+            "- Lunchables, frozen meals, snack items = NEVER match basic ingredients\n"
+            "- Pretzel buns, hamburger buns ≠ 'hot dog buns'\n"
+            "- Smokies, sausages ≠ 'hot dogs' (different product)\n"
+            "- When in doubt, set grocery_match to null. Most receipt items will NOT match.\n"
+            "- It is MUCH better to miss a match than to make a wrong match.\n\n"
             f"Receipt lines: {json.dumps(raw_lines)}\n"
             f"Grocery list: {json.dumps(grocery_names)}\n\n"
             "Return ONLY valid JSON (no markdown):\n"
