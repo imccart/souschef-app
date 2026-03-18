@@ -108,6 +108,8 @@ export default function GroceryPage({ sidebar = false }) {
   const [pantryData, setPantryData] = useState(null)
   const [pantryChecked, setPantryChecked] = useState(new Set())
   const [pantryExpanded, setPantryExpanded] = useState(false)
+  const [staleExpanded, setStaleExpanded] = useState(false)
+  const [staleKeep, setStaleKeep] = useState(new Set())
 
   const load = async () => {
     try {
@@ -131,7 +133,7 @@ export default function GroceryPage({ sidebar = false }) {
   if (loading) return <><div className="loading">Gathering ingredients...</div><FeedbackFab page="grocery" /></>
   if (loadError) return <><div className="loading">Something went wrong loading your list. Try refreshing.</div><FeedbackFab page="grocery" /></>
 
-  const { items_by_group, checked, ordered, skipped, have_it, start_date, end_date, regulars_state, pantry_state } = grocery
+  const { items_by_group, checked, ordered, skipped, have_it, start_date, end_date, regulars_state, pantry_state, stale_state, stale_items } = grocery
   const checkedSet = new Set((checked || []).map(n => n.toLowerCase()))
   const orderedSet = new Set((ordered || []).map(n => n.toLowerCase()))
   const skippedSet = new Set((skipped || []).map(n => n.toLowerCase()))
@@ -292,6 +294,27 @@ export default function GroceryPage({ sidebar = false }) {
     setPantryExpanded(false)
   }
 
+  // Stale prompt handlers
+  const handleStaleExpand = () => {
+    setStaleKeep(new Set()) // default: nothing kept (all will be skipped)
+    setStaleExpanded(true)
+  }
+  const handleStaleSubmit = async () => {
+    try {
+      const result = await api.dismissStaleItems([...staleKeep], stale_items || [])
+      setGrocery(result)
+    } catch {}
+    setStaleExpanded(false)
+  }
+  const handleStaleDismiss = async () => {
+    // Skip all stale items
+    try {
+      const result = await api.dismissStaleItems([], stale_items || [])
+      setGrocery(result)
+    } catch {}
+    setStaleExpanded(false)
+  }
+
   // Inline prompt cards — "prompt" = full card, "done" = compact row
   const renderPromptCard = ({ state, expanded, label, doneLabel, onExpand, onSubmit, onDismiss, data, checkedSet, setChecked, groupField }) => {
     if (expanded) {
@@ -383,6 +406,52 @@ export default function GroceryPage({ sidebar = false }) {
         onExpand: handlePantryExpand, onSubmit: handlePantrySubmit, onDismiss: handlePantryDismiss,
         data: pantryData, checkedSet: pantryChecked, setChecked: setPantryChecked, groupField: null,
       })}
+      {stale_state === 'prompt' && stale_items && stale_items.length > 0 && (
+        staleExpanded ? (
+          <div className="grocery-prompt-card">
+            <div className="grocery-prompt-body">
+              <div className="grocery-prompt-title">Still need these?</div>
+              <div className="grocery-prompt-desc">
+                Looks like you went on a grocery run. Check anything you still need.
+              </div>
+              <div className="grocery-prompt-checklist">
+                {stale_items.map(name => (
+                  <div
+                    key={name}
+                    className="grocery-prompt-check-item"
+                    onClick={() => setStaleKeep(prev => {
+                      const next = new Set(prev)
+                      next.has(name) ? next.delete(name) : next.add(name)
+                      return next
+                    })}
+                  >
+                    <div className={`grocery-prompt-check ${staleKeep.has(name) ? 'active' : ''}`}>
+                      {staleKeep.has(name) && '\u2713'}
+                    </div>
+                    <span>{name}</span>
+                  </div>
+                ))}
+              </div>
+              <div className="grocery-prompt-actions">
+                <button className="grocery-prompt-dismiss" onClick={handleStaleDismiss}>
+                  Remove all
+                </button>
+                <button className="grocery-prompt-submit" onClick={handleStaleSubmit}>
+                  Keep selected {staleKeep.size > 0 ? `(${staleKeep.size})` : ''}
+                </button>
+              </div>
+            </div>
+          </div>
+        ) : (
+          <div className="grocery-prompt-card">
+            <button className="grocery-prompt-trigger" onClick={handleStaleExpand}>
+              <BentSpoonIcon size={18} />
+              <span>Looks like you went shopping</span>
+              <span className="grocery-prompt-arrow">{'\u203A'}</span>
+            </button>
+          </div>
+        )
+      )}
     </>
   )
 

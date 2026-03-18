@@ -457,6 +457,120 @@ async def get_candidates(date: str, request: Request):
 # ── Grocery (trip-based) ──────────────────────────────────
 
 
+def _stale_prompt_state(conn, trip) -> str:
+    """Detect whether unchecked grocery items are likely leftovers from a shopping trip.
+
+    Triggers:
+    - 50% of items checked off within any 1-hour window, AND 1+ hour since last check-off
+    - Receipt uploaded with matches, AND unchecked items remain
+    - Order submitted, AND unchecked items remain
+    - Items older than 10 days still unchecked
+
+    Returns 'prompt', 'done', or 'hidden'.
+    """
+    from datetime import datetime, timedelta, timezone
+
+    # If already handled, use the standard prompt_state logic
+    try:
+        if trip["stale_checked"]:
+            return _prompt_state(trip, "stale_checked", "stale_checked_at")
+    except (KeyError, Exception):
+        pass
+
+    trip_id = trip["id"]
+    now = datetime.now(timezone.utc)
+
+    rows = conn.execute(
+        text("SELECT name, checked, skipped, have_it, checked_at, skipped_at, have_it_at, added_at, ordered, submitted_at, receipt_status FROM trip_items WHERE trip_id = :tid"),
+        {"tid": trip_id},
+    ).fetchall()
+
+    if not rows:
+        return "hidden"
+
+    total = len(rows)
+    unchecked = [r for r in rows if not r["checked"] and not r["skipped"] and not r["have_it"]]
+    if not unchecked:
+        return "hidden"  # nothing stale
+
+    done_items = [r for r in rows if r["checked"] or r["skipped"] or r["have_it"]]
+    if not done_items:
+        # Nothing checked off yet — check age-based trigger
+        for r in unchecked:
+            try:
+                added = datetime.fromisoformat((r["added_at"] or "").replace("Z", "+00:00"))
+                if added.tzinfo is None:
+                    added = added.replace(tzinfo=timezone.utc)
+                if (now - added) > timedelta(days=10):
+                    return "prompt"
+            except (ValueError, TypeError):
+                pass
+        return "hidden"
+
+    # Collect timestamps of all check-off actions
+    done_times = []
+    for r in done_items:
+        for col in ("checked_at", "skipped_at", "have_it_at"):
+            try:
+                ts_str = r[col]
+                if ts_str:
+                    t = datetime.fromisoformat(ts_str.replace("Z", "+00:00"))
+                    if t.tzinfo is None:
+                        t = t.replace(tzinfo=timezone.utc)
+                    done_times.append(t)
+            except (ValueError, TypeError, KeyError):
+                pass
+
+    if not done_times:
+        return "hidden"
+
+    # Trigger: receipt uploaded with matches but unchecked items remain
+    try:
+        if trip["receipt_parsed_at"]:
+            has_matches = any(r["receipt_status"] in ("matched", "substituted") for r in rows)
+            if has_matches:
+                receipt_at = datetime.fromisoformat(trip["receipt_parsed_at"].replace("Z", "+00:00"))
+                if receipt_at.tzinfo is None:
+                    receipt_at = receipt_at.replace(tzinfo=timezone.utc)
+                if (now - receipt_at) > timedelta(hours=1):
+                    return "prompt"
+    except (KeyError, ValueError, TypeError):
+        pass
+
+    # Trigger: order submitted but unchecked items remain
+    submitted = [r for r in rows if r["submitted_at"]]
+    if submitted:
+        return "prompt"
+
+    # Trigger: 50% checked off within a 1-hour window, AND 1+ hour since last check-off
+    most_recent = max(done_times)
+    since_last = now - most_recent
+    if since_last < timedelta(hours=1):
+        return "hidden"  # still shopping
+
+    # Check if 50% were done within any 1-hour window
+    done_times.sort()
+    threshold = total * 0.5
+    for i, t_start in enumerate(done_times):
+        window_end = t_start + timedelta(hours=1)
+        count_in_window = sum(1 for t in done_times[i:] if t <= window_end)
+        if count_in_window >= threshold:
+            return "prompt"
+
+    # Trigger: items older than 10 days
+    for r in unchecked:
+        try:
+            added = datetime.fromisoformat((r["added_at"] or "").replace("Z", "+00:00"))
+            if added.tzinfo is None:
+                added = added.replace(tzinfo=timezone.utc)
+            if (now - added) > timedelta(days=10):
+                return "prompt"
+        except (ValueError, TypeError):
+            pass
+
+    return "hidden"
+
+
 def _prompt_state(trip, flag_col: str, ts_col: str) -> str:
     """Return 'prompt' (show full card), 'done' (compact), based on flag + age.
 
@@ -767,6 +881,16 @@ async def get_grocery(request: Request):
         except (KeyError, Exception):
             pass
 
+    stale_state = _stale_prompt_state(conn, trip)
+    # Collect unchecked item names for the stale prompt
+    stale_items = []
+    if stale_state == "prompt":
+        for group_items in items_by_group.values():
+            for item in group_items:
+                nl = item["name"].lower()
+                if nl not in checked_names and nl not in skipped_names and nl not in have_it_names and nl not in ordered_names:
+                    stale_items.append(item["name"])
+
     return {
         "start_date": mw.start_date,
         "end_date": mw.end_date,
@@ -777,6 +901,8 @@ async def get_grocery(request: Request):
         "have_it": have_it_names,
         "regulars_state": _prompt_state(trip, "regulars_added", "regulars_added_at"),
         "pantry_state": _prompt_state(trip, "pantry_checked", "pantry_checked_at"),
+        "stale_state": stale_state,
+        "stale_items": stale_items,
     }
 
 
@@ -1022,6 +1148,37 @@ async def add_pantry_to_grocery(body: dict, request: Request):
     # Mark pantry as handled for this trip
     conn.execute(
         text("UPDATE grocery_trips SET pantry_checked = 1, pantry_checked_at = CURRENT_TIMESTAMP WHERE id = :id"),
+        {"id": trip["id"]},
+    )
+    conn.commit()
+
+    return await get_grocery(request)
+
+
+@router.post("/grocery/dismiss-stale")
+async def dismiss_stale_items(body: dict, request: Request):
+    """Handle stale items prompt. Keep selected items, skip the rest."""
+    from souschef.planner import load_rolling_week
+
+    user_id = request.state.user_id
+    keep = set(n.lower() for n in body.get("keep", []))
+
+    conn = _conn()
+    mw = load_rolling_week(conn, user_id)
+    trip = _ensure_active_trip(conn, mw, user_id)
+
+    # Skip unchecked items that weren't kept
+    stale_items = body.get("stale_items", [])
+    for name in stale_items:
+        if name.lower() not in keep:
+            conn.execute(
+                text("UPDATE trip_items SET skipped = 1, skipped_at = CURRENT_TIMESTAMP WHERE trip_id = :tid AND LOWER(name) = LOWER(:name) AND checked = 0 AND skipped = 0 AND have_it = 0"),
+                {"tid": trip["id"], "name": name},
+            )
+
+    # Mark stale as handled
+    conn.execute(
+        text("UPDATE grocery_trips SET stale_checked = 1, stale_checked_at = CURRENT_TIMESTAMP WHERE id = :id"),
         {"id": trip["id"]},
     )
     conn.commit()

@@ -91,6 +91,10 @@ export const api = {
     method: 'POST',
     body: JSON.stringify({ selected }),
   }),
+  dismissStaleItems: (keep, staleItems) => request('/grocery/dismiss-stale', {
+    method: 'POST',
+    body: JSON.stringify({ keep, stale_items: staleItems }),
+  }),
   freshStartGrocery: () => request('/grocery/build', { method: 'POST' }),
 
   // Receipt

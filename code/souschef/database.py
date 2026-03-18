@@ -245,6 +245,8 @@ grocery_trips = Table(
     Column("order_source", Text, nullable=False, server_default=text("'none'")),
     Column("receipt_data", Text),
     Column("receipt_parsed_at", Text),
+    Column("stale_checked", Integer, nullable=False, server_default=text("0")),
+    Column("stale_checked_at", Text),
 )
 
 trip_items = Table(
