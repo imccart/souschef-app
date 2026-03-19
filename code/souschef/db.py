@@ -997,5 +997,18 @@ def ensure_db(db_path: str | None = None) -> DictConnection:
                 conn.raw.rollback()
             except Exception:
                 pass
+        # Refresh FDA violation data (non-fatal, runs after timeout is cleared)
+        try:
+            from souschef.violations import refresh_fda_data
+            print("[db] Refreshing FDA violation data...", flush=True)
+            result = refresh_fda_data(conn)
+            print(f"[db] FDA refresh: {result['updated']} companies updated, {result['errors']} errors", flush=True)
+        except Exception as e:
+            print(f"[db] FDA refresh error (non-fatal): {e}", flush=True)
+            try:
+                conn.raw.rollback()
+            except Exception:
+                pass
+
         _db_initialized = True
     return conn
