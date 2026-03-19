@@ -389,6 +389,13 @@ unknown_brands = Table(
     Column("last_seen", Text, nullable=False, server_default=text("CURRENT_TIMESTAMP")),
 )
 
+brand_ownership = Table(
+    "brand_ownership", metadata,
+    Column("id", Integer, primary_key=True, autoincrement=True),
+    Column("brand", Text, nullable=False, unique=True),
+    Column("parent_company", Text),  # NULL means self-owned (brand IS the company)
+)
+
 stores = Table(
     "stores", metadata,
     Column("id", Integer, primary_key=True, autoincrement=True),

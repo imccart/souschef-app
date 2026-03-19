@@ -142,6 +142,23 @@ def _run_column_migrations(conn: DictConnection) -> None:
         except Exception:
             pass
 
+    # Create brand_ownership table if missing
+    try:
+        conn.execute(text("""
+            CREATE TABLE IF NOT EXISTS brand_ownership (
+                id SERIAL PRIMARY KEY,
+                brand TEXT NOT NULL UNIQUE,
+                parent_company TEXT
+            )
+        """))
+        conn.commit()
+    except Exception as e:
+        print(f"[db]   brand_ownership table skipped: {e}", flush=True)
+        try:
+            conn.raw.rollback()
+        except Exception:
+            pass
+
     # Backfill product_key from upc where missing
     try:
         conn.execute(text(
@@ -719,11 +736,14 @@ def seed_from_yaml(conn: DictConnection, data_dir: str | None = None) -> None:
     recipes_file = Path(data_dir) / "seed_recipes.yaml"
     ingredient_db_file = Path(data_dir) / "seed_ingredient_database.yaml"
     common_recipes_file = Path(data_dir) / "seed_recipes_common.yaml"
+    brand_file = Path(data_dir) / "brand_ownership.yaml"
 
     if ingredients_file.exists():
         _seed_ingredients(conn, ingredients_file)
     if ingredient_db_file.exists():
         _seed_ingredient_database(conn, ingredient_db_file)
+    if brand_file.exists():
+        _seed_brand_ownership(conn, brand_file)
     # Library recipes (user_id='__library__') loaded first
     if common_recipes_file.exists():
         _seed_recipes(conn, common_recipes_file, user_id="__library__")
@@ -774,6 +794,26 @@ def _seed_ingredient_database(conn: DictConnection, path: Path) -> None:
             "staple": int(ing.get("is_pantry_staple", 0)),
             "root": ing.get("root", ""),
         })
+
+
+def _seed_brand_ownership(conn: DictConnection, path: Path) -> None:
+    """Seed brand ownership from YAML into the brand_ownership table.
+
+    Idempotent — ON CONFLICT DO NOTHING so manual DB edits take precedence.
+    """
+    with open(path, encoding="utf-8") as f:
+        data = yaml.safe_load(f) or {}
+
+    for entry in data.get("brands", []):
+        brand = entry.get("brand", "").strip()
+        if not brand:
+            continue
+        parent = entry.get("parent")  # None means self-owned
+        conn.execute(text(
+            """INSERT INTO brand_ownership (brand, parent_company)
+               VALUES (:brand, :parent)
+               ON CONFLICT (brand) DO NOTHING"""
+        ), {"brand": brand, "parent": parent})
 
 
 def _seed_recipes(conn: DictConnection, path: Path, user_id: str | None = None) -> None:
@@ -912,6 +952,10 @@ def ensure_db(db_path: str | None = None) -> DictConnection:
                 ing_db = Path(data_dir) / "seed_ingredient_database.yaml"
                 if ing_db.exists():
                     _seed_ingredient_database(conn, ing_db)
+                    conn.commit()
+                brand_file = Path(data_dir) / "brand_ownership.yaml"
+                if brand_file.exists():
+                    _seed_brand_ownership(conn, brand_file)
                     conn.commit()
                 _seed_library_if_missing(conn)
         except Exception as e:

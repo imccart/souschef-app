@@ -1577,7 +1577,7 @@ async def search_order_products(item_name: str, request: Request, fulfillment: s
     unknown_brands_batch = set()
     for p in products:
         rating = product_ratings.get(p.upc, 0)
-        parent = get_parent_company(p.brand)
+        parent = get_parent_company(p.brand, conn)
         if parent == "We're not sure" and p.brand:
             unknown_brands_batch.add(p.brand.strip())
         result.append({
