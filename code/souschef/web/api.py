@@ -1565,6 +1565,7 @@ async def search_order_products(item_name: str, request: Request, fulfillment: s
 
     from souschef.brands import get_parent_company
     from souschef.kroger import get_product_ratings
+    from souschef.violations import get_company_violations
 
     # Look up user ratings for search result products
     product_ratings = {}
@@ -1573,14 +1574,36 @@ async def search_order_products(item_name: str, request: Request, fulfillment: s
             r = get_product_ratings(conn, p.upc, user_id)
             product_ratings[p.upc] = r["your_rating"]
 
-    result = []
+    # Resolve parent companies first, then batch-load violations
+    product_parents = {}
     unknown_brands_batch = set()
     for p in products:
-        rating = product_ratings.get(p.upc, 0)
         parent = get_parent_company(p.brand, conn)
+        product_parents[p.upc or p.product_id] = parent
         if parent == "We're not sure" and p.brand:
             unknown_brands_batch.add(p.brand.strip())
-        result.append({
+
+    # Cache violation lookups by parent company
+    violation_cache = {}
+    for p in products:
+        parent = product_parents[p.upc or p.product_id]
+        if parent == "Same as brand":
+            key = p.brand.strip()
+        elif parent == "We're not sure":
+            continue
+        else:
+            key = parent
+        if key and key not in violation_cache:
+            violation_cache[key] = get_company_violations(conn, key)
+
+    result = []
+    for p in products:
+        rating = product_ratings.get(p.upc, 0)
+        parent = product_parents[p.upc or p.product_id]
+        # For self-owned brands, look up violations under the brand name
+        violation_key = p.brand.strip() if parent == "Same as brand" else parent
+        violations = violation_cache.get(violation_key) if violation_key not in ("We're not sure",) else None
+        item = {
             "upc": p.upc,
             "product_id": p.product_id,
             "name": p.description,
@@ -1595,7 +1618,10 @@ async def search_order_products(item_name: str, request: Request, fulfillment: s
             "image": p.image_url,
             "rating": rating,
             "parent_company": parent,
-        })
+        }
+        if violations:
+            item["violations"] = violations
+        result.append(item)
 
     # Log unknown brands for later research
     for brand in unknown_brands_batch:
@@ -3571,6 +3597,19 @@ async def get_unknown_brands(request: Request):
         text("SELECT brand, times_seen, first_seen, last_seen FROM unknown_brands ORDER BY times_seen DESC"),
     ).fetchall()
     return {"brands": [dict(r._mapping) for r in rows]}
+
+
+@router.post("/admin/refresh-violations")
+async def refresh_violations(request: Request):
+    """Admin: refresh FDA violation data for all parent companies."""
+    from souschef.violations import refresh_fda_data
+
+    real_user_id = getattr(request.state, 'real_user_id', request.state.user_id)
+    conn = _conn()
+    if not _is_admin(conn, real_user_id):
+        return {"ok": False, "error": "Not authorized"}
+    result = refresh_fda_data(conn)
+    return {"ok": True, **result}
 
 
 @router.post("/feedback/{feedback_id}/respond")

@@ -396,6 +396,19 @@ brand_ownership = Table(
     Column("parent_company", Text),  # NULL means self-owned (brand IS the company)
 )
 
+company_violations = Table(
+    "company_violations", metadata,
+    Column("id", Integer, primary_key=True, autoincrement=True),
+    Column("parent_company", Text, nullable=False),
+    Column("agency", Text, nullable=False),  # e.g. 'FDA'
+    Column("total_records", Integer, nullable=False, server_default=text("0")),
+    Column("class_i", Integer, nullable=False, server_default=text("0")),
+    Column("class_ii", Integer, nullable=False, server_default=text("0")),
+    Column("class_iii", Integer, nullable=False, server_default=text("0")),
+    Column("most_recent_date", Text),
+    Column("refreshed_at", Text, nullable=False, server_default=text("CURRENT_TIMESTAMP")),
+)
+
 stores = Table(
     "stores", metadata,
     Column("id", Integer, primary_key=True, autoincrement=True),

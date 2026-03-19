@@ -159,6 +159,30 @@ def _run_column_migrations(conn: DictConnection) -> None:
         except Exception:
             pass
 
+    # Create company_violations table if missing
+    try:
+        conn.execute(text("""
+            CREATE TABLE IF NOT EXISTS company_violations (
+                id SERIAL PRIMARY KEY,
+                parent_company TEXT NOT NULL,
+                agency TEXT NOT NULL,
+                total_records INTEGER NOT NULL DEFAULT 0,
+                class_i INTEGER NOT NULL DEFAULT 0,
+                class_ii INTEGER NOT NULL DEFAULT 0,
+                class_iii INTEGER NOT NULL DEFAULT 0,
+                most_recent_date TEXT,
+                refreshed_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP,
+                UNIQUE(parent_company, agency)
+            )
+        """))
+        conn.commit()
+    except Exception as e:
+        print(f"[db]   company_violations table skipped: {e}", flush=True)
+        try:
+            conn.raw.rollback()
+        except Exception:
+            pass
+
     # Backfill product_key from upc where missing
     try:
         conn.execute(text(
