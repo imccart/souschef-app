@@ -99,7 +99,7 @@ export default function GroceryPage({ sidebar = false }) {
   const [loading, setLoading] = useState(true)
   const [loadError, setLoadError] = useState(false)
   const [recatItem, setRecatItem] = useState(null)
-  const [hideDone, setHideDone] = useState(false)
+  const [hideDone, setHideDone] = useState(true)
 
   // Inline prompt state
   const [regularsData, setRegularsData] = useState(null)
@@ -562,7 +562,7 @@ export default function GroceryPage({ sidebar = false }) {
     <>
       {hasItems && doneCount > 0 && (
         <button className="hide-checked-toggle" onClick={() => setHideDone(h => !h)}>
-          {hideDone ? `Show done` : `Hide done`} ({doneCount})
+          {hideDone ? `Show checked (${doneCount})` : `Hide checked`}
         </button>
       )}
       {!hasItems ? (
@@ -578,12 +578,16 @@ export default function GroceryPage({ sidebar = false }) {
       ) : (
         sortedGroups.map(group => {
           const items = items_by_group[group]
+          const { remaining: groupLeft } = groupCounts[group]
+          const allDone = isGroupAllDone(group)
+
+          // Hide entire group when all items are done (regardless of toggle)
+          if (allDone) return null
+
           const visibleItems = items.filter(item => !isItemHidden(item.name.toLowerCase()))
           if (visibleItems.length === 0) return null
 
-          const { remaining: groupLeft } = groupCounts[group]
           const expanded = isGroupExpanded(group)
-          const allDone = isGroupAllDone(group)
 
           return (
             <div key={group} className="grocery-group">
