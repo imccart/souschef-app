@@ -2587,21 +2587,56 @@ main {
   color: var(--accent);
 }
 
+.parent-co-wrap {
+  margin-top: 4px;
+}
 .parent-co {
   font-size: 11px;
   color: var(--brown);
   padding: 2px 8px;
-  margin-top: 4px;
   display: flex;
   flex-wrap: wrap;
   align-items: center;
   gap: 2px;
+}
+.parent-co.expandable {
+  cursor: pointer;
+}
+.parent-co-chevron {
+  font-size: 10px;
+  margin-left: 2px;
+  color: var(--tan);
 }
 .parent-co.unknown {
   color: var(--accent);
   cursor: pointer;
   text-decoration: underline;
   text-decoration-style: dotted;
+}
+.company-details {
+  margin: 4px 8px 6px;
+  padding: 8px 10px;
+  background: var(--cream);
+  border-radius: 8px;
+  font-size: 11px;
+  color: var(--brown);
+  border: 1px solid var(--tan-light);
+}
+.company-details-row {
+  display: flex;
+  justify-content: space-between;
+  padding: 2px 0;
+}
+.company-details-label {
+  color: var(--text-muted);
+}
+.company-details-value {
+  font-weight: 600;
+}
+.company-details-source {
+  margin-top: 6px;
+  font-size: 10px;
+  color: var(--tan);
 }
 
 .community-form {

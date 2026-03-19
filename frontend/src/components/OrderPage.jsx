@@ -35,20 +35,48 @@ function ProductInsights({ nova, nutriscore }) {
   )
 }
 
-function ParentCoBadge({ brand, parentCompany, onTapUnknown }) {
+function ParentCoBadge({ brand, parentCompany, violations, onTapUnknown }) {
   const [showInfo, setShowInfo] = useState(false)
+  const [expanded, setExpanded] = useState(false)
   if (!parentCompany) return null
   const unknown = parentCompany === "We're not sure"
+  const v = violations || {}
+  const hasViolations = v.fda_total_recalls > 0
+  const hasDetails = !unknown && hasViolations
   return (
-    <div
-      className={`parent-co${unknown ? ' unknown' : ''}`}
-      onClick={unknown ? (e) => { e.stopPropagation(); onTapUnknown(brand) } : undefined}
-    >
-      Parent Co.: {parentCompany}{unknown && ' \u00B7 ?'}
-      {!unknown && <button className="info-dot" onClick={(e) => { e.stopPropagation(); setShowInfo(!showInfo) }} title="What is this?">{'\u24D8'}</button>}
+    <div className={`parent-co-wrap`}>
+      <div
+        className={`parent-co${unknown ? ' unknown' : ''}${hasDetails ? ' expandable' : ''}`}
+        onClick={unknown ? (e) => { e.stopPropagation(); onTapUnknown(brand) } : hasDetails ? (e) => { e.stopPropagation(); setExpanded(!expanded) } : undefined}
+      >
+        Parent Co.: {parentCompany}{unknown && ' \u00B7 ?'}
+        {hasDetails && <span className="parent-co-chevron">{expanded ? '\u25B4' : '\u25BE'}</span>}
+        {!unknown && !hasDetails && <button className="info-dot" onClick={(e) => { e.stopPropagation(); setShowInfo(!showInfo) }} title="What is this?">{'\u24D8'}</button>}
+      </div>
       {showInfo && (
         <div className="info-tooltip" onClick={(e) => e.stopPropagation()}>
           Shows the parent company behind this brand, so you know who you're buying from.
+        </div>
+      )}
+      {expanded && hasDetails && (
+        <div className="company-details" onClick={(e) => e.stopPropagation()}>
+          <div className="company-details-row">
+            <span className="company-details-label">FDA food recalls</span>
+            <span className="company-details-value">{v.fda_total_recalls}</span>
+          </div>
+          {v.fda_class_i > 0 && (
+            <div className="company-details-row">
+              <span className="company-details-label">Class I (serious)</span>
+              <span className="company-details-value">{v.fda_class_i}</span>
+            </div>
+          )}
+          {v.fda_most_recent && (
+            <div className="company-details-row">
+              <span className="company-details-label">Most recent</span>
+              <span className="company-details-value">{v.fda_most_recent.slice(0, 4)}-{v.fda_most_recent.slice(4, 6)}-{v.fda_most_recent.slice(6, 8)}</span>
+            </div>
+          )}
+          <div className="company-details-source">Source: FDA openFDA</div>
         </div>
       )}
     </div>
@@ -545,7 +573,7 @@ export default function OrderPage() {
                       {!p.in_stock && <div className="out-of-stock-label">Unavailable</div>}
                     </div>
                     <ProductInsights nova={p.nova} nutriscore={p.nutriscore} />
-                    <ParentCoBadge brand={p.brand} parentCompany={p.parent_company} onTapUnknown={(b) => setCommunityBrand(b)} />
+                    <ParentCoBadge brand={p.brand} parentCompany={p.parent_company} violations={p.violations} onTapUnknown={(b) => setCommunityBrand(b)} />
                     {p.rating === 1 && <span className="pref-star">{'\u{1F44D}'}</span>}
                     {p.rating === -1 && <span className="pref-down">{'\u{1F44E}'}</span>}
                   </button>
