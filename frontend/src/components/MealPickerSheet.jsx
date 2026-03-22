@@ -17,7 +17,7 @@ function daysAgo(dateStr) {
 
 const MAX_SIDES = 3
 
-export default function MealPickerSheet({ date, dayName, onSelect, onFreeform, onClose }) {
+export default function MealPickerSheet({ date, dayName, onSelect, onFreeform, onCreateNew, onClose }) {
   const [data, setData] = useState(null)
   const [history, setHistory] = useState(null)
   const [search, setSearch] = useState('')
@@ -138,12 +138,12 @@ export default function MealPickerSheet({ date, dayName, onSelect, onFreeform, o
         value={search}
         onChange={(e) => setSearch(e.target.value)}
         onKeyDown={(e) => {
-          if (e.key === 'Enter' && search.trim()) onFreeform(search.trim())
+          if (e.key === 'Enter' && search.trim()) onCreateNew(search.trim())
         }}
       />
       {search.trim() && (
-        <button className="picker-option freeform" onClick={() => onFreeform(search.trim())}>
-          Add "{search.trim()}" as a meal
+        <button className="picker-option freeform" onClick={() => onCreateNew(search.trim())}>
+          Create "{search.trim()}" as a new meal
         </button>
       )}
       <div style={{ marginTop: 12 }}>
@@ -194,7 +194,7 @@ export default function MealPickerSheet({ date, dayName, onSelect, onFreeform, o
             if (filtered.length > 0) {
               pickMeal(filtered[0].id, filtered[0].name)
             } else {
-              onFreeform(search.trim())
+              onCreateNew(search.trim())
             }
           }
         }}
@@ -217,8 +217,8 @@ export default function MealPickerSheet({ date, dayName, onSelect, onFreeform, o
               )
             })
           ) : (
-            <button className="picker-option freeform" onClick={() => onFreeform(search.trim())}>
-              Add "{search.trim()}" as a meal
+            <button className="picker-option freeform" onClick={() => onCreateNew(search.trim())}>
+              Create "{search.trim()}" as a new meal
             </button>
           )}
         </div>

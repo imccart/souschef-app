@@ -36,6 +36,7 @@ export default function PlanPage({ showHeader = true, onLoad, onNavigate }) {
   const [sidePickerDate, setSidePickerDate] = useState(null)
   const [ingredientsMeal, setIngredientsMeal] = useState(null)
   const [erasing, setErasing] = useState(false)
+  const [noteText, setNoteText] = useState('')
 
   // Touch drag refs
   const touchDragFrom = useRef(null)
@@ -155,7 +156,13 @@ export default function PlanPage({ showHeader = true, onLoad, onNavigate }) {
       didDrag.current = false
       return
     }
-    setActionDate(actionDate === date ? null : date)
+    if (actionDate === date) {
+      setActionDate(null)
+    } else {
+      setActionDate(date)
+      const day = data?.days?.find(d => d.date === date)
+      setNoteText(day?.meal?.notes || '')
+    }
   }
 
   const handleEmptyTap = (date) => {
@@ -192,6 +199,22 @@ export default function PlanPage({ showHeader = true, onLoad, onNavigate }) {
       setPickerDate(null)
       setPickerMode(null)
       setActionDate(null)
+    } catch { await load() }
+  }
+
+  const handleCreateNew = async (date, name) => {
+    try {
+      const recipe = await api.addRecipe(name)
+      if (!recipe.id) return
+      const result = await api.setMeal(date, recipe.id, [])
+      setData(result)
+      setPickerDate(null)
+      setPickerMode(null)
+      // Open ingredients sheet for the new meal
+      const newDay = result.days.find(d => d.date === date)
+      if (newDay?.meal) {
+        setIngredientsMeal(newDay.meal)
+      }
     } catch { await load() }
   }
 
@@ -334,6 +357,7 @@ export default function PlanPage({ showHeader = true, onLoad, onNavigate }) {
               <div className="meal-info">
                 <div className={`meal-name ${isFreeform ? 'freeform' : ''}`}>{meal.recipe_name}</div>
                 {meal.sides?.length > 0 && <div className="meal-side-text">{meal.sides.map(s => s.name).join(', ')}</div>}
+                {meal.notes && <div className="meal-note">{meal.notes}</div>}
               </div>
               <div className="meal-actions" onClick={(e) => e.stopPropagation()}>
                 {!isFreeform && (
@@ -398,6 +422,25 @@ export default function PlanPage({ showHeader = true, onLoad, onNavigate }) {
                 </div>
               </button>
             </div>
+            <div className="sheet-note">
+              <input
+                type="text"
+                className="note-input"
+                placeholder="Add a note..."
+                value={noteText}
+                onChange={(e) => setNoteText(e.target.value)}
+                onBlur={() => {
+                  if (noteText !== (actionMeal.notes || '')) {
+                    api.updateMealNote(actionDate, noteText).then(result => setData(result)).catch(() => {})
+                  }
+                }}
+                onKeyDown={(e) => {
+                  if (e.key === 'Enter') {
+                    e.target.blur()
+                  }
+                }}
+              />
+            </div>
         </Sheet>
       )}
 
@@ -419,6 +462,7 @@ export default function PlanPage({ showHeader = true, onLoad, onNavigate }) {
           dayName={pickerDayName}
           onSelect={(recipeId, sides) => handleSetMeal(pickerDate, recipeId, sides)}
           onFreeform={(name) => handleFreeform(pickerDate, name)}
+          onCreateNew={(name) => handleCreateNew(pickerDate, name)}
           onClose={() => { setPickerDate(null); setPickerMode(null) }}
         />
       )}

@@ -146,6 +146,7 @@ meals = Table(
     Column("on_grocery", Integer, nullable=False, server_default=text("0")),
     Column("side_recipe_id", Integer, ForeignKey("recipes.id"), nullable=True),
     Column("created_at", Text, nullable=False, server_default=text("CURRENT_TIMESTAMP")),
+    Column("notes", Text, nullable=False, server_default=text("''")),
 )
 
 meal_sides = Table(
@@ -280,6 +281,7 @@ trip_items = Table(
     Column("receipt_price", Float),
     Column("receipt_upc", Text, nullable=False, server_default=text("''")),
     Column("receipt_status", Text, nullable=False, server_default=text("''")),
+    Column("notes", Text, nullable=False, server_default=text("''")),
     UniqueConstraint("trip_id", "name"),
 )
 

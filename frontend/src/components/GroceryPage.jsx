@@ -100,6 +100,8 @@ export default function GroceryPage({ sidebar = false }) {
   const [loadError, setLoadError] = useState(false)
   const [recatItem, setRecatItem] = useState(null)
   const [hideDone, setHideDone] = useState(true)
+  const [editingNote, setEditingNote] = useState(null)
+  const [noteText, setNoteText] = useState('')
 
   // Inline prompt state
   const [regularsData, setRegularsData] = useState(null)
@@ -520,11 +522,43 @@ export default function GroceryPage({ sidebar = false }) {
             onClick={(e) => { e.stopPropagation(); setRecatItem(item.name) }}
           >{'\u2630'}</button>
         </div>
+        {editingNote === item.name ? (
+          <input
+            type="text"
+            className="note-input grocery-note-input"
+            placeholder="Add a note..."
+            value={noteText}
+            autoFocus
+            onChange={(e) => setNoteText(e.target.value)}
+            onBlur={() => {
+              if (noteText !== (item.notes || '')) {
+                api.updateGroceryNote(item.name, noteText).then(result => setGrocery(result)).catch(() => {})
+              }
+              setEditingNote(null)
+            }}
+            onKeyDown={(e) => { if (e.key === 'Enter') e.target.blur() }}
+            onClick={(e) => e.stopPropagation()}
+          />
+        ) : item.notes ? (
+          <div
+            className="grocery-note"
+            onClick={(e) => { e.stopPropagation(); setEditingNote(item.name); setNoteText(item.notes || '') }}
+          >
+            {item.notes}
+          </div>
+        ) : null}
         <div className="grocery-item-bottom">
           {hasMeals && (
             <span className="item-meals">{item.for_meals.join(', ')}</span>
           )}
           <div className="grocery-item-actions">
+            {!item.notes && (
+              <button
+                className="grocery-note-btn"
+                onClick={(e) => { e.stopPropagation(); setEditingNote(item.name); setNoteText('') }}
+                title="Add a note"
+              >{'\u{270E}'}</button>
+            )}
             <button
               className="grocery-skip-btn"
               onClick={() => handleItemAction(item.name, 'skip')}

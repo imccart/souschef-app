@@ -24,6 +24,10 @@ export const api = {
     body: JSON.stringify({ sides }),
   }),
   toggleGrocery: (date) => request(`/meals/${date}/toggle-grocery`, { method: 'POST' }),
+  updateMealNote: (date, notes) => request(`/meals/${date}/notes`, {
+    method: 'POST',
+    body: JSON.stringify({ notes }),
+  }),
   setMeal: (date, recipeId, sides) => request(`/meals/${date}/set`, {
     method: 'POST',
     body: JSON.stringify({ recipe_id: recipeId, sides }),
@@ -73,6 +77,10 @@ export const api = {
     body: JSON.stringify({ name }),
   }),
   toggleGroceryItem: (name) => request(`/grocery/toggle/${encodeURIComponent(name)}`, { method: 'POST' }),
+  updateGroceryNote: (name, notes) => request('/grocery/note', {
+    method: 'POST',
+    body: JSON.stringify({ name, notes }),
+  }),
   recategorizeItem: (name, shoppingGroup) => request('/grocery/recategorize', {
     method: 'POST',
     body: JSON.stringify({ name, shopping_group: shoppingGroup }),

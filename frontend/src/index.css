@@ -599,6 +599,34 @@ main {
   margin-top: 2px;
 }
 
+.meal-note {
+  font-size: 12px;
+  color: var(--text-muted);
+  font-style: italic;
+  margin-top: 1px;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+.sheet-note {
+  padding: 12px 16px 4px;
+}
+.note-input {
+  width: 100%;
+  padding: 8px 10px;
+  border: 1px solid var(--tan-light);
+  border-radius: 8px;
+  font-size: 14px;
+  font-family: inherit;
+  background: var(--cream);
+  color: var(--brown);
+  box-sizing: border-box;
+}
+.note-input::placeholder {
+  color: var(--text-muted);
+  font-style: italic;
+}
+
 .meal-actions {
   display: flex;
   gap: 6px;
@@ -1166,6 +1194,22 @@ main {
   gap: 8px;
 }
 
+.grocery-note {
+  font-size: 12px;
+  color: var(--text-muted);
+  font-style: italic;
+  margin-top: 2px;
+  cursor: pointer;
+}
+.grocery-note:empty, .grocery-note:not(:empty) {
+  min-height: 16px;
+}
+.grocery-note-input {
+  margin-top: 2px;
+  font-size: 12px;
+  padding: 4px 8px;
+}
+
 .grocery-item-bottom {
   display: flex;
   align-items: center;
@@ -1180,6 +1224,17 @@ main {
   gap: 8px;
   margin-left: auto;
 }
+
+.grocery-note-btn {
+  background: none;
+  border: none;
+  color: var(--text-muted);
+  font-size: 14px;
+  cursor: pointer;
+  padding: 2px 4px;
+  -webkit-tap-highlight-color: transparent;
+}
+.grocery-note-btn:hover { color: var(--accent); }
 
 .grocery-skip-btn {
   background: none;

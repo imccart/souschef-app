@@ -335,6 +335,19 @@ async def toggle_grocery(date: str, request: Request):
     return await get_meals(request)
 
 
+@router.post("/meals/{date}/notes")
+async def update_meal_notes(date: str, body: dict, request: Request):
+    user_id = request.state.user_id
+    conn = _conn()
+    notes = body.get("notes", "")
+    conn.execute(
+        text("UPDATE meals SET notes = :notes WHERE user_id = :uid AND slot_date = :date"),
+        {"notes": notes, "uid": user_id, "date": date},
+    )
+    conn.commit()
+    return await get_meals(request)
+
+
 @router.post("/meals/{date}/set")
 async def set_meal(date: str, body: dict, request: Request):
     from souschef.planner import set_meal as do_set
@@ -911,12 +924,17 @@ async def get_grocery(request: Request):
             added_at = r["added_at"]
         except (KeyError, Exception):
             added_at = None
+        try:
+            notes = r["notes"]
+        except (KeyError, Exception):
+            notes = ""
         items_by_group.setdefault(group, []).append({
             "name": r["name"],
             "for_meals": for_meals,
             "meal_count": r["meal_count"],
             "source": r["source"],
             "added_at": added_at,
+            "notes": notes or "",
         })
         if r["checked"]:
             checked_names.append(r["name"].lower())
@@ -1011,6 +1029,25 @@ async def add_grocery_item(body: dict, request: Request):
     )
     conn.commit()
 
+    return await get_grocery(request)
+
+
+@router.post("/grocery/note")
+async def update_grocery_note(body: dict, request: Request):
+    """Update the note on a grocery item."""
+    user_id = request.state.user_id
+    conn = _conn()
+    name = body.get("name", "").strip()
+    notes = body.get("notes", "")
+    if not name:
+        return {"ok": False}
+    trip = _get_active_trip(conn, user_id)
+    if trip:
+        conn.execute(
+            text("UPDATE trip_items SET notes = :notes WHERE trip_id = :tid AND LOWER(name) = LOWER(:name)"),
+            {"notes": notes, "tid": trip["id"], "name": name},
+        )
+        conn.commit()
     return await get_grocery(request)
 
 
@@ -3652,6 +3689,7 @@ def _meal_dict(m) -> dict:
         "on_grocery": m.on_grocery,
         "day_name": m.day_name,
         "day_short": m.day_short,
+        "notes": m.notes,
     }
 
 

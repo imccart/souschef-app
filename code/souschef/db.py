@@ -106,6 +106,8 @@ def _run_column_migrations(conn: DictConnection) -> None:
         ("product_ratings", "product_key", "TEXT NOT NULL DEFAULT ''"),
         ("grocery_trips", "stale_checked", "INTEGER NOT NULL DEFAULT 0"),
         ("grocery_trips", "stale_checked_at", "TEXT"),
+        ("meals", "notes", "TEXT NOT NULL DEFAULT ''"),
+        ("trip_items", "notes", "TEXT NOT NULL DEFAULT ''"),
     ]
 
     for table_name, col_name, col_def in migrations:

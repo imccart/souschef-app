@@ -81,6 +81,7 @@ class Meal:
     on_grocery: bool = False  # True = ingredients on grocery list
     sides: list[MealSide] = field(default_factory=list)
     created_at: str = ""
+    notes: str = ""
 
     @property
     def side(self) -> str:

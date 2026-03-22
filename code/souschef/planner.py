@@ -749,12 +749,17 @@ def _load_meal_sides(conn: DictConnection, meal: Meal) -> None:
 
 
 def _row_to_meal(row) -> Meal:
+    try:
+        notes = row["notes"]
+    except (KeyError, Exception):
+        notes = ""
     return Meal(
         id=row["id"], slot_date=row["slot_date"],
         recipe_id=row["recipe_id"], recipe_name=row["recipe_name"],
         status=row["status"],
         locked=bool(row["locked"]), is_followup=bool(row["is_followup"]),
         on_grocery=bool(row["on_grocery"]),
+        notes=notes or "",
     )
 
 
