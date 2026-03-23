@@ -3802,11 +3802,81 @@ main {
   color: var(--dark);
 }
 
+/* Receipt confirm/reject actions */
+.receipt-confirm-actions {
+  display: flex;
+  gap: 6px;
+  margin-top: 6px;
+  flex-shrink: 0;
+}
+
+.receipt-confirm-btn {
+  padding: 5px 12px;
+  font-size: 12px;
+  font-family: 'DM Sans', sans-serif;
+  border: 1.5px solid var(--green);
+  border-radius: 6px;
+  background: white;
+  color: var(--green);
+  cursor: pointer;
+}
+.receipt-confirm-btn:hover { background: var(--green-light); }
+
+.receipt-reject-btn {
+  padding: 5px 10px;
+  font-size: 12px;
+  font-family: 'DM Sans', sans-serif;
+  border: 1.5px solid var(--tan);
+  border-radius: 6px;
+  background: white;
+  color: var(--text-muted);
+  cursor: pointer;
+}
+.receipt-reject-btn:hover { border-color: var(--accent); color: var(--accent); }
+
+.receipt-item.match-confirm {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: flex-start;
+  gap: 10px;
+  background: var(--warm-white);
+  border-radius: 8px;
+  padding: 12px;
+  margin-bottom: 8px;
+}
+
+.receipt-section-hint {
+  font-size: 12px;
+  color: var(--text-muted);
+  margin-bottom: 8px;
+}
+
+/* Past purchases */
+.past-purchases {
+  padding: 0 16px 16px;
+}
+
+.purchase-date-group {
+  margin-bottom: 16px;
+}
+
+.purchase-date-label {
+  font-size: 11px;
+  font-weight: 600;
+  text-transform: uppercase;
+  letter-spacing: 0.08em;
+  color: var(--text-muted);
+  padding: 8px 0 4px;
+  border-bottom: 1px solid var(--tan);
+  margin-bottom: 4px;
+}
+
 /* Receipt — mobile */
 @media (max-width: 640px) {
   .receipt-section-label { font-size: 12px; }
   .receipt-item-actions { flex-wrap: wrap; }
   .receipt-resolve-btn { flex: 1 1 auto; min-width: 120px; text-align: center; }
+  .receipt-item.match-confirm { flex-direction: column; }
 }
 
 /* Receipt — desktop max-width */
@@ -4315,6 +4385,23 @@ main {
 .fav-brand {
   color: var(--brown);
   font-size: 13px;
+}
+
+.history-item {
+  flex-direction: column;
+  gap: 4px;
+}
+.history-item-info {
+  flex: 1;
+}
+.history-item-detail {
+  font-size: 12px;
+  color: var(--text-muted);
+}
+.history-item-meta {
+  font-size: 11px;
+  color: var(--text-light);
+  margin-top: 2px;
 }
 
 .staple-type-prompt {

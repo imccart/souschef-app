@@ -24,8 +24,8 @@ export default function MyKitchenSheet({ onClose }) {
   const [recatStaple, setRecatStaple] = useState(null) // { name, type, id }
   const [pendingStaple, setPendingStaple] = useState(null) // name waiting for type choice
 
-  // Favorites state
-  const [favorites, setFavorites] = useState(null)
+  // History state (replaces Favorites)
+  const [purchases, setPurchases] = useState(null)
 
   // Detail view state
   const [detailIngredients, setDetailIngredients] = useState(null)
@@ -37,7 +37,7 @@ export default function MyKitchenSheet({ onClose }) {
     api.getRegulars().then(data => setRegulars(data.regulars)).catch(() => setRegulars([]))
     api.getPantry().then(data => setPantry(data.items)).catch(() => setPantry([]))
     api.getGrocerySuggestions().then(data => setAllIngredients(data.suggestions)).catch(() => {})
-    api.getFavorites().then(data => setFavorites(data.items)).catch(() => setFavorites([]))
+    api.getPurchases().then(data => setPurchases(data.purchases || [])).catch(() => setPurchases([]))
   }, [])
 
   // Load ingredients when entering detail view
@@ -188,19 +188,15 @@ export default function MyKitchenSheet({ onClose }) {
     }
   }
 
-  const handleRemoveFavorite = async (item) => {
+  const handleRatePurchase = async (item, rating) => {
+    const upc = item.upc || ''
+    const desc = item.receipt_item || item.product_name || item.name
+    const brand = item.brand || item.product_brand || ''
+    const productKey = item.product_key || ''
     try {
-      await api.rateProduct(item.upc, 0, item.description, { brand: item.brand, productKey: item.product_key })
-      setFavorites(prev => (prev || []).filter(f => f.product_key !== item.product_key))
-    } catch { /* ignore */ }
-  }
-
-  const handleFlipRating = async (item) => {
-    const newRating = item.rating === 1 ? -1 : 1
-    try {
-      await api.rateProduct(item.upc, newRating, item.description, { brand: item.brand, productKey: item.product_key })
-      setFavorites(prev => (prev || []).map(f =>
-        f.product_key === item.product_key ? { ...f, rating: newRating } : f
+      await api.rateProduct(upc, rating, desc, { brand, productKey })
+      setPurchases(prev => (prev || []).map(p =>
+        p.product_key === productKey ? { ...p, rating } : p
       ))
     } catch { /* ignore */ }
   }
@@ -306,7 +302,7 @@ export default function MyKitchenSheet({ onClose }) {
       <div className="sheet-title">My Kitchen</div>
 
       <div className="kitchen-tabs">
-        {['meals', 'sides', 'staples', 'favorites'].map(tab => (
+        {['meals', 'sides', 'staples', 'history'].map(tab => (
           <button
             key={tab}
             className={`kitchen-tab${activeTab === tab ? ' active' : ''}`}
@@ -463,64 +459,49 @@ export default function MyKitchenSheet({ onClose }) {
           )}
         </div>
       )}
-      {activeTab === 'favorites' && (
+      {activeTab === 'history' && (
         <div className="kitchen-tab-content">
-          <div className="prefs-section-hint">Products you've rated while shopping.</div>
-          {favorites === null ? (
+          <div className="prefs-section-hint">Products you've purchased. Rate them after you've tried them.</div>
+          {purchases === null ? (
             <div className="prefs-section-hint">Loading...</div>
-          ) : favorites.length === 0 ? (
-            <div className="prefs-section-hint">No rated products yet. Rate items on the Receipt page after a shopping trip.</div>
+          ) : purchases.length === 0 ? (
+            <div className="prefs-section-hint">No purchase history yet. Upload a receipt after a shopping trip.</div>
           ) : (
-            <>
-              {favorites.some(f => f.rating === 1) && (
-                <div>
-                  <div className="prefs-list-group">{'\uD83D\uDC4D'} Thumbs up</div>
-                  <div className="prefs-list">
-                    {favorites.filter(f => f.rating === 1).map(f => (
-                      <div key={f.product_key} className="prefs-list-item">
-                        <span className="prefs-list-name">
-                          {f.description || f.product_key}
-                          {f.brand && <span className="fav-brand"> — {f.brand}</span>}
-                        </span>
-                        <div className="staple-toggle-pair">
-                          <button className="staple-toggle active" onClick={() => {}}>
-                            {'\uD83D\uDC4D'}
-                          </button>
-                          <button className="staple-toggle" onClick={() => handleFlipRating(f)}>
-                            {'\uD83D\uDC4E'}
-                          </button>
-                        </div>
-                        <button className="prefs-remove" onClick={() => handleRemoveFavorite(f)}>{'\u00D7'}</button>
+            <div className="prefs-list">
+              {purchases.map((p, i) => {
+                const desc = p.receipt_item || p.product_name || p.name
+                const brand = p.product_brand || p.brand || ''
+                const price = p.receipt_price ?? p.product_price
+                return (
+                  <div key={`${p.product_key || p.name}-${i}`} className="prefs-list-item history-item">
+                    <div className="history-item-info">
+                      <span className="prefs-list-name">{desc}</span>
+                      {desc !== p.name && <div className="history-item-detail">{p.name}</div>}
+                      <div className="history-item-meta">
+                        {brand && <span>{brand}</span>}
+                        {brand && price != null && <span> · </span>}
+                        {price != null && <span>${price.toFixed(2)}</span>}
+                        {p.date && <span> · {p.date.slice(0, 10)}</span>}
                       </div>
-                    ))}
+                    </div>
+                    <div className="staple-toggle-pair">
+                      <button
+                        className={`staple-toggle${p.rating === 1 ? ' active' : ''}`}
+                        onClick={() => handleRatePurchase(p, p.rating === 1 ? 0 : 1)}
+                      >
+                        {'\uD83D\uDC4D'}
+                      </button>
+                      <button
+                        className={`staple-toggle${p.rating === -1 ? ' active' : ''}`}
+                        onClick={() => handleRatePurchase(p, p.rating === -1 ? 0 : -1)}
+                      >
+                        {'\uD83D\uDC4E'}
+                      </button>
+                    </div>
                   </div>
-                </div>
-              )}
-              {favorites.some(f => f.rating === -1) && (
-                <div>
-                  <div className="prefs-list-group">{'\uD83D\uDC4E'} Thumbs down</div>
-                  <div className="prefs-list">
-                    {favorites.filter(f => f.rating === -1).map(f => (
-                      <div key={f.product_key} className="prefs-list-item">
-                        <span className="prefs-list-name">
-                          {f.description || f.product_key}
-                          {f.brand && <span className="fav-brand"> — {f.brand}</span>}
-                        </span>
-                        <div className="staple-toggle-pair">
-                          <button className="staple-toggle" onClick={() => handleFlipRating(f)}>
-                            {'\uD83D\uDC4D'}
-                          </button>
-                          <button className="staple-toggle active" onClick={() => {}}>
-                            {'\uD83D\uDC4E'}
-                          </button>
-                        </div>
-                        <button className="prefs-remove" onClick={() => handleRemoveFavorite(f)}>{'\u00D7'}</button>
-                      </div>
-                    ))}
-                  </div>
-                </div>
-              )}
-            </>
+                )
+              })}
+            </div>
           )}
         </div>
       )}

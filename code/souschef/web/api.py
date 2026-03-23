@@ -1796,11 +1796,21 @@ async def get_receipt(request: Request):
             has_checked = True
         if r["ordered"]:
             has_ordered = True
+        try:
+            have_it = bool(r["have_it"])
+        except (KeyError, Exception):
+            have_it = False
+        try:
+            removed = bool(r["removed"])
+        except (KeyError, Exception):
+            removed = False
         items.append({
             "name": r["name"],
             "shopping_group": r["shopping_group"],
             "checked": bool(r["checked"]),
             "ordered": bool(r["ordered"]),
+            "have_it": have_it,
+            "removed": removed,
             "product_upc": r["product_upc"],
             "product_name": r["product_name"],
             "product_brand": r["product_brand"],
@@ -1817,7 +1827,7 @@ async def get_receipt(request: Request):
     matched = [i for i in items if i["receipt_status"] == "matched"]
     substituted = [i for i in items if i["receipt_status"] == "substituted"]
     not_fulfilled = [i for i in items if i["receipt_status"] == "not_fulfilled"]
-    unresolved = [i for i in items if (i["checked"] or i["ordered"]) and not i["receipt_status"]]
+    unresolved = [i for i in items if not i["checked"] and not i.get("have_it") and not i.get("removed") and not i["receipt_status"]]
 
     # Fetch ratings for reconciled items (matched + substituted)
     from souschef.kroger import get_product_ratings, _make_product_key
@@ -1882,11 +1892,14 @@ async def _process_receipt(receipt_type: str, content: str, request: Request):
         return {"ok": False, "error": "No active trip"}
 
     # Gather grocery names for image receipts (enables single-call matching)
+    # Scope to unchecked items: submitted (sent to store) + active (might have grabbed in-store)
     grocery_names = None
     if receipt_type == "image_path":
         try:
             name_rows = conn.execute(
-                text("SELECT name FROM trip_items WHERE trip_id = :trip_id AND (ordered = 1 OR checked = 1)"),
+                text("""SELECT name FROM trip_items WHERE trip_id = :trip_id
+                   AND checked = 0 AND have_it = 0 AND removed = 0
+                   AND receipt_status IN ('', 'not_fulfilled')"""),
                 {"trip_id": trip["id"]},
             ).fetchall()
             grocery_names = [r["name"] for r in name_rows]
@@ -1955,10 +1968,11 @@ async def _process_receipt(receipt_type: str, content: str, request: Request):
         else:
             new_receipt_items.append(ri)
 
-    # Get trip items that still need matching (unresolved or not_fulfilled from prior receipt)
+    # Get trip items that still need matching — anything unchecked on the list
+    # This includes submitted items (sent to store) and active items (grabbed in-store)
     rows = conn.execute(
         text("""SELECT * FROM trip_items WHERE trip_id = :trip_id
-           AND (ordered = 1 OR checked = 1)
+           AND checked = 0 AND have_it = 0 AND removed = 0
            AND receipt_status IN ('', 'not_fulfilled')
            ORDER BY name"""),
         {"trip_id": trip["id"]},
@@ -2220,6 +2234,14 @@ async def resolve_receipt_item(body: dict, request: Request):
             text("UPDATE trip_items SET receipt_status = 'dismissed' WHERE trip_id = :trip_id AND LOWER(name) = LOWER(:name)"),
             {"trip_id": trip["id"], "name": name},
         )
+    elif status == "matched":
+        # Confirming a match also checks it off the grocery list
+        conn.execute(
+            text("""UPDATE trip_items SET receipt_status = 'matched',
+                   checked = 1, checked_at = CURRENT_TIMESTAMP
+               WHERE trip_id = :trip_id AND LOWER(name) = LOWER(:name)"""),
+            {"trip_id": trip["id"], "name": name},
+        )
     else:
         conn.execute(
             text("UPDATE trip_items SET receipt_status = :status WHERE trip_id = :trip_id AND LOWER(name) = LOWER(:name)"),
@@ -2227,6 +2249,55 @@ async def resolve_receipt_item(body: dict, request: Request):
         )
     conn.commit()
     return {"ok": True}
+
+
+@router.get("/purchases")
+async def get_purchases(request: Request):
+    """Get purchase history — confirmed receipt matches with ratings, grouped by date."""
+    from souschef.kroger import get_product_ratings, _make_product_key
+
+    user_id = request.state.user_id
+    conn = _conn()
+
+    # Get all confirmed purchases across all trips for this user
+    rows = conn.execute(
+        text("""SELECT ti.name, ti.receipt_item, ti.receipt_price, ti.receipt_upc,
+               ti.product_upc, ti.product_name, ti.product_brand, ti.product_size,
+               ti.product_price, ti.product_image, ti.receipt_status, ti.checked_at,
+               ti.submitted_at
+           FROM trip_items ti
+           JOIN grocery_trips gt ON gt.id = ti.trip_id
+           WHERE gt.user_id = :uid
+           AND ti.receipt_status IN ('matched', 'substituted')
+           ORDER BY COALESCE(ti.checked_at, ti.submitted_at) DESC NULLS LAST, ti.name"""),
+        {"uid": user_id},
+    ).fetchall()
+
+    purchases = []
+    for r in rows:
+        upc = r["receipt_upc"] or r["product_upc"] or ""
+        brand = r["product_brand"] or ""
+        desc = r["receipt_item"] or r["product_name"] or ""
+        pk = _make_product_key(upc, brand, desc)
+        ratings = get_product_ratings(conn, upc, user_id, product_key=pk)
+        purchases.append({
+            "name": r["name"],
+            "receipt_item": r["receipt_item"],
+            "receipt_price": r["receipt_price"],
+            "product_name": r["product_name"],
+            "product_brand": r["product_brand"],
+            "product_size": r["product_size"],
+            "product_price": r["product_price"],
+            "product_image": r["product_image"],
+            "receipt_status": r["receipt_status"],
+            "product_key": pk,
+            "upc": upc,
+            "brand": brand,
+            "rating": ratings["your_rating"],
+            "date": r["checked_at"] or r["submitted_at"] or "",
+        })
+
+    return {"purchases": purchases}
 
 
 @router.post("/product/rate")
