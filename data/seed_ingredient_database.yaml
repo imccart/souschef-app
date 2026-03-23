@@ -97,7 +97,7 @@ ingredients:
   # -- Fresh Vegetables --
   - name: yellow onion
     aisle: Produce
-    is_pantry_staple: 1
+    is_pantry_staple: 0
   - name: red onion
     aisle: Produce
     is_pantry_staple: 0
@@ -109,7 +109,7 @@ ingredients:
     is_pantry_staple: 0
   - name: garlic
     aisle: Produce
-    is_pantry_staple: 1
+    is_pantry_staple: 0
   - name: potato
     aisle: Produce
     is_pantry_staple: 0
@@ -158,7 +158,7 @@ ingredients:
     is_pantry_staple: 0
   - name: lettuce
     aisle: Produce
-    is_pantry_staple: 1
+    is_pantry_staple: 0
   - name: romaine lettuce
     aisle: Produce
     is_pantry_staple: 0
@@ -511,7 +511,7 @@ ingredients:
     is_pantry_staple: 0
   - name: butter
     aisle: Dairy & Eggs
-    is_pantry_staple: 1
+    is_pantry_staple: 0
   - name: salted butter
     aisle: Dairy & Eggs
     is_pantry_staple: 0
@@ -850,10 +850,10 @@ ingredients:
     root: mac and cheese
   - name: rice
     aisle: Pasta & Grains
-    is_pantry_staple: 0
+    is_pantry_staple: 1
   - name: white rice
     aisle: Pasta & Grains
-    is_pantry_staple: 0
+    is_pantry_staple: 1
     root: rice
   - name: brown rice
     aisle: Pasta & Grains
@@ -891,10 +891,10 @@ ingredients:
     is_pantry_staple: 0
   - name: breadcrumbs
     aisle: Pasta & Grains
-    is_pantry_staple: 0
+    is_pantry_staple: 1
   - name: panko breadcrumbs
     aisle: Pasta & Grains
-    is_pantry_staple: 0
+    is_pantry_staple: 1
     root: breadcrumbs
   - name: stuffing
     aisle: Pasta & Grains
@@ -1040,11 +1040,11 @@ ingredients:
     root: flour
   - name: self-rising flour
     aisle: Spices & Baking
-    is_pantry_staple: 0
+    is_pantry_staple: 1
     root: flour
   - name: whole wheat flour
     aisle: Spices & Baking
-    is_pantry_staple: 0
+    is_pantry_staple: 1
     root: flour
   - name: sugar
     aisle: Spices & Baking
@@ -1054,7 +1054,7 @@ ingredients:
     is_pantry_staple: 1
   - name: powdered sugar
     aisle: Spices & Baking
-    is_pantry_staple: 0
+    is_pantry_staple: 1
   - name: baking powder
     aisle: Spices & Baking
     is_pantry_staple: 1
@@ -1070,23 +1070,23 @@ ingredients:
     is_pantry_staple: 0
   - name: cocoa powder
     aisle: Spices & Baking
-    is_pantry_staple: 0
+    is_pantry_staple: 1
     root: cocoa
   - name: cornstarch
     aisle: Spices & Baking
     is_pantry_staple: 1
   - name: cornmeal
     aisle: Spices & Baking
-    is_pantry_staple: 0
+    is_pantry_staple: 1
   - name: cream of tartar
     aisle: Spices & Baking
-    is_pantry_staple: 0
+    is_pantry_staple: 1
   - name: yeast
     aisle: Spices & Baking
-    is_pantry_staple: 0
+    is_pantry_staple: 1
   - name: chocolate chips
     aisle: Spices & Baking
-    is_pantry_staple: 0
+    is_pantry_staple: 1
   - name: sweetened condensed milk
     aisle: Spices & Baking
     is_pantry_staple: 0
@@ -1165,15 +1165,15 @@ ingredients:
     root: vinegar
   - name: balsamic vinegar
     aisle: Condiments & Sauces
-    is_pantry_staple: 0
+    is_pantry_staple: 1
     root: vinegar
   - name: red wine vinegar
     aisle: Condiments & Sauces
-    is_pantry_staple: 0
+    is_pantry_staple: 1
     root: vinegar
   - name: rice vinegar
     aisle: Condiments & Sauces
-    is_pantry_staple: 0
+    is_pantry_staple: 1
     root: vinegar
 
   # -- Sauces --
@@ -1189,7 +1189,7 @@ ingredients:
     root: mustard
   - name: dijon mustard
     aisle: Condiments & Sauces
-    is_pantry_staple: 0
+    is_pantry_staple: 1
     root: mustard
   - name: mayonnaise
     aisle: Condiments & Sauces
@@ -1202,10 +1202,10 @@ ingredients:
     is_pantry_staple: 1
   - name: hot sauce
     aisle: Condiments & Sauces
-    is_pantry_staple: 0
+    is_pantry_staple: 1
   - name: bbq sauce
     aisle: Condiments & Sauces
-    is_pantry_staple: 0
+    is_pantry_staple: 1
   - name: marinara sauce
     aisle: Condiments & Sauces
     is_pantry_staple: 0
@@ -1261,7 +1261,7 @@ ingredients:
     root: salad dressing
   - name: honey
     aisle: Condiments & Sauces
-    is_pantry_staple: 1
+    is_pantry_staple: 0
   - name: maple syrup
     aisle: Condiments & Sauces
     is_pantry_staple: 0
@@ -1273,7 +1273,7 @@ ingredients:
     is_pantry_staple: 0
   - name: peanut butter
     aisle: Condiments & Sauces
-    is_pantry_staple: 1
+    is_pantry_staple: 0
   - name: nutella
     aisle: Condiments & Sauces
     is_pantry_staple: 0
@@ -1356,7 +1356,7 @@ ingredients:
     root: tomatoes
   - name: tomato paste
     aisle: Canned Goods
-    is_pantry_staple: 1
+    is_pantry_staple: 0
   - name: tomato sauce
     aisle: Canned Goods
     is_pantry_staple: 0
@@ -1644,10 +1644,10 @@ ingredients:
   # -- Coffee & Tea --
   - name: coffee
     aisle: Breakfast & Beverages
-    is_pantry_staple: 1
+    is_pantry_staple: 0
   - name: ground coffee
     aisle: Breakfast & Beverages
-    is_pantry_staple: 1
+    is_pantry_staple: 0
     root: coffee
   - name: coffee k-cups
     aisle: Breakfast & Beverages
@@ -1659,7 +1659,7 @@ ingredients:
     root: coffee
   - name: tea
     aisle: Breakfast & Beverages
-    is_pantry_staple: 1
+    is_pantry_staple: 0
   - name: green tea
     aisle: Breakfast & Beverages
     is_pantry_staple: 0
