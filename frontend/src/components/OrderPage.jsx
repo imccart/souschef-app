@@ -442,24 +442,28 @@ export default function OrderPage() {
       )}
 
       {pendingProduct && (
-        <div className="order-qty-prompt">
-          <div className="order-qty-label">How many?</div>
-          <div className="order-qty-product">{pendingProduct.name}</div>
-          <div className="order-qty-controls">
-            <button className="order-qty-btn" onClick={() => setPendingQty(q => Math.max(1, q - 1))}>{'\u2212'}</button>
-            <span className="order-qty-value">{pendingQty}</span>
-            <button className="order-qty-btn" onClick={() => setPendingQty(q => q + 1)}>+</button>
+        <div className="order-modal-overlay" onClick={() => setPendingProduct(null)}>
+          <div className="order-modal" onClick={e => e.stopPropagation()}>
+            <div className="order-qty-label">How many?</div>
+            <div className="order-qty-product">{pendingProduct.name}</div>
+            <div className="order-qty-controls">
+              <button className="order-qty-btn" onClick={() => setPendingQty(q => Math.max(1, q - 1))}>{'\u2212'}</button>
+              <span className="order-qty-value">{pendingQty}</span>
+              <button className="order-qty-btn" onClick={() => setPendingQty(q => q + 1)}>+</button>
+            </div>
+            <button className="order-qty-confirm" onClick={handleConfirmQuantity}>Confirm</button>
           </div>
-          <button className="order-qty-confirm" onClick={handleConfirmQuantity}>Confirm</button>
         </div>
       )}
 
       {showAnythingElse && (
-        <div className="order-anything-else">
-          <span>Anything else for <strong>{activeItem}</strong>?</span>
-          <div className="order-anything-else-btns">
-            <button className="order-grocery-btn" onClick={handleAnythingElseYes}>Yes</button>
-            <button className="order-grocery-btn" onClick={handleAnythingElseNo}>No</button>
+        <div className="order-modal-overlay">
+          <div className="order-modal">
+            <span>Anything else for <strong>{activeItem}</strong>?</span>
+            <div className="order-anything-else-btns">
+              <button className="order-grocery-btn" onClick={handleAnythingElseYes}>Yes</button>
+              <button className="order-grocery-btn" onClick={handleAnythingElseNo}>No</button>
+            </div>
           </div>
         </div>
       )}
@@ -519,6 +523,7 @@ export default function OrderPage() {
                   <ProductInsights nova={pref.nova} nutriscore={pref.nutriscore} />
                   {pref.rating === 1 && <span className="pref-star">{'\u{1F44D}'}</span>}
                   {pref.rating === -1 && <span className="pref-down">{'\u{1F44E}'}</span>}
+                  <ParentCoBadge brand={pref.brand} parentCompany={pref.parent_company} violations={pref.violations} onTapUnknown={(b) => setCommunityBrand(b)} />
                 </button>
               ))}
             </div>
