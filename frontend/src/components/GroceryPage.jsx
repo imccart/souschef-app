@@ -466,7 +466,7 @@ export default function GroceryPage({ sidebar = false }) {
               <button className="grocery-action-btn-item" onClick={() => handleItemAction(item.name, 'bought')}>Bought</button>
               <button className="grocery-action-btn-item" onClick={() => handleItemAction(item.name, 'have_it')}>Have it</button>
               <button className="grocery-action-btn-item" onClick={(e) => { e.stopPropagation(); setEditingNote(item.name); setNoteText(item.notes || '') }}>Note</button>
-              <button className="grocery-action-btn-item" onClick={(e) => { e.stopPropagation(); setRecatItem(item.name) }}>Move</button>
+              <button className="grocery-action-btn-item" onClick={(e) => { e.stopPropagation(); setRecatItem(item.name) }}>Aisle</button>
               <button className="grocery-action-btn-item remove" onClick={() => handleItemAction(item.name, 'remove')}>{'\u00D7'}</button>
             </div>
           </>
