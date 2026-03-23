@@ -86,8 +86,6 @@ export const api = {
     body: JSON.stringify({ name, shopping_group: shoppingGroup }),
   }),
   getGrocerySuggestions: () => request('/grocery/suggestions'),
-  getGroceryTrips: () => request('/grocery/trips'),
-  getActiveTrip: () => request('/grocery/active-trip'),
   haveItGroceryItem: (name) => request(`/grocery/have-it/${encodeURIComponent(name)}`, { method: 'POST' }),
   removeGroceryItem: (name) => request(`/grocery/item/${encodeURIComponent(name)}`, { method: 'DELETE' }),
   addRegulars: (selected) => request('/grocery/add-regulars', {
@@ -98,7 +96,6 @@ export const api = {
     method: 'POST',
     body: JSON.stringify({ selected }),
   }),
-  freshStartGrocery: () => request('/grocery/build', { method: 'POST' }),
 
   // Receipt
   getReceipt: () => request('/receipt'),

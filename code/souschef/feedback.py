@@ -1,8 +1,10 @@
-"""Shopping feedback loop: detect patterns from completed grocery trips.
+"""Shopping feedback loop: detect patterns from grocery item history.
 
 Two patterns:
 - Skipped meal items: ingredients listed for a recipe but never bought
 - Extra-meal links: manually added items that correlate with specific meals
+
+Uses time-window analysis (calendar weeks over last 90 days) instead of trip boundaries.
 """
 
 from __future__ import annotations
@@ -12,17 +14,19 @@ from sqlalchemy import text
 from souschef.database import DictConnection
 
 
-def detect_skipped_items(conn: DictConnection, user_id: str, min_trips: int = 3) -> list[dict]:
+def detect_skipped_items(conn: DictConnection, user_id: str, min_weeks: int = 3) -> list[dict]:
     """Find meal ingredients the user consistently does not buy.
 
+    Looks at meal-sourced items over the last 90 days.
     Returns list of {"item", "meal", "times_listed"} dicts.
     """
     rows = conn.execute(text("""
         SELECT ti.name, ti.for_meals, ti.checked
         FROM trip_items ti
         JOIN grocery_trips gt ON gt.id = ti.trip_id
-        WHERE gt.user_id = :user_id AND gt.active = 0 AND gt.completed_at IS NOT NULL
+        WHERE gt.user_id = :user_id
           AND ti.source = 'meal' AND ti.for_meals != ''
+          AND ti.added_at > NOW() - INTERVAL '90 days'
     """), {"user_id": user_id}).fetchall()
 
     # Accumulate (item, meal) -> {listed, bought}
@@ -42,7 +46,7 @@ def detect_skipped_items(conn: DictConnection, user_id: str, min_trips: int = 3)
     dismissed = _get_dismissed(conn, user_id, "skip")
     results = []
     for (item, meal), d in pairs.items():
-        if d["listed"] >= min_trips and d["bought"] == 0:
+        if d["listed"] >= min_weeks and d["bought"] == 0:
             if f"{item}::{meal.lower()}" not in dismissed:
                 results.append({
                     "item": item,
@@ -52,52 +56,54 @@ def detect_skipped_items(conn: DictConnection, user_id: str, min_trips: int = 3)
     return results
 
 
-def detect_extra_meal_links(conn: DictConnection, user_id: str, min_trips: int = 3) -> list[dict]:
+def detect_extra_meal_links(conn: DictConnection, user_id: str, min_occurrences: int = 3) -> list[dict]:
     """Find extra items that always appear when a specific meal is planned.
 
-    Returns list of {"item", "meal", "times_together", "meal_trips"} dicts.
+    Uses calendar-week grouping over the last 20 weeks.
+    Returns list of {"item", "meal", "times_together", "meal_weeks"} dicts.
     """
     from souschef.regulars import list_regulars
 
-    trips = conn.execute(text("""
-        SELECT id FROM grocery_trips
-        WHERE user_id = :user_id AND active = 0 AND completed_at IS NOT NULL
-        ORDER BY id DESC LIMIT 20
+    # Get all meal-sourced and extra items from the last 20 weeks
+    rows = conn.execute(text("""
+        SELECT ti.name, ti.for_meals, ti.source, ti.checked,
+               EXTRACT(ISOYEAR FROM ti.added_at::timestamp) AS yr,
+               EXTRACT(WEEK FROM ti.added_at::timestamp) AS wk
+        FROM trip_items ti
+        JOIN grocery_trips gt ON gt.id = ti.trip_id
+        WHERE gt.user_id = :user_id
+          AND ti.added_at > NOW() - INTERVAL '140 days'
+          AND ti.source IN ('meal', 'extra')
     """), {"user_id": user_id}).fetchall()
 
-    if not trips:
+    if not rows:
         return []
 
-    # Exclude items already in regulars (those correlate with everything)
+    # Exclude items already in regulars
     regular_names = {r.name.lower() for r in list_regulars(conn, user_id, active_only=False)}
 
-    trip_data = []
-    for t in trips:
-        tid = t["id"]
-        meals_rows = conn.execute(text("""
-            SELECT DISTINCT for_meals FROM trip_items
-            WHERE trip_id = :tid AND source = 'meal' AND for_meals != ''
-        """), {"tid": tid}).fetchall()
-
-        meals_on_trip: set[str] = set()
-        for r in meals_rows:
+    # Group by calendar week
+    week_data: dict[tuple, dict] = {}
+    for r in rows:
+        try:
+            week_key = (int(r["yr"]), int(r["wk"]))
+        except (TypeError, ValueError):
+            continue
+        if week_key not in week_data:
+            week_data[week_key] = {"meals": set(), "extras": set()}
+        if r["source"] == "meal" and r["for_meals"]:
             for m in r["for_meals"].split(","):
                 m = m.strip()
                 if m:
-                    meals_on_trip.add(m)
-
-        extras = conn.execute(text("""
-            SELECT name FROM trip_items
-            WHERE trip_id = :tid AND source = 'extra' AND checked = 1
-        """), {"tid": tid}).fetchall()
-
-        extras_on_trip = {r["name"] for r in extras if r["name"] not in regular_names}
-        trip_data.append({"meals": meals_on_trip, "extras": extras_on_trip})
+                    week_data[week_key]["meals"].add(m)
+        elif r["source"] == "extra" and r["checked"]:
+            if r["name"] not in regular_names:
+                week_data[week_key]["extras"].add(r["name"])
 
     # Count co-occurrences
     meal_count: dict[str, int] = {}
     pair_count: dict[tuple[str, str], int] = {}
-    for td in trip_data:
+    for td in week_data.values():
         for meal in td["meals"]:
             meal_count[meal] = meal_count.get(meal, 0) + 1
             for extra in td["extras"]:
@@ -108,13 +114,13 @@ def detect_extra_meal_links(conn: DictConnection, user_id: str, min_trips: int =
     results = []
     for (extra, meal), count in pair_count.items():
         total = meal_count[meal]
-        if count >= min_trips and count / total >= 0.75:
+        if count >= min_occurrences and count / total >= 0.75:
             if f"{extra}::{meal.lower()}" not in dismissed:
                 results.append({
                     "item": extra,
                     "meal": meal,
                     "times_together": count,
-                    "meal_trips": total,
+                    "meal_weeks": total,
                 })
     return results
 

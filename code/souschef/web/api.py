@@ -379,7 +379,7 @@ async def suggest_meals(request: Request):
 
 @router.post("/meals/fresh-start")
 async def fresh_start(request: Request):
-    """Clear all meals in the rolling window and deactivate the active grocery trip."""
+    """Clear all meals in the rolling window. Grocery list updates on next view."""
     from souschef.planner import load_rolling_week
 
     user_id = request.state.user_id
@@ -392,13 +392,11 @@ async def fresh_start(request: Request):
         {"start": mw.start_date, "end": mw.end_date, "user_id": user_id},
     )
 
-    # Complete the active grocery trip
+    # Refresh grocery list — meal-derived items with no meals will be removed
     trip = _get_active_trip(conn, user_id)
     if trip:
-        conn.execute(
-            text("UPDATE grocery_trips SET active = 0, completed_at = NOW() WHERE id = :id"),
-            {"id": trip["id"]},
-        )
+        mw = load_rolling_week(conn, user_id)
+        _refresh_trip_meal_items(conn, trip["id"], mw, user_id)
 
     conn.commit()
     return await get_meals(request)
@@ -1113,38 +1111,14 @@ async def add_pantry_to_grocery(body: dict, request: Request):
 
 @router.post("/grocery/build")
 async def build_my_list(request: Request, body: dict = None):
-    """Reset grocery trip — completes old trip, creates new one from meals only."""
+    """Refresh grocery list from current meals."""
     from souschef.planner import load_rolling_week
-    from souschef.planner import set_all_grocery
 
     user_id = request.state.user_id
     conn = _conn()
     mw = load_rolling_week(conn, user_id)
-
-    # First, toggle all meals to grocery list
-    if mw.meals:
-        set_all_grocery(conn, user_id, mw.start_date, mw.end_date, on=True)
-        mw = load_rolling_week(conn, user_id)
-
-    # Complete previous trip
-    existing_trip = _get_active_trip(conn, user_id)
-    if existing_trip:
-        conn.execute(
-            text("UPDATE grocery_trips SET active = 0, completed_at = NOW() WHERE id = :id"),
-            {"id": existing_trip["id"]},
-        )
-        conn.commit()
-
-    # Start fresh trip from meals only (no regulars, no pantry, no carryover)
-    cursor = conn.execute(
-        text("""INSERT INTO grocery_trips (trip_type, start_date, end_date, active, user_id)
-           VALUES ('plan', :start_date, :end_date, 1, :user_id)
-           RETURNING id"""),
-        {"start_date": mw.start_date, "end_date": mw.end_date, "user_id": user_id},
-    )
-    conn.commit()
-    trip_id = cursor.fetchone()["id"]
-    _build_trip_from_meals(conn, trip_id, mw, user_id)
+    trip = _ensure_active_trip(conn, mw, user_id)
+    _refresh_trip_meal_items(conn, trip["id"], mw, user_id)
     conn.commit()
 
     return await get_grocery(request)
@@ -2908,42 +2882,49 @@ async def get_meal_history(request: Request):
 async def get_learning_suggestions(request: Request):
     """Suggest regulars additions/removals based on weekly shopping patterns.
 
-    Groups completed trips by ISO week to normalize for different build
-    frequencies. Requires 4+ weeks of data. Suggests additions for items
-    appearing in 4+ of the last 5 active weeks, and removals for regulars
-    skipped in 4+ of the last 5 active weeks.
+    Uses calendar-week grouping over item timestamps. Requires 4+ weeks of data.
+    Suggests additions for items appearing in 4+ of the last 5 active weeks,
+    and removals for regulars skipped in 4+ of the last 5 active weeks.
     """
     from souschef.regulars import list_regulars
 
     user_id = request.state.user_id
     conn = _conn()
 
-    # Get completed trips with their ISO week
-    trips = conn.execute(
-        text("""SELECT id, EXTRACT(ISOYEAR FROM completed_at) AS iso_year,
-                       EXTRACT(WEEK FROM completed_at) AS iso_week
-                FROM grocery_trips
-                WHERE user_id = :user_id AND active = 0 AND completed_at IS NOT NULL
-                ORDER BY completed_at DESC"""),
+    # Get all items from the last 35 days, grouped by calendar week
+    rows = conn.execute(
+        text("""SELECT LOWER(ti.name) as name, ti.source,
+                       EXTRACT(ISOYEAR FROM ti.added_at::timestamp) AS iso_year,
+                       EXTRACT(WEEK FROM ti.added_at::timestamp) AS iso_week
+                FROM trip_items ti
+                JOIN grocery_trips gt ON gt.id = ti.trip_id
+                WHERE gt.user_id = :user_id
+                  AND ti.added_at > NOW() - INTERVAL '35 days'"""),
         {"user_id": user_id},
     ).fetchall()
 
-    if not trips:
+    if not rows:
         return {"add": [], "remove": []}
 
-    # Group trip IDs by ISO week (year-week key), keep last 5 weeks
-    week_trips: dict[str, list[int]] = {}
-    for t in trips:
-        week_key = f"{int(t['iso_year'])}-W{int(t['iso_week']):02d}"
-        week_trips.setdefault(week_key, []).append(t["id"])
+    # Group items by calendar week
+    week_items: dict[str, set[str]] = {}
+    week_skips: dict[str, set[str]] = {}
+    for r in rows:
+        try:
+            week_key = f"{int(r['iso_year'])}-W{int(r['iso_week']):02d}"
+        except (TypeError, ValueError):
+            continue
+        if r["source"] != "regular_skip":
+            week_items.setdefault(week_key, set()).add(r["name"])
+        else:
+            week_skips.setdefault(week_key, set()).add(r["name"])
 
-    sorted_weeks = sorted(week_trips.keys(), reverse=True)[:5]
+    sorted_weeks = sorted(week_items.keys(), reverse=True)[:5]
     if len(sorted_weeks) < 4:
         return {"add": [], "remove": []}
 
     total_weeks = len(sorted_weeks)
 
-    # Gather items per week (deduplicated within each week)
     regulars = list_regulars(conn, user_id, active_only=False)
     regular_names = {r.name.lower() for r in regulars}
     dismissed_rows = conn.execute(
@@ -2953,23 +2934,13 @@ async def get_learning_suggestions(request: Request):
     dismissed = {r["name"] for r in dismissed_rows}
 
     # --- Addition suggestions ---
-    # Items on the list (not regular_skip) in 4+ of last 5 weeks
-    item_weeks: dict[str, int] = {}
+    item_week_count: dict[str, int] = {}
     for week_key in sorted_weeks:
-        tids = week_trips[week_key]
-        placeholders = ", ".join(f":tid{i}" for i in range(len(tids)))
-        params = {f"tid{i}": tid for i, tid in enumerate(tids)}
-        items = conn.execute(
-            text(f"""SELECT DISTINCT LOWER(name) as name FROM trip_items
-                 WHERE trip_id IN ({placeholders}) AND source != 'regular_skip'"""),
-            params,
-        ).fetchall()
-        seen_this_week = {item["name"] for item in items}
-        for name in seen_this_week:
-            item_weeks[name] = item_weeks.get(name, 0) + 1
+        for name in week_items.get(week_key, set()):
+            item_week_count[name] = item_week_count.get(name, 0) + 1
 
     add_suggestions = []
-    for name, week_count in item_weeks.items():
+    for name, week_count in item_week_count.items():
         if week_count >= 4 and name not in regular_names and name not in dismissed:
             add_suggestions.append({
                 "name": name,
@@ -2978,27 +2949,13 @@ async def get_learning_suggestions(request: Request):
             })
 
     # --- Removal suggestions ---
-    # Active regulars skipped (source='regular_skip') in 4+ of last 5 weeks
     remove_suggestions = []
     active_regulars = [r for r in regulars if r.active]
     for reg in active_regulars:
         name_lower = reg.name.lower()
         if name_lower in dismissed:
             continue
-        skip_weeks = 0
-        for week_key in sorted_weeks:
-            tids = week_trips[week_key]
-            placeholders = ", ".join(f":tid{i}" for i in range(len(tids)))
-            params = {f"tid{i}": tid for i, tid in enumerate(tids)}
-            params["name"] = name_lower
-            skip = conn.execute(
-                text(f"""SELECT 1 FROM trip_items
-                     WHERE trip_id IN ({placeholders}) AND LOWER(name) = :name
-                     AND source = 'regular_skip' LIMIT 1"""),
-                params,
-            ).fetchone()
-            if skip:
-                skip_weeks += 1
+        skip_weeks = sum(1 for wk in sorted_weeks if name_lower in week_skips.get(wk, set()))
         if skip_weeks >= 4:
             remove_suggestions.append({"name": reg.name, "id": reg.id})
 
