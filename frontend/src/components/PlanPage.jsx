@@ -185,10 +185,16 @@ export default function PlanPage({ showHeader = true, onLoad, onNavigate }) {
 
   const handleSetMeal = async (date, recipeId, sides) => {
     try {
+      const hasNewSides = sides?.some(s => !s.side_recipe_id)
       const result = await api.setMeal(date, recipeId, sides)
       setData(result)
       setPickerDate(null)
       setPickerMode(null)
+      // Auto-open ingredients if new sides were created
+      if (hasNewSides) {
+        const day = result.days.find(d => d.date === date)
+        if (day?.meal) setIngredientsMeal(day.meal)
+      }
     } catch { await load() }
   }
 

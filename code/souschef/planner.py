@@ -169,17 +169,21 @@ def load_meals(conn: DictConnection, user_id: str, start_date: str, end_date: st
            ORDER BY m.slot_date"""),
         {"user_id": user_id, "start_date": start_date, "end_date": end_date},
     ).fetchall()
-    meals = [
-        Meal(
+    meals = []
+    for r in rows:
+        try:
+            notes = r["notes"]
+        except (KeyError, Exception):
+            notes = ""
+        meals.append(Meal(
             id=r["id"], slot_date=r["slot_date"], recipe_id=r["recipe_id"],
             recipe_name=r["rname"] or "", status=r["status"],
             locked=bool(r["locked"]),
             is_followup=bool(r["is_followup"]),
             on_grocery=bool(r["on_grocery"]),
             created_at=r["created_at"],
-        )
-        for r in rows
-    ]
+            notes=notes or "",
+        ))
     # Bulk-load sides from junction table
     meal_ids = [m.id for m in meals if m.id]
     if meal_ids:
@@ -206,21 +210,21 @@ def save_meals(conn: DictConnection, user_id: str, meals: list[Meal]) -> list[Me
         if meal.id:
             conn.execute(
                 text("""UPDATE meals SET recipe_id = :recipe_id, recipe_name = :recipe_name, status = :status,
-                   locked = :locked, is_followup = :is_followup, on_grocery = :on_grocery
+                   locked = :locked, is_followup = :is_followup, on_grocery = :on_grocery, notes = :notes
                    WHERE id = :id AND user_id = :user_id"""),
                 {"recipe_id": meal.recipe_id, "recipe_name": meal.recipe_name, "status": meal.status,
                  "locked": int(meal.locked),
                  "is_followup": int(meal.is_followup),
-                 "on_grocery": int(meal.on_grocery), "id": meal.id, "user_id": user_id},
+                 "on_grocery": int(meal.on_grocery), "notes": meal.notes, "id": meal.id, "user_id": user_id},
             )
         else:
             cur = conn.execute(
-                text("""INSERT INTO meals (user_id, slot_date, recipe_id, recipe_name, status, locked, is_followup, on_grocery)
-                   VALUES (:user_id, :slot_date, :recipe_id, :recipe_name, :status, :locked, :is_followup, :on_grocery)
+                text("""INSERT INTO meals (user_id, slot_date, recipe_id, recipe_name, status, locked, is_followup, on_grocery, notes)
+                   VALUES (:user_id, :slot_date, :recipe_id, :recipe_name, :status, :locked, :is_followup, :on_grocery, :notes)
                    RETURNING id"""),
                 {"user_id": user_id, "slot_date": meal.slot_date, "recipe_id": meal.recipe_id, "recipe_name": meal.recipe_name,
                  "status": meal.status, "locked": int(meal.locked),
-                 "is_followup": int(meal.is_followup), "on_grocery": int(meal.on_grocery)},
+                 "is_followup": int(meal.is_followup), "on_grocery": int(meal.on_grocery), "notes": meal.notes},
             )
             meal.id = cur.fetchone()["id"]
         # Sync sides to junction table
