@@ -88,9 +88,8 @@ export const api = {
   getGrocerySuggestions: () => request('/grocery/suggestions'),
   getGroceryTrips: () => request('/grocery/trips'),
   getActiveTrip: () => request('/grocery/active-trip'),
-  skipGroceryItem: (name) => request(`/grocery/skip/${encodeURIComponent(name)}`, { method: 'POST' }),
-  unskipGroceryItem: (name) => request(`/grocery/unskip/${encodeURIComponent(name)}`, { method: 'POST' }),
   haveItGroceryItem: (name) => request(`/grocery/have-it/${encodeURIComponent(name)}`, { method: 'POST' }),
+  removeGroceryItem: (name) => request(`/grocery/item/${encodeURIComponent(name)}`, { method: 'DELETE' }),
   addRegulars: (selected) => request('/grocery/add-regulars', {
     method: 'POST',
     body: JSON.stringify({ selected }),
@@ -98,10 +97,6 @@ export const api = {
   addPantryItems: (selected) => request('/grocery/add-pantry', {
     method: 'POST',
     body: JSON.stringify({ selected }),
-  }),
-  dismissStaleItems: (keep, staleItems) => request('/grocery/dismiss-stale', {
-    method: 'POST',
-    body: JSON.stringify({ keep, stale_items: staleItems }),
   }),
   freshStartGrocery: () => request('/grocery/build', { method: 'POST' }),
 

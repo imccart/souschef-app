@@ -99,9 +99,9 @@ export default function GroceryPage({ sidebar = false }) {
   const [loading, setLoading] = useState(true)
   const [loadError, setLoadError] = useState(false)
   const [recatItem, setRecatItem] = useState(null)
-  const [hideDone, setHideDone] = useState(true)
   const [editingNote, setEditingNote] = useState(null)
   const [noteText, setNoteText] = useState('')
+  const [showRecent, setShowRecent] = useState(false)
 
   // Inline prompt state
   const [regularsData, setRegularsData] = useState(null)
@@ -110,8 +110,6 @@ export default function GroceryPage({ sidebar = false }) {
   const [pantryData, setPantryData] = useState(null)
   const [pantryChecked, setPantryChecked] = useState(new Set())
   const [pantryExpanded, setPantryExpanded] = useState(false)
-  const [staleExpanded, setStaleExpanded] = useState(false)
-  const [staleKeep, setStaleKeep] = useState(new Set())
 
   const load = async () => {
     try {
@@ -135,10 +133,9 @@ export default function GroceryPage({ sidebar = false }) {
   if (loading) return <><div className="loading">Gathering ingredients...</div><FeedbackFab page="grocery" /></>
   if (loadError) return <><div className="loading">Something went wrong loading your list. Try refreshing.</div><FeedbackFab page="grocery" /></>
 
-  const { items_by_group, checked, ordered, skipped, have_it, start_date, end_date, regulars_state, pantry_state, stale_state, stale_items } = grocery
+  const { items_by_group, checked, ordered, have_it, recently_checked } = grocery
   const checkedSet = new Set((checked || []).map(n => n.toLowerCase()))
   const orderedSet = new Set((ordered || []).map(n => n.toLowerCase()))
-  const skippedSet = new Set((skipped || []).map(n => n.toLowerCase()))
   const haveItSet = new Set((have_it || []).map(n => n.toLowerCase()))
 
   const onListSet = new Set()
@@ -148,23 +145,20 @@ export default function GroceryPage({ sidebar = false }) {
     }
   }
 
-  let totalItems = 0
-  let doneCount = 0
+  // Count only active (not checked/have_it/ordered) items per group
+  let totalActive = 0
   const groupCounts = {}
   for (const [group, items] of Object.entries(items_by_group)) {
     let groupRemaining = 0
     for (const item of items) {
-      totalItems++
       const nameLower = item.name.toLowerCase()
-      if (checkedSet.has(nameLower) || skippedSet.has(nameLower) || haveItSet.has(nameLower) || orderedSet.has(nameLower)) {
-        doneCount++
-      } else {
+      if (!checkedSet.has(nameLower) && !haveItSet.has(nameLower) && !orderedSet.has(nameLower)) {
         groupRemaining++
+        totalActive++
       }
     }
-    groupCounts[group] = { total: items.length, remaining: groupRemaining }
+    groupCounts[group] = { remaining: groupRemaining }
   }
-  const remainingCount = totalItems - doneCount
 
   const sortedGroups = Object.keys(items_by_group).sort((a, b) => {
     const ai = GROUP_ORDER.indexOf(a)
@@ -192,32 +186,33 @@ export default function GroceryPage({ sidebar = false }) {
   const handleItemAction = async (name, action) => {
     const prev = grocery
     const nl = name.toLowerCase()
-    const sets = {
-      checked: new Set(checkedSet),
-      skipped: new Set(skippedSet),
-      have_it: new Set(haveItSet),
-    }
 
-    // Unskip is a special case — just remove from skipped
-    if (action === 'skip' && sets.skipped.has(nl)) {
-      sets.skipped.delete(nl)
-      setGrocery({ ...grocery, skipped: [...sets.skipped] })
-      try { await api.unskipGroceryItem(name) } catch { setGrocery(prev) }
+    if (action === 'remove') {
+      // Optimistic: remove from all groups
+      const updated = {}
+      for (const [g, items] of Object.entries(items_by_group)) {
+        updated[g] = items.filter(i => i.name.toLowerCase() !== nl)
+      }
+      setGrocery({ ...grocery, items_by_group: updated })
+      try { await api.removeGroceryItem(name) } catch { setGrocery(prev) }
       return
     }
 
-    // Toggle target set, clear the others
-    const keyMap = { bought: 'checked', have_it: 'have_it', skip: 'skipped' }
-    const targetKey = keyMap[action]
+    // Bought or have_it — optimistically add to the right set
+    const sets = {
+      checked: new Set(checkedSet),
+      have_it: new Set(haveItSet),
+    }
+    const targetKey = action === 'bought' ? 'checked' : 'have_it'
     if (sets[targetKey].has(nl)) {
       sets[targetKey].delete(nl)
     } else {
       sets[targetKey].add(nl)
       Object.keys(sets).filter(k => k !== targetKey).forEach(k => sets[k].delete(nl))
     }
-    setGrocery({ ...grocery, checked: [...sets.checked], skipped: [...sets.skipped], have_it: [...sets.have_it] })
+    setGrocery({ ...grocery, checked: [...sets.checked], have_it: [...sets.have_it] })
 
-    const apiCall = { bought: api.toggleGroceryItem, have_it: api.haveItGroceryItem, skip: api.skipGroceryItem }
+    const apiCall = { bought: api.toggleGroceryItem, have_it: api.haveItGroceryItem }
     try { await apiCall[action](name) } catch { setGrocery(prev) }
   }
 
@@ -294,25 +289,24 @@ export default function GroceryPage({ sidebar = false }) {
     await submitPrompt(api.addPantryItems, [...pantryChecked])
     setPantryExpanded(false)
   }
-  // Stale prompt handlers
-  const handleStaleExpand = () => {
-    setStaleKeep(new Set()) // default: nothing kept (all will be skipped)
-    setStaleExpanded(true)
-  }
-  const handleStaleSubmit = async () => {
+  const handleUndoRecent = async (name) => {
+    const prev = grocery
+    // Optimistic: remove from checked/have_it
+    setGrocery({
+      ...grocery,
+      checked: (grocery.checked || []).filter(n => n.toLowerCase() !== name.toLowerCase()),
+      have_it: (grocery.have_it || []).filter(n => n.toLowerCase() !== name.toLowerCase()),
+      recently_checked: (grocery.recently_checked || []).filter(r => r.name.toLowerCase() !== name.toLowerCase()),
+    })
     try {
-      const result = await api.dismissStaleItems([...staleKeep], stale_items || [])
-      setGrocery(result)
-    } catch {}
-    setStaleExpanded(false)
-  }
-  const handleStaleDismiss = async () => {
-    // Skip all stale items
-    try {
-      const result = await api.dismissStaleItems([], stale_items || [])
-      setGrocery(result)
-    } catch {}
-    setStaleExpanded(false)
+      // Toggle it back — if it was checked, un-check; if have_it, un-have-it
+      const item = (grocery.recently_checked || []).find(r => r.name.toLowerCase() === name.toLowerCase())
+      if (item?.type === 'bought') {
+        await api.toggleGroceryItem(name)
+      } else {
+        await api.haveItGroceryItem(name)
+      }
+    } catch { setGrocery(prev) }
   }
 
   const renderActionCard = ({ expanded, label, onExpand, onSubmit, data, checkedSet, setChecked, groupField }) => {
@@ -393,67 +387,16 @@ export default function GroceryPage({ sidebar = false }) {
           data: pantryData, checkedSet: pantryChecked, setChecked: setPantryChecked, groupField: null,
         })}
       </div>
-      {stale_state === 'prompt' && stale_items && stale_items.length > 0 && (
-        staleExpanded ? (
-          <div className="grocery-prompt-card">
-            <div className="grocery-prompt-body">
-              <div className="grocery-prompt-title">Still need these?</div>
-              <div className="grocery-prompt-desc">
-                Looks like you went on a grocery run. Check anything you still need.
-              </div>
-              <div className="grocery-prompt-checklist">
-                {stale_items.map(name => (
-                  <div
-                    key={name}
-                    className="grocery-prompt-check-item"
-                    onClick={() => setStaleKeep(prev => {
-                      const next = new Set(prev)
-                      next.has(name) ? next.delete(name) : next.add(name)
-                      return next
-                    })}
-                  >
-                    <div className={`grocery-prompt-check ${staleKeep.has(name) ? 'active' : ''}`}>
-                      {staleKeep.has(name) && '\u2713'}
-                    </div>
-                    <span>{name}</span>
-                  </div>
-                ))}
-              </div>
-              <div className="grocery-prompt-actions">
-                <button className="grocery-prompt-dismiss" onClick={handleStaleDismiss}>
-                  Remove all
-                </button>
-                <button className="grocery-prompt-submit" onClick={handleStaleSubmit}>
-                  Keep selected {staleKeep.size > 0 ? `(${staleKeep.size})` : ''}
-                </button>
-              </div>
-            </div>
-          </div>
-        ) : (
-          <div className="grocery-prompt-card">
-            <button className="grocery-prompt-trigger" onClick={handleStaleExpand}>
-              <BentSpoonIcon size={18} />
-              <span>Looks like you went shopping</span>
-              <span className="grocery-prompt-arrow">{'\u203A'}</span>
-            </button>
-          </div>
-        )
-      )}
     </>
   )
-
-  const isItemHidden = (nameLower) => {
-    return hideDone && (checkedSet.has(nameLower) || skippedSet.has(nameLower) || haveItSet.has(nameLower) || orderedSet.has(nameLower))
-  }
 
   const renderItem = (item) => {
     const nameLower = item.name.toLowerCase()
     const isChecked = checkedSet.has(nameLower)
     const isOrdered = orderedSet.has(nameLower)
-    const isSkipped = skippedSet.has(nameLower)
     const isHaveIt = haveItSet.has(nameLower)
     const isDone = isChecked || isHaveIt
-    const stateClass = isChecked ? 'checked' : isHaveIt ? 'have-it' : isOrdered ? 'ordered' : isSkipped ? 'skipped' : ''
+    const stateClass = isChecked ? 'checked' : isHaveIt ? 'have-it' : isOrdered ? 'ordered' : ''
     const hasMeals = item.for_meals && item.for_meals.length > 0
 
     if (isOrdered) {
@@ -475,23 +418,8 @@ export default function GroceryPage({ sidebar = false }) {
       )
     }
 
-    if (isSkipped) {
-      return (
-        <div
-          key={item.name}
-          className="grocery-item-row skipped"
-          onClick={() => handleItemAction(item.name, 'skip')}
-        >
-          <div className="grocery-item-top">
-            <span className="item-name skipped-text">
-              {item.name}
-              {item.meal_count > 1 && <span className="multi-badge">x{item.meal_count}</span>}
-            </span>
-            <span className="grocery-item-undo">Undo</span>
-          </div>
-        </div>
-      )
-    }
+    // Hide checked/have_it items — they go to "recently checked" section
+    if (isDone) return null
 
     const itemContent = (
       <>
@@ -546,9 +474,9 @@ export default function GroceryPage({ sidebar = false }) {
             )}
             <button
               className="grocery-skip-btn"
-              onClick={() => handleItemAction(item.name, 'skip')}
-              title="Don't need this time"
-            >Nevermind</button>
+              onClick={() => handleItemAction(item.name, 'remove')}
+              title="Remove from list"
+            >Remove</button>
             <div className="grocery-item-toggle">
               <button
                 className={`toggle-seg bought ${isChecked ? 'active' : ''}`}
@@ -570,7 +498,7 @@ export default function GroceryPage({ sidebar = false }) {
       <SwipeableItem
         key={item.name}
         className={`grocery-item-row ${stateClass}`}
-        onSwipeRight={() => handleItemAction(item.name, 'skip')}
+        onSwipeRight={() => handleItemAction(item.name, 'remove')}
       >
         {itemContent}
       </SwipeableItem>
@@ -579,17 +507,12 @@ export default function GroceryPage({ sidebar = false }) {
 
   const listContent = (
     <>
-      {hasItems && doneCount > 0 && (
-        <button className="hide-checked-toggle" onClick={() => setHideDone(h => !h)}>
-          {hideDone ? `Show checked (${doneCount})` : `Hide checked`}
-        </button>
-      )}
       {!hasItems ? (
         <div className="empty-state">
           <div className="icon">{'\u{1F6D2}'}</div>
           <p>No items yet. Tap the cart icon on a meal to add its ingredients.</p>
         </div>
-      ) : remainingCount === 0 ? (
+      ) : totalActive === 0 ? (
         <div className="empty-state">
           <div className="icon"><BentSpoonIcon size={32} /></div>
           <p>Nothing left to grab.</p>
@@ -598,34 +521,44 @@ export default function GroceryPage({ sidebar = false }) {
         sortedGroups.map(group => {
           const items = items_by_group[group]
           const { remaining: groupLeft } = groupCounts[group]
-          const allDone = isGroupAllDone(group)
-
-          // Hide entire group when all items are done (regardless of toggle)
-          if (allDone) return null
-
-          const visibleItems = items.filter(item => !isItemHidden(item.name.toLowerCase()))
-          if (visibleItems.length === 0) return null
+          if (groupLeft === 0) return null
 
           const expanded = isGroupExpanded(group)
 
           return (
             <div key={group} className="grocery-group">
               <button
-                className={`grocery-group-header ${allDone ? 'all-done' : ''}`}
+                className="grocery-group-header"
                 onClick={() => handleGroupToggle(group)}
               >
                 <span className="grocery-group-arrow">{expanded ? '\u25B4' : '\u25BE'}</span>
                 <span className="grocery-group-title">{group}</span>
-                {groupLeft > 0 ? (
-                  <span className="group-left-count">{groupLeft} left</span>
-                ) : (
-                  <span className="group-left-count done">{'\u2713'} done</span>
-                )}
+                <span className="group-left-count">{groupLeft}</span>
               </button>
-              {expanded && visibleItems.map(renderItem)}
+              {expanded && items.map(renderItem)}
             </div>
           )
         })
+      )}
+      {/* Recently checked — 24-hour undo window */}
+      {recently_checked && recently_checked.length > 0 && (
+        <div className="recently-checked">
+          <button className="recently-checked-toggle" onClick={() => setShowRecent(r => !r)}>
+            Recently checked ({recently_checked.length})
+            <span className="grocery-prompt-arrow">{showRecent ? '\u25B4' : '\u25BE'}</span>
+          </button>
+          {showRecent && (
+            <div className="recently-checked-list">
+              {recently_checked.map(r => (
+                <div key={r.name} className="recently-checked-item">
+                  <span>{r.name}</span>
+                  <span className="recently-checked-type">{r.type === 'bought' ? 'Bought' : 'Have it'}</span>
+                  <button className="recently-checked-undo" onClick={() => handleUndoRecent(r.name)}>Undo</button>
+                </div>
+              ))}
+            </div>
+          )}
+        </div>
       )}
     </>
   )

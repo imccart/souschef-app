@@ -959,8 +959,6 @@ main {
 .item-name.done-text { text-decoration: line-through; color: var(--text-muted); }
 
 /* Skipped item styling (swipe to skip) */
-.grocery-item-row.skipped { opacity: 0.35; cursor: pointer; }
-.item-name.skipped-text { text-decoration: line-through; color: var(--text-muted); }
 
 .fresh-start-btn {
   display: inline-flex;
@@ -1133,20 +1131,51 @@ main {
 
 /* ── Grocery List ───────────────────────── */
 
-.hide-checked-toggle {
-  display: block;
+.recently-checked {
+  margin-top: 16px;
+  border-top: 1px solid var(--tan-light);
+  padding-top: 8px;
+}
+.recently-checked-toggle {
+  display: flex;
+  align-items: center;
+  gap: 6px;
   width: 100%;
   background: none;
   border: none;
+  font-family: 'DM Sans', sans-serif;
+  font-size: 13px;
   color: var(--text-muted);
-  font-size: 0.8rem;
-  text-align: center;
-  padding: 4px 0 8px;
   cursor: pointer;
+  padding: 6px 0;
+  -webkit-tap-highlight-color: transparent;
 }
-.hide-checked-toggle:hover {
+.recently-checked-list {
+  padding: 4px 0;
+}
+.recently-checked-item {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 6px 0;
+  font-size: 13px;
+  color: var(--text-muted);
+}
+.recently-checked-type {
+  font-size: 11px;
+  color: var(--tan);
+  margin-left: auto;
+}
+.recently-checked-undo {
+  background: none;
+  border: none;
   color: var(--accent);
+  font-size: 12px;
+  font-family: 'DM Sans', sans-serif;
+  cursor: pointer;
+  padding: 2px 6px;
 }
+
 
 
 .grocery-group { margin-bottom: 0; }

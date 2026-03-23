@@ -251,7 +251,7 @@ export default function OrderPage() {
     try {
       if (action === 'bought') await api.toggleGroceryItem(activeItem)
       else if (action === 'have_it') await api.haveItGroceryItem(activeItem)
-      else if (action === 'skip') await api.skipGroceryItem(activeItem)
+      else if (action === 'skip') await api.removeGroceryItem(activeItem)
       // Refresh order — item will be excluded since it's now checked/skipped/have_it
       const data = await api.getOrder()
       setOrder(data)

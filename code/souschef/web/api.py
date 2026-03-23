@@ -484,123 +484,6 @@ def _parse_ts(ts_str):
         return None
 
 
-def _stale_prompt_state(conn, trip) -> str:
-    """Detect whether unchecked grocery items are likely leftovers from a shopping trip.
-
-    Items added AFTER the most recent shopping event are never considered stale.
-
-    Triggers:
-    - 50% of items checked off within any 1-hour window, AND 1+ hour since last check-off
-    - Receipt uploaded with matches, AND unchecked items remain
-    - Order submitted, AND unchecked items remain
-    - Items older than 10 days still unchecked
-
-    Returns 'prompt', 'done', or 'hidden'.
-    """
-    from datetime import datetime, timedelta, timezone
-
-    # If already handled, use the standard prompt_state logic
-    try:
-        if trip["stale_checked"]:
-            return _prompt_state(trip, "stale_checked", "stale_checked_at")
-    except (KeyError, Exception):
-        pass
-
-    trip_id = trip["id"]
-    now = datetime.now(timezone.utc)
-
-    rows = conn.execute(
-        text("SELECT name, checked, skipped, have_it, checked_at, skipped_at, have_it_at, added_at, ordered, submitted_at, receipt_status FROM trip_items WHERE trip_id = :tid"),
-        {"tid": trip_id},
-    ).fetchall()
-
-    if not rows:
-        return "hidden"
-
-    unchecked = [r for r in rows if not r["checked"] and not r["skipped"] and not r["have_it"]]
-    if not unchecked:
-        return "hidden"  # nothing stale
-
-    # Only "bought" items count as shopping signals — "have it" is pre-shopping triage
-    bought_items = [r for r in rows if r["checked"]]
-    done_items = [r for r in rows if r["checked"] or r["skipped"] or r["have_it"]]
-    if not done_items:
-        # Nothing checked off yet — check age-based trigger
-        for r in unchecked:
-            added = _parse_ts(r["added_at"])
-            if added and (now - added) > timedelta(days=10):
-                return "prompt"
-        return "hidden"
-
-    # Collect timestamps of all check-off actions (for filtering post-shopping additions)
-    all_done_times = []
-    for r in done_items:
-        for col in ("checked_at", "skipped_at", "have_it_at"):
-            t = _parse_ts(r[col] if col in r.keys() else None)
-            if t:
-                all_done_times.append(t)
-
-    if not all_done_times:
-        return "hidden"
-
-    most_recent = max(all_done_times)
-
-    # Filter out items added AFTER the last shopping event — they're not stale
-    stale_candidates = []
-    for r in unchecked:
-        added = _parse_ts(r["added_at"])
-        if not added or added <= most_recent:
-            stale_candidates.append(r)
-
-    if not stale_candidates:
-        return "hidden"  # all unchecked items are post-shopping additions
-
-    # Trigger: receipt uploaded with matches but stale candidates remain
-    try:
-        if trip["receipt_parsed_at"]:
-            has_matches = any(r["receipt_status"] in ("matched", "substituted") for r in rows)
-            if has_matches:
-                receipt_at = _parse_ts(trip["receipt_parsed_at"])
-                if receipt_at and (now - receipt_at) > timedelta(hours=1):
-                    return "prompt"
-    except (KeyError, ValueError, TypeError):
-        pass
-
-    # Trigger: order submitted but stale candidates remain
-    submitted = [r for r in rows if r["submitted_at"]]
-    if submitted:
-        return "prompt"
-
-    # Trigger: 50% BOUGHT within a 1-hour window, AND 1+ hour since last buy
-    # "Have it" does NOT count — that's pre-shopping triage, not a grocery run
-    bought_times = []
-    for r in bought_items:
-        t = _parse_ts(r["checked_at"] if "checked_at" in r.keys() else None)
-        if t:
-            bought_times.append(t)
-
-    if bought_times:
-        most_recent_buy = max(bought_times)
-        since_last_buy = now - most_recent_buy
-        if since_last_buy >= timedelta(hours=1):
-            total = len(rows)
-            bought_times.sort()
-            threshold = total * 0.5
-            for i, t_start in enumerate(bought_times):
-                window_end = t_start + timedelta(hours=1)
-                count_in_window = sum(1 for t in bought_times[i:] if t <= window_end)
-                if count_in_window >= threshold:
-                    return "prompt"
-
-    # Trigger: stale candidates older than 10 days
-    for r in stale_candidates:
-        added = _parse_ts(r["added_at"])
-        if added and (now - added) > timedelta(days=10):
-            return "prompt"
-
-    return "hidden"
-
-
 def _prompt_state(trip, flag_col: str, ts_col: str) -> str:
     """Return 'prompt' (show full card), 'done' (compact), based on flag + age.
 
@@ -919,11 +802,15 @@ async def get_grocery(request: Request):
         {"trip_id": trip["id"]},
     ).fetchall()
 
+    from datetime import datetime, timedelta, timezone
+
     items_by_group: dict[str, list[dict]] = {}
     checked_names: list[str] = []
     ordered_names: list[str] = []
-    skipped_names: list[str] = []
     have_it_names: list[str] = []
+    recently_checked: list[dict] = []
+    now = datetime.now(timezone.utc)
+    cutoff = now - timedelta(hours=24)
 
     for r in rows:
         group = r["shopping_group"] or "Other"
@@ -947,55 +834,19 @@ async def get_grocery(request: Request):
         })
         if r["checked"]:
             checked_names.append(r["name"].lower())
+            t = _parse_ts(r["checked_at"] if "checked_at" in r.keys() else None)
+            if t and t > cutoff:
+                recently_checked.append({"name": r["name"], "type": "bought"})
         if r["ordered"]:
             ordered_names.append(r["name"].lower())
         try:
-            if r["skipped"]:
-                skipped_names.append(r["name"].lower())
-        except (KeyError, Exception):
-            pass
-        try:
             if r["have_it"]:
                 have_it_names.append(r["name"].lower())
+                t = _parse_ts(r["have_it_at"] if "have_it_at" in r.keys() else None)
+                if t and t > cutoff:
+                    recently_checked.append({"name": r["name"], "type": "have_it"})
         except (KeyError, Exception):
             pass
-
-    stale_state = _stale_prompt_state(conn, trip)
-    # Collect unchecked item names for the stale prompt, excluding post-shopping additions
-    stale_items = []
-    if stale_state == "prompt":
-        # Find the last shopping event time to filter out newer items
-        done_rows = conn.execute(
-            text("SELECT checked_at, skipped_at, have_it_at FROM trip_items WHERE trip_id = :tid AND (checked = 1 OR skipped = 1 OR have_it = 1)"),
-            {"tid": trip["id"]},
-        ).fetchall()
-        all_done_times = []
-        for dr in done_rows:
-            for col in ("checked_at", "skipped_at", "have_it_at"):
-                t = _parse_ts(dr[col] if col in dr.keys() else None)
-                if t:
-                    all_done_times.append(t)
-        last_shop = max(all_done_times) if all_done_times else None
-
-        item_added_at = {}
-        if last_shop:
-            added_rows = conn.execute(
-                text("SELECT LOWER(name) as nl, added_at FROM trip_items WHERE trip_id = :tid"),
-                {"tid": trip["id"]},
-            ).fetchall()
-            for ar in added_rows:
-                item_added_at[ar["nl"]] = _parse_ts(ar["added_at"])
-
-        for group_items in items_by_group.values():
-            for item in group_items:
-                nl = item["name"].lower()
-                if nl not in checked_names and nl not in skipped_names and nl not in have_it_names and nl not in ordered_names:
-                    # Skip items added after the last shopping event
-                    if last_shop and nl in item_added_at:
-                        added = item_added_at[nl]
-                        if added and added > last_shop:
-                            continue
-                    stale_items.append(item["name"])
 
     return {
         "start_date": mw.start_date,
@@ -1003,12 +854,8 @@ async def get_grocery(request: Request):
         "items_by_group": items_by_group,
         "checked": checked_names,
         "ordered": ordered_names,
-        "skipped": skipped_names,
         "have_it": have_it_names,
-        "regulars_state": _regulars_prompt_state(conn, trip),
-        "pantry_state": _prompt_state(trip, "pantry_checked", "pantry_checked_at"),
-        "stale_state": stale_state,
-        "stale_items": stale_items,
+        "recently_checked": recently_checked,
     }
 
 
@@ -1106,9 +953,8 @@ async def toggle_grocery_item(item_name: str, request: Request):
     if row:
         new_checked = 0 if row["checked"] else 1
         if new_checked:
-            # Clear skipped/have_it state when marking as bought
             conn.execute(
-                text("UPDATE trip_items SET checked = 1, checked_at = CURRENT_TIMESTAMP, skipped = 0, skipped_at = NULL, have_it = 0, have_it_at = NULL WHERE id = :id"),
+                text("UPDATE trip_items SET checked = 1, checked_at = CURRENT_TIMESTAMP, have_it = 0, have_it_at = NULL WHERE id = :id"),
                 {"id": row["id"]},
             )
             # If checking off an item not ordered via Kroger, it's in-store
@@ -1133,9 +979,9 @@ async def toggle_grocery_item(item_name: str, request: Request):
     return await get_grocery(request)
 
 
-@router.post("/grocery/skip/{item_name:path}")
-async def skip_grocery_item(item_name: str, request: Request):
-    """Mark an item as skipped (don't need this time)."""
+@router.delete("/grocery/item/{item_name:path}")
+async def remove_grocery_item(item_name: str, request: Request):
+    """Remove an item from the active trip entirely."""
     user_id = request.state.user_id
     conn = _conn()
     trip = _get_active_trip(conn, user_id)
@@ -1143,24 +989,7 @@ async def skip_grocery_item(item_name: str, request: Request):
         return await get_grocery(request)
 
     conn.execute(
-        text("UPDATE trip_items SET skipped = 1, skipped_at = CURRENT_TIMESTAMP, checked = 0, checked_at = NULL, have_it = 0, have_it_at = NULL WHERE trip_id = :trip_id AND LOWER(name) = LOWER(:name)"),
-        {"trip_id": trip["id"], "name": item_name},
-    )
-    conn.commit()
-    return await get_grocery(request)
-
-
-@router.post("/grocery/unskip/{item_name:path}")
-async def unskip_grocery_item(item_name: str, request: Request):
-    """Unmark an item as skipped (return to active)."""
-    user_id = request.state.user_id
-    conn = _conn()
-    trip = _get_active_trip(conn, user_id)
-    if not trip:
-        return await get_grocery(request)
-
-    conn.execute(
-        text("UPDATE trip_items SET skipped = 0, skipped_at = NULL WHERE trip_id = :trip_id AND LOWER(name) = LOWER(:name)"),
+        text("DELETE FROM trip_items WHERE trip_id = :trip_id AND LOWER(name) = LOWER(:name)"),
         {"trip_id": trip["id"], "name": item_name},
     )
     conn.commit()
@@ -1189,9 +1018,8 @@ async def have_it_grocery_item(item_name: str, request: Request):
                 {"id": row["id"]},
             )
         else:
-            # Have it: clear other states
             conn.execute(
-                text("UPDATE trip_items SET have_it = 1, have_it_at = CURRENT_TIMESTAMP, checked = 0, checked_at = NULL, skipped = 0, skipped_at = NULL WHERE id = :id"),
+                text("UPDATE trip_items SET have_it = 1, have_it_at = CURRENT_TIMESTAMP, checked = 0, checked_at = NULL WHERE id = :id"),
                 {"id": row["id"]},
             )
     conn.commit()
@@ -1273,37 +1101,6 @@ async def add_pantry_to_grocery(body: dict, request: Request):
     # Mark pantry as handled for this trip
     conn.execute(
         text("UPDATE grocery_trips SET pantry_checked = 1, pantry_checked_at = CURRENT_TIMESTAMP WHERE id = :id"),
-        {"id": trip["id"]},
-    )
-    conn.commit()
-
-    return await get_grocery(request)
-
-
-@router.post("/grocery/dismiss-stale")
-async def dismiss_stale_items(body: dict, request: Request):
-    """Handle stale items prompt. Keep selected items, skip the rest."""
-    from souschef.planner import load_rolling_week
-
-    user_id = request.state.user_id
-    keep = set(n.lower() for n in body.get("keep", []))
-
-    conn = _conn()
-    mw = load_rolling_week(conn, user_id)
-    trip = _ensure_active_trip(conn, mw, user_id)
-
-    # Skip unchecked items that weren't kept
-    stale_items = body.get("stale_items", [])
-    for name in stale_items:
-        if name.lower() not in keep:
-            conn.execute(
-                text("UPDATE trip_items SET skipped = 1, skipped_at = CURRENT_TIMESTAMP WHERE trip_id = :tid AND LOWER(name) = LOWER(:name) AND checked = 0 AND skipped = 0 AND have_it = 0"),
-                {"tid": trip["id"], "name": name},
-            )
-
-    # Mark stale as handled
-    conn.execute(
-        text("UPDATE grocery_trips SET stale_checked = 1, stale_checked_at = CURRENT_TIMESTAMP WHERE id = :id"),
         {"id": trip["id"]},
     )
     conn.commit()
