@@ -134,10 +134,11 @@ export default function GroceryPage({ sidebar = false }) {
   if (loading) return <><div className="loading">Gathering ingredients...</div><FeedbackFab page="grocery" /></>
   if (loadError) return <><div className="loading">Something went wrong loading your list. Try refreshing.</div><FeedbackFab page="grocery" /></>
 
-  const { items_by_group, checked, ordered, have_it, recently_checked, start_date } = grocery
+  const { items_by_group, checked, ordered, have_it, removed, recently_checked, start_date } = grocery
   const checkedSet = new Set((checked || []).map(n => n.toLowerCase()))
   const orderedSet = new Set((ordered || []).map(n => n.toLowerCase()))
   const haveItSet = new Set((have_it || []).map(n => n.toLowerCase()))
+  const removedSet = new Set((removed || []).map(n => n.toLowerCase()))
 
   const onListSet = new Set()
   for (const group of Object.values(items_by_group)) {
@@ -153,7 +154,7 @@ export default function GroceryPage({ sidebar = false }) {
     let groupRemaining = 0
     for (const item of items) {
       const nameLower = item.name.toLowerCase()
-      if (!checkedSet.has(nameLower) && !haveItSet.has(nameLower) && !orderedSet.has(nameLower)) {
+      if (!checkedSet.has(nameLower) && !haveItSet.has(nameLower) && !orderedSet.has(nameLower) && !removedSet.has(nameLower)) {
         groupRemaining++
         totalActive++
       }
@@ -298,18 +299,22 @@ export default function GroceryPage({ sidebar = false }) {
 
   const handleUndoRecent = async (name) => {
     const prev = grocery
-    // Optimistic: remove from checked/have_it
+    // Optimistic: remove from checked/have_it/removed
     setGrocery({
       ...grocery,
       checked: (grocery.checked || []).filter(n => n.toLowerCase() !== name.toLowerCase()),
       have_it: (grocery.have_it || []).filter(n => n.toLowerCase() !== name.toLowerCase()),
+      removed: (grocery.removed || []).filter(n => n.toLowerCase() !== name.toLowerCase()),
       recently_checked: (grocery.recently_checked || []).filter(r => r.name.toLowerCase() !== name.toLowerCase()),
     })
     try {
-      // Toggle it back — if it was checked, un-check; if have_it, un-have-it
       const item = (grocery.recently_checked || []).find(r => r.name.toLowerCase() === name.toLowerCase())
       if (item?.type === 'bought') {
         await api.toggleGroceryItem(name)
+      } else if (item?.type === 'removed') {
+        const result = await api.undoRemoveGroceryItem(name)
+        setGrocery(result)
+        return
       } else {
         await api.haveItGroceryItem(name)
       }
@@ -402,7 +407,8 @@ export default function GroceryPage({ sidebar = false }) {
     const isChecked = checkedSet.has(nameLower)
     const isOrdered = orderedSet.has(nameLower)
     const isHaveIt = haveItSet.has(nameLower)
-    const isDone = isChecked || isHaveIt
+    const isRemoved = removedSet.has(nameLower)
+    const isDone = isChecked || isHaveIt || isRemoved
     const stateClass = isChecked ? 'checked' : isHaveIt ? 'have-it' : isOrdered ? 'ordered' : ''
     const hasMeals = item.for_meals && item.for_meals.length > 0
 
@@ -480,10 +486,10 @@ export default function GroceryPage({ sidebar = false }) {
               >{'\u{270E}'}</button>
             )}
             <button
-              className="grocery-skip-btn"
+              className="grocery-remove-x"
               onClick={() => handleItemAction(item.name, 'remove')}
               title="Remove from list"
-            >Remove</button>
+            >{'\u00D7'}</button>
             <div className="grocery-item-toggle">
               <button
                 className={`toggle-seg bought ${isChecked ? 'active' : ''}`}
@@ -572,7 +578,7 @@ export default function GroceryPage({ sidebar = false }) {
               {recently_checked.map(r => (
                 <div key={r.name} className="recently-checked-item">
                   <span>{r.name}</span>
-                  <span className="recently-checked-type">{r.type === 'bought' ? 'Bought' : 'Have it'}</span>
+                  <span className="recently-checked-type">{r.type === 'bought' ? 'Bought' : r.type === 'removed' ? 'Removed' : 'Have it'}</span>
                   <button className="recently-checked-undo" onClick={() => handleUndoRecent(r.name)}>Undo</button>
                 </div>
               ))}

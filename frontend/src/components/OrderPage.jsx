@@ -91,7 +91,7 @@ function formatPrice(price) {
 export default function OrderPage() {
   const [order, setOrder] = useState(null)
   const [activeItem, setActiveItem] = useState(null)
-  const [modifier, setModifier] = useState('')
+  const [searchTerm, setSearchTerm] = useState('')
   const [products, setProducts] = useState(null)
   const [searching, setSearching] = useState(false)
   const [loadingMore, setLoadingMore] = useState(false)
@@ -105,7 +105,7 @@ export default function OrderPage() {
   const [fulfillment, setFulfillment] = useState(() => localStorage.getItem('souschef_fulfillment') || 'curbside')
   const [storeInfo, setStoreInfo] = useState(null)
   const [showQueue, setShowQueue] = useState(false)
-  const [skippedItems, setSkippedItems] = useState(new Set())
+  const [mobileSection, setMobileSection] = useState(null) // 'ordered' | 'elsewhere' | null
   const [communityBrand, setCommunityBrand] = useState(null)
   const [communityValue, setCommunityValue] = useState('')
   const [communityConfirm, setCommunityConfirm] = useState(false)
@@ -133,12 +133,11 @@ export default function OrderPage() {
       if (data.pending.length > 0 && !activeItem) {
         setActiveItem(data.pending[0].name)
       }
-    }).catch(() => setOrder({ pending: [], selected: [], total_price: 0, total_items: 0 }))
+    }).catch(() => setOrder({ pending: [], selected: [], buy_elsewhere: [], total_price: 0, total_items: 0 }))
   }, [])
 
-  const doSearch = (itemName, mod) => {
-    if (!itemName) { setProducts(null); return }
-    const term = mod ? `${mod} ${itemName}` : itemName
+  const doSearch = (term) => {
+    if (!term) { setProducts(null); return }
     setSearching(true)
     setProducts(null)
     setNoStore(false)
@@ -159,9 +158,8 @@ export default function OrderPage() {
   const loadMore = () => {
     if (!products || !products.has_more || loadingMore) return
     const nextStart = (products.start || 1) + products.products.length
-    const term = modifier ? `${modifier} ${activeItem}` : activeItem
     setLoadingMore(true)
-    api.searchProducts(term, fulfillment, nextStart).then(data => {
+    api.searchProducts(searchTerm, fulfillment, nextStart).then(data => {
       setProducts(prev => ({
         ...prev,
         products: [...prev.products, ...data.products],
@@ -173,28 +171,27 @@ export default function OrderPage() {
   }
 
   useEffect(() => {
-    setModifier('')
-    doSearch(activeItem, '')
+    if (activeItem) {
+      setSearchTerm(activeItem)
+      doSearch(activeItem)
+    }
   }, [activeItem, fulfillment])
 
   const storeName = storeInfo?.name || 'Kroger'
 
-  // Find the next pending item after the current one, cycling back through skipped
   const advanceToNext = (updatedOrder) => {
     const pending = updatedOrder.pending
     if (pending.length === 0) {
       setActiveItem(null)
       return
     }
-    // Find first pending item that hasn't been skipped
-    const unskipped = pending.filter(p => !skippedItems.has(p.name))
-    if (unskipped.length > 0) {
-      setActiveItem(unskipped[0].name)
-    } else {
-      // All remaining were skipped — cycle back
-      setSkippedItems(new Set())
-      setActiveItem(pending[0].name)
+    // Pick the first pending item, or stay on current if still pending
+    const currentStillPending = pending.find(p => p.name === activeItem)
+    if (currentStillPending) {
+      // Current item is still pending (e.g., after "anything else? yes") — keep it
+      return
     }
+    setActiveItem(pending[0].name)
   }
 
   const handleSelect = (product) => {
@@ -208,11 +205,6 @@ export default function OrderPage() {
     try {
       const data = await api.selectProduct(activeItem, pendingProduct, pendingQty)
       setOrder(data)
-      setSkippedItems(prev => {
-        const next = new Set(prev)
-        next.delete(activeItem)
-        return next
-      })
       setPendingProduct(null)
       setShowAnythingElse(true)
     } catch { /* silent */ }
@@ -228,21 +220,22 @@ export default function OrderPage() {
     if (order) advanceToNext(order)
   }
 
-  const handleSkip = () => {
-    if (!activeItem || !order) return
-    const pending = order.pending
-    const newSkipped = new Set(skippedItems)
-    newSkipped.add(activeItem)
+  const handleBuyElsewhere = async () => {
+    if (!activeItem) return
+    try {
+      const data = await api.buyElsewhere(activeItem)
+      setOrder(data)
+      advanceToNext(data)
+    } catch { /* silent */ }
+  }
 
-    const unskippedAfter = pending.filter(p => p.name !== activeItem && !newSkipped.has(p.name))
-    if (unskippedAfter.length > 0) {
-      setSkippedItems(newSkipped)
-      setActiveItem(unskippedAfter[0].name)
-    } else {
-      // All skipped — cycle back to the first pending item
-      setSkippedItems(new Set())
-      setActiveItem(pending[0].name)
-    }
+  const handleUndoBuyElsewhere = async (itemName) => {
+    try {
+      const data = await api.buyElsewhere(itemName) // toggles off
+      setOrder(data)
+      setActiveItem(itemName)
+      setMobileSection(null)
+    } catch { /* silent */ }
   }
 
   // Grocery-level actions — mark item on the trip and remove from order
@@ -251,8 +244,7 @@ export default function OrderPage() {
     try {
       if (action === 'bought') await api.toggleGroceryItem(activeItem)
       else if (action === 'have_it') await api.haveItGroceryItem(activeItem)
-      else if (action === 'skip') await api.removeGroceryItem(activeItem)
-      // Refresh order — item will be excluded since it's now checked/skipped/have_it
+      else if (action === 'remove') await api.removeGroceryItem(activeItem)
       const data = await api.getOrder()
       setOrder(data)
       advanceToNext(data)
@@ -295,7 +287,10 @@ export default function OrderPage() {
   if (!order) return <><div className="loading">Prepping...</div><FeedbackFab page="order" /></>
 
   const allItems = [...order.pending, ...order.selected]
+  const elsewhereItems = order.buy_elsewhere || []
   const pickedCount = order.selected.length
+  const pendingCount = order.pending.length
+  const elsewhereCount = elsewhereItems.length
   const totalCount = allItems.length
 
   if (totalCount === 0) {
@@ -342,6 +337,36 @@ export default function OrderPage() {
     </div>
   )
 
+  // Mobile header counts
+  const mobileHeaderCounts = (
+    <div className="order-mobile-counts">
+      <button
+        className={`order-count-btn${!mobileSection ? ' active' : ''}`}
+        onClick={() => setMobileSection(null)}
+      >
+        {pendingCount} left
+      </button>
+      <span className="order-count-dot">{'\u00B7'}</span>
+      <button
+        className={`order-count-btn${mobileSection === 'ordered' ? ' active' : ''}`}
+        onClick={() => setMobileSection(mobileSection === 'ordered' ? null : 'ordered')}
+      >
+        {pickedCount} ordered
+      </button>
+      {elsewhereCount > 0 && (
+        <>
+          <span className="order-count-dot">{'\u00B7'}</span>
+          <button
+            className={`order-count-btn${mobileSection === 'elsewhere' ? ' active' : ''}`}
+            onClick={() => setMobileSection(mobileSection === 'elsewhere' ? null : 'elsewhere')}
+          >
+            {elsewhereCount} elsewhere
+          </button>
+        </>
+      )}
+    </div>
+  )
+
   // Mobile collapsed queue row
   const mobileQueueRow = activeItem ? (
     <div className="picking-row">
@@ -352,7 +377,7 @@ export default function OrderPage() {
         <span className="picking-row-progress">[{pickedCount}/{totalCount}]</span>
         <span className="picking-row-expand">{'\u25BE'}</span>
       </div>
-      <button className="picking-row-nav" onClick={handleSkip}>{'\u2192'}</button>
+      <button className="picking-row-nav" onClick={handleBuyElsewhere} title="Buy elsewhere">{'\u2192'}</button>
     </div>
   ) : (
     <div className="picking-row done">
@@ -376,28 +401,61 @@ export default function OrderPage() {
   const queuePanel = (
     <div className="order-queue-panel">
       <div className="order-queue-header">
-        <div className="order-queue-title">Unchecked items</div>
+        <div className="order-queue-title">Items</div>
         <div className="order-queue-sub">
-          {order.pending.length > 0
-            ? `${order.pending.length} left to pick`
+          {pendingCount > 0
+            ? `${pendingCount} left to pick`
             : 'All items selected'}
         </div>
       </div>
       <div className="order-queue-list">
-        {allItems.map(item => {
-          const isSelected = !!item.product
-          const isActive = item.name === activeItem
-          return (
-            <button
-              key={item.name}
-              className={`queue-item ${isActive ? 'active' : ''} ${isSelected ? 'selected' : ''}`}
-              onClick={() => isSelected ? handleDeselect(item.name) : setActiveItem(item.name)}
-            >
-              <span className="queue-item-name">{item.name}</span>
-              {isSelected && <span className="queue-check">{'\u2713'}</span>}
-            </button>
-          )
-        })}
+        {order.pending.length > 0 && (
+          <>
+            <div className="queue-section-label">Active</div>
+            {order.pending.map(item => {
+              const isActive = item.name === activeItem
+              return (
+                <button
+                  key={item.name}
+                  className={`queue-item ${isActive ? 'active' : ''}`}
+                  onClick={() => setActiveItem(item.name)}
+                >
+                  <span className="queue-item-name">{item.name}</span>
+                </button>
+              )
+            })}
+          </>
+        )}
+        {order.selected.length > 0 && (
+          <>
+            <div className="queue-section-label">Ordered</div>
+            {order.selected.map(item => (
+              <button
+                key={item.name}
+                className="queue-item selected"
+                onClick={() => handleDeselect(item.name)}
+              >
+                <span className="queue-item-name">{item.name}</span>
+                <span className="queue-check">{'\u2713'}</span>
+              </button>
+            ))}
+          </>
+        )}
+        {elsewhereItems.length > 0 && (
+          <>
+            <div className="queue-section-label">Buying elsewhere</div>
+            {elsewhereItems.map(item => (
+              <button
+                key={item.name}
+                className="queue-item elsewhere"
+                onClick={() => handleUndoBuyElsewhere(item.name)}
+                title="Bring back to ordering"
+              >
+                <span className="queue-item-name">{item.name}</span>
+              </button>
+            ))}
+          </>
+        )}
       </div>
     </div>
   )
@@ -417,25 +475,28 @@ export default function OrderPage() {
             <div className="order-item-actions">
               <button className="order-grocery-btn" onClick={() => handleGroceryAction('bought')}>Bought</button>
               <button className="order-grocery-btn" onClick={() => handleGroceryAction('have_it')}>Have it</button>
-              <button className="order-grocery-btn skip" onClick={() => handleGroceryAction('skip')}>Nevermind</button>
+              <button className="order-grocery-btn elsewhere" onClick={handleBuyElsewhere}>Elsewhere</button>
+              <button className="order-remove-x" onClick={() => handleGroceryAction('remove')} title="Remove from list">{'\u00D7'}</button>
             </div>
           </div>
-          <form className="modifier-form" onSubmit={e => {
+          <form className="order-search-form" onSubmit={e => {
             e.preventDefault()
-            doSearch(activeItem, modifier)
+            doSearch(searchTerm)
+            e.target.querySelector('input')?.blur()
           }}>
             <input
-              className="modifier-input"
-              type="text"
-              placeholder="Refine... e.g. organic, low sodium"
-              value={modifier}
-              onChange={e => setModifier(e.target.value)}
+              className="order-search-input"
+              type="search"
+              enterKeyHint="search"
+              value={searchTerm}
+              onChange={e => setSearchTerm(e.target.value)}
+              placeholder="Search products..."
             />
-            {modifier && (
-              <button type="button" className="modifier-clear" onClick={() => {
-                setModifier('')
-                doSearch(activeItem, '')
-              }}>{'\u00D7'}</button>
+            {searchTerm !== activeItem && (
+              <button type="button" className="order-search-reset" onClick={() => {
+                setSearchTerm(activeItem)
+                doSearch(activeItem)
+              }} title="Reset search">{'\u21BA'}</button>
             )}
           </form>
         </div>
@@ -691,6 +752,11 @@ export default function OrderPage() {
         {storeDetails}
       </div>
 
+      {/* Mobile: header counts */}
+      <div className="order-mobile-queue-row">
+        {mobileHeaderCounts}
+      </div>
+
       {/* Mobile: collapsed queue row */}
       <div className="order-mobile-queue-row">
         {mobileQueueRow}
@@ -704,30 +770,44 @@ export default function OrderPage() {
           <div className="queue-sheet-list">
             {order.pending.length > 0 && (
               <>
-                <div className="queue-sheet-section">Pending</div>
+                <div className="queue-sheet-section">Active</div>
                 {order.pending.map(item => (
                   <button
                     key={item.name}
                     className={`queue-sheet-item${item.name === activeItem ? ' active' : ''}`}
-                    onClick={() => { setActiveItem(item.name); setShowQueue(false) }}
+                    onClick={() => { setActiveItem(item.name); setShowQueue(false); setMobileSection(null) }}
                   >
                     <span>{item.name}</span>
-                    {skippedItems.has(item.name) && <span className="queue-sheet-skipped">skipped</span>}
                   </button>
                 ))}
               </>
             )}
             {order.selected.length > 0 && (
               <>
-                <div className="queue-sheet-section">Picked</div>
+                <div className="queue-sheet-section">Ordered</div>
                 {order.selected.map(item => (
                   <button
                     key={item.name}
                     className="queue-sheet-item picked"
-                    onClick={() => { handleDeselect(item.name); setShowQueue(false) }}
+                    onClick={() => { handleDeselect(item.name); setShowQueue(false); setMobileSection(null) }}
                   >
                     <span>{item.name}</span>
                     <span className="queue-check">{'\u2713'}</span>
+                  </button>
+                ))}
+              </>
+            )}
+            {elsewhereItems.length > 0 && (
+              <>
+                <div className="queue-sheet-section">Buying elsewhere</div>
+                {elsewhereItems.map(item => (
+                  <button
+                    key={item.name}
+                    className="queue-sheet-item elsewhere"
+                    onClick={() => { handleUndoBuyElsewhere(item.name); setShowQueue(false) }}
+                  >
+                    <span>{item.name}</span>
+                    <span className="queue-sheet-elsewhere">elsewhere</span>
                   </button>
                 ))}
               </>
@@ -743,10 +823,48 @@ export default function OrderPage() {
         {summaryPanel}
       </div>
 
+      {/* Mobile: section views (when tapping ordered/elsewhere counts) */}
+      {mobileSection === 'ordered' && (
+        <div className="order-mobile-content">
+          <div className="order-mobile-section">
+            <div className="order-mobile-section-title">Ordered ({pickedCount})</div>
+            {order.selected.map(item => (
+              <button
+                key={item.name}
+                className="queue-sheet-item picked"
+                onClick={() => { handleDeselect(item.name); setMobileSection(null) }}
+              >
+                <span>{item.name}</span>
+                <span className="queue-check">{'\u2713'}</span>
+              </button>
+            ))}
+          </div>
+        </div>
+      )}
+      {mobileSection === 'elsewhere' && (
+        <div className="order-mobile-content">
+          <div className="order-mobile-section">
+            <div className="order-mobile-section-title">Buying elsewhere ({elsewhereCount})</div>
+            {elsewhereItems.map(item => (
+              <button
+                key={item.name}
+                className="queue-sheet-item elsewhere"
+                onClick={() => handleUndoBuyElsewhere(item.name)}
+              >
+                <span>{item.name}</span>
+                <span className="queue-sheet-elsewhere">tap to bring back</span>
+              </button>
+            ))}
+          </div>
+        </div>
+      )}
+
       {/* Mobile: center content inline */}
-      <div className="order-mobile-content">
-        {centerPanel}
-      </div>
+      {!mobileSection && (
+        <div className="order-mobile-content">
+          {centerPanel}
+        </div>
+      )}
 
       {/* Mobile: send footer — only when done picking */}
       {!activeItem && pickedCount > 0 && !submitResult?.ok && (

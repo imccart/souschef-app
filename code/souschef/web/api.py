@@ -719,11 +719,11 @@ def _ensure_active_trip(conn, mw, user_id: str):
         # Refresh meal-sourced items (meals may have changed) but preserve extras and checked state
         _refresh_trip_meal_items(conn, trip["id"], mw, user_id)
 
-    # Prune items checked off more than 30 days ago
+    # Prune items checked/removed more than 30 days ago
     conn.execute(
         text("""DELETE FROM trip_items WHERE trip_id = :tid
-           AND (checked = 1 OR have_it = 1)
-           AND COALESCE(checked_at, have_it_at)::timestamptz < NOW() - INTERVAL '30 days'"""),
+           AND (checked = 1 OR have_it = 1 OR removed = 1)
+           AND COALESCE(checked_at, have_it_at, removed_at)::timestamptz < NOW() - INTERVAL '30 days'"""),
         {"tid": trip["id"]},
     )
     conn.commit()
@@ -755,16 +755,16 @@ def _refresh_trip_meal_items(conn, trip_id: int, mw, user_id: str) -> None:
                     "meal_count": len(item.meals),
                 }
 
-    # Get existing meal-sourced items and their checked/receipt state
+    # Get existing meal-sourced items and their checked/receipt/removed state
     existing = conn.execute(
-        text("SELECT id, name, checked, receipt_status FROM trip_items WHERE trip_id = :trip_id AND source = 'meal'"),
+        text("SELECT id, name, checked, receipt_status, removed FROM trip_items WHERE trip_id = :trip_id AND source = 'meal'"),
         {"trip_id": trip_id},
     ).fetchall()
     existing_map = {r["name"].lower(): r for r in existing}
 
-    # Remove meal items no longer needed (but preserve items with receipt data)
+    # Remove meal items no longer needed (but preserve items with receipt data or removed flag)
     for name_lower, row in existing_map.items():
-        if name_lower not in fresh_meal_items and not row["receipt_status"]:
+        if name_lower not in fresh_meal_items and not row["receipt_status"] and not row["removed"]:
             conn.execute(
                 text("DELETE FROM trip_items WHERE id = :id"),
                 {"id": row["id"]},
@@ -815,6 +815,7 @@ async def get_grocery(request: Request):
     checked_names: list[str] = []
     ordered_names: list[str] = []
     have_it_names: list[str] = []
+    removed_names: list[str] = []
     recently_checked: list[dict] = []
     now = datetime.now(timezone.utc)
     cutoff = now - timedelta(hours=24)
@@ -854,6 +855,14 @@ async def get_grocery(request: Request):
                     recently_checked.append({"name": r["name"], "type": "have_it"})
         except (KeyError, Exception):
             pass
+        try:
+            if r["removed"]:
+                removed_names.append(r["name"].lower())
+                t = _parse_ts(r["removed_at"] if "removed_at" in r.keys() else None)
+                if t and t > cutoff:
+                    recently_checked.append({"name": r["name"], "type": "removed"})
+        except (KeyError, Exception):
+            pass
 
     return {
         "start_date": mw.start_date,
@@ -862,6 +871,7 @@ async def get_grocery(request: Request):
         "checked": checked_names,
         "ordered": ordered_names,
         "have_it": have_it_names,
+        "removed": removed_names,
         "recently_checked": recently_checked,
     }
 
@@ -988,16 +998,14 @@ async def toggle_grocery_item(item_name: str, request: Request):
 
 @router.delete("/grocery/item/{item_name:path}")
 async def remove_grocery_item(item_name: str, request: Request):
-    """Remove an item from the active trip. Marks meal-sourced items as skipped
-    instead of deleting so they don't get re-added by refresh."""
+    """Remove an item from the grocery list. Sets removed flag (prevents re-add by refresh).
+    Extra/regular items are deleted outright."""
     user_id = request.state.user_id
     conn = _conn()
     trip = _get_active_trip(conn, user_id)
     if not trip:
         return {"ok": True}
 
-    # For meal-sourced items, mark as checked (effectively removed but won't be re-added)
-    # For extras/regulars, delete outright
     row = conn.execute(
         text("SELECT id, source FROM trip_items WHERE trip_id = :trip_id AND LOWER(name) = LOWER(:name)"),
         {"trip_id": trip["id"], "name": item_name},
@@ -1005,9 +1013,8 @@ async def remove_grocery_item(item_name: str, request: Request):
 
     if row:
         if row["source"] == "meal":
-            # Mark as have_it so refresh doesn't re-add and item disappears from list
             conn.execute(
-                text("UPDATE trip_items SET have_it = 1, have_it_at = CURRENT_TIMESTAMP WHERE id = :id"),
+                text("UPDATE trip_items SET removed = 1, removed_at = CURRENT_TIMESTAMP WHERE id = :id"),
                 {"id": row["id"]},
             )
         else:
@@ -1017,6 +1024,53 @@ async def remove_grocery_item(item_name: str, request: Request):
             )
     conn.commit()
     return {"ok": True}
+
+
+@router.post("/grocery/undo-remove/{item_name:path}")
+async def undo_remove_grocery_item(item_name: str, request: Request):
+    """Undo a remove — clear the removed flag so the item reappears."""
+    user_id = request.state.user_id
+    conn = _conn()
+    trip = _get_active_trip(conn, user_id)
+    if not trip:
+        return {"ok": True}
+
+    conn.execute(
+        text("UPDATE trip_items SET removed = 0, removed_at = NULL WHERE trip_id = :trip_id AND LOWER(name) = LOWER(:name)"),
+        {"trip_id": trip["id"], "name": item_name},
+    )
+    conn.commit()
+    return await get_grocery(request)
+
+
+@router.post("/grocery/buy-elsewhere/{item_name:path}")
+async def buy_elsewhere_grocery_item(item_name: str, request: Request):
+    """Mark an item as 'buying elsewhere' — removes from ordering flow but stays on grocery list."""
+    user_id = request.state.user_id
+    conn = _conn()
+    trip = _get_active_trip(conn, user_id)
+    if not trip:
+        return {"ok": True}
+
+    row = conn.execute(
+        text("SELECT id, buy_elsewhere FROM trip_items WHERE trip_id = :trip_id AND LOWER(name) = LOWER(:name)"),
+        {"trip_id": trip["id"], "name": item_name},
+    ).fetchone()
+
+    if row:
+        if row["buy_elsewhere"]:
+            # Undo: return to active ordering flow
+            conn.execute(
+                text("UPDATE trip_items SET buy_elsewhere = 0, buy_elsewhere_at = NULL WHERE id = :id"),
+                {"id": row["id"]},
+            )
+        else:
+            conn.execute(
+                text("UPDATE trip_items SET buy_elsewhere = 1, buy_elsewhere_at = CURRENT_TIMESTAMP WHERE id = :id"),
+                {"id": row["id"]},
+            )
+    conn.commit()
+    return await get_order(request)
 
 
 @router.post("/grocery/have-it/{item_name:path}")
@@ -1218,7 +1272,7 @@ async def get_order(request: Request):
 
     rows = conn.execute(
         text("""SELECT * FROM trip_items WHERE trip_id = :trip_id
-           AND checked = 0 AND skipped = 0 AND have_it = 0
+           AND checked = 0 AND skipped = 0 AND have_it = 0 AND removed = 0
            AND submitted_at IS NULL
            ORDER BY shopping_group, name"""),
         {"trip_id": trip["id"]},
@@ -1226,6 +1280,7 @@ async def get_order(request: Request):
 
     pending = []
     selected = []
+    buy_elsewhere = []
     for r in rows:
         item = {
             "name": r["name"],
@@ -1233,6 +1288,9 @@ async def get_order(request: Request):
             "source": r["source"],
             "for_meals": [m for m in r["for_meals"].split(",") if m] if r["for_meals"] else [],
         }
+        if r["buy_elsewhere"]:
+            buy_elsewhere.append(item)
+            continue
         if r["product_upc"]:
             try:
                 qty = r["quantity"]
@@ -1254,12 +1312,13 @@ async def get_order(request: Request):
     total_price = sum(
         r["product_price"] * (r["quantity"] if "quantity" in r.keys() else 1)
         for r in rows
-        if r["product_upc"] and r["product_price"]
+        if r["product_upc"] and r["product_price"] and not r["buy_elsewhere"]
     )
 
     return {
         "pending": pending,
         "selected": selected,
+        "buy_elsewhere": buy_elsewhere,
         "total_items": len(selected),
         "total_price": round(total_price, 2),
     }

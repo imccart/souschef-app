@@ -282,6 +282,10 @@ trip_items = Table(
     Column("receipt_upc", Text, nullable=False, server_default=text("''")),
     Column("receipt_status", Text, nullable=False, server_default=text("''")),
     Column("notes", Text, nullable=False, server_default=text("''")),
+    Column("removed", Integer, nullable=False, server_default=text("0")),
+    Column("removed_at", Text),
+    Column("buy_elsewhere", Integer, nullable=False, server_default=text("0")),
+    Column("buy_elsewhere_at", Text),
     UniqueConstraint("trip_id", "name"),
 )
 
