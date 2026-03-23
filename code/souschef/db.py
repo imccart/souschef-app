@@ -127,6 +127,26 @@ def _run_column_migrations(conn: DictConnection) -> None:
             except Exception:
                 pass
 
+    # Create indexes for common query patterns
+    indexes = [
+        ("idx_meals_user_date", "meals", "user_id, slot_date"),
+        ("idx_trips_user_active", "grocery_trips", "user_id, active"),
+        ("idx_trip_items_trip_source", "trip_items", "trip_id, source"),
+        ("idx_trip_items_trip_checked", "trip_items", "trip_id, checked, have_it, removed"),
+    ]
+    for idx_name, table_name, columns in indexes:
+        try:
+            conn.execute(text(
+                f"CREATE INDEX IF NOT EXISTS {idx_name} ON {table_name} ({columns})"
+            ))
+            conn.commit()
+        except Exception as e:
+            print(f"[db]   index {idx_name} skipped: {e}", flush=True)
+            try:
+                conn.raw.rollback()
+            except Exception:
+                pass
+
     # Create receipt_extra_items table if missing
     try:
         conn.execute(text("""
@@ -1003,18 +1023,18 @@ def ensure_db(db_path: str | None = None) -> DictConnection:
                 conn.raw.rollback()
             except Exception:
                 pass
-        # Refresh FDA violation data (non-fatal, runs after timeout is cleared)
-        try:
-            from souschef.violations import refresh_fda_data
-            print("[db] Refreshing FDA violation data...", flush=True)
-            result = refresh_fda_data(conn)
-            print(f"[db] FDA refresh: {result['updated']} companies updated, {result['errors']} errors", flush=True)
-        except Exception as e:
-            print(f"[db] FDA refresh error (non-fatal): {e}", flush=True)
+        # Refresh FDA violation data in background thread (non-blocking startup)
+        import threading
+        def _background_fda_refresh():
             try:
-                conn.raw.rollback()
-            except Exception:
-                pass
+                bg_conn = get_connection()
+                from souschef.violations import refresh_fda_data
+                print("[db] Background: refreshing FDA violation data...", flush=True)
+                result = refresh_fda_data(bg_conn)
+                print(f"[db] Background: FDA refresh done — {result['updated']} updated, {result['errors']} errors", flush=True)
+            except Exception as e:
+                print(f"[db] Background: FDA refresh error (non-fatal): {e}", flush=True)
+        threading.Thread(target=_background_fda_refresh, daemon=True).start()
 
         _db_initialized = True
     return conn
