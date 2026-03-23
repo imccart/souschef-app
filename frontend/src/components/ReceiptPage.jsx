@@ -211,13 +211,14 @@ export default function ReceiptPage() {
           </div>
         )}
 
-        <button
-          className="past-toggle"
-          onClick={() => { setShowPast(v => !v); if (!showPast) loadPurchases() }}
-        >
-          {showPast ? 'Hide' : 'View'} previous purchases
-        </button>
       </div>
+
+      <button
+        className="past-toggle"
+        onClick={() => { setShowPast(v => !v); if (!showPast) loadPurchases() }}
+      >
+        {showPast ? 'Hide' : 'View'} previous purchases
+      </button>
 
       {showPast && (
         <div className="past-purchases">
