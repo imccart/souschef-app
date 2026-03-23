@@ -1478,7 +1478,8 @@ async def search_order_products(item_name: str, request: Request, fulfillment: s
     if unknown_brands_batch:
         conn.commit()
 
-    # Sort: thumbs-up first, neutral middle, thumbs-down last (preserve relative order within tiers)
+    # Remove thumbs-down products, sort thumbs-up first
+    result = [r for r in result if r["rating"] >= 0]
     result.sort(key=lambda r: -r["rating"])
 
     response = {
