@@ -2361,6 +2361,67 @@ async def resolve_receipt_item(body: dict, request: Request):
     return {"ok": True}
 
 
+@router.post("/receipt/match-extra")
+async def match_extra_to_grocery(body: dict, request: Request):
+    """Manually match an unmatched receipt item to a grocery list item.
+    {extra_name: str, grocery_name: str, receipt_price: float?, receipt_upc: str?}"""
+    user_id = request.state.user_id
+    conn = _conn()
+    trip = _get_active_trip(conn, user_id)
+    if not trip:
+        return {"ok": False, "error": "No active trip"}
+
+    extra_name = body.get("extra_name", "").strip()
+    grocery_name = body.get("grocery_name", "").strip()
+    receipt_price = body.get("receipt_price")
+    receipt_upc = body.get("receipt_upc", "")
+
+    if not extra_name or not grocery_name:
+        return {"ok": False, "error": "extra_name and grocery_name required"}
+
+    # Update the trip item with receipt data and mark as matched + checked
+    conn.execute(
+        text("""UPDATE trip_items SET
+               receipt_item = :receipt_item, receipt_price = :receipt_price,
+               receipt_upc = :receipt_upc, receipt_status = 'matched',
+               checked = 1, checked_at = CURRENT_TIMESTAMP, ordered = 0
+           WHERE trip_id = :trip_id AND LOWER(name) = LOWER(:grocery_name)"""),
+        {"receipt_item": extra_name, "receipt_price": receipt_price,
+         "receipt_upc": receipt_upc,
+         "trip_id": trip["id"], "grocery_name": grocery_name},
+    )
+
+    # Remove from receipt_extra_items
+    conn.execute(
+        text("DELETE FROM receipt_extra_items WHERE trip_id = :tid AND LOWER(item_name) = LOWER(:name)"),
+        {"tid": trip["id"], "name": extra_name},
+    )
+
+    conn.commit()
+    return {"ok": True}
+
+
+@router.post("/receipt/dismiss-extra")
+async def dismiss_extra(body: dict, request: Request):
+    """Dismiss an unmatched receipt extra item."""
+    user_id = request.state.user_id
+    conn = _conn()
+    trip = _get_active_trip(conn, user_id)
+    if not trip:
+        return {"ok": False}
+
+    name = body.get("name", "").strip()
+    if not name:
+        return {"ok": False}
+
+    conn.execute(
+        text("DELETE FROM receipt_extra_items WHERE trip_id = :tid AND LOWER(item_name) = LOWER(:name)"),
+        {"tid": trip["id"], "name": name},
+    )
+    conn.commit()
+    return {"ok": True}
+
+
 @router.get("/purchases")
 async def get_purchases(request: Request):
     """Get purchase history — confirmed receipt matches with ratings, grouped by date."""

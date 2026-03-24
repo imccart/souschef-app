@@ -57,6 +57,8 @@ export default function ReceiptPage() {
   const [loadError, setLoadError] = useState(false)
   const [showPast, setShowPast] = useState(false)
   const [purchases, setPurchases] = useState(null)
+  const [expandedItem, setExpandedItem] = useState(null)
+  const [matchingExtra, setMatchingExtra] = useState(null) // extra item being matched to grocery
 
   const loadReceipt = () => {
     api.getReceipt().then(setReceipt).catch(() => setLoadError(true))
@@ -65,7 +67,7 @@ export default function ReceiptPage() {
   useEffect(loadReceipt, [])
 
   const loadPurchases = () => {
-    if (purchases !== null) return // already loaded
+    if (purchases !== null) return
     api.getPurchases().then(data => setPurchases(data.purchases || [])).catch(() => setPurchases([]))
   }
 
@@ -106,35 +108,45 @@ export default function ReceiptPage() {
   const handleConfirmMatch = async (name) => {
     try {
       await api.resolveReceiptItem(name, 'matched')
+      setExpandedItem(null)
       loadReceipt()
     } catch { /* ignore */ }
   }
 
   const handleRejectMatch = async (name) => {
     try {
-      // Put back as unresolved by clearing receipt status
       await api.resolveReceiptItem(name, 'recover')
+      setExpandedItem(null)
       loadReceipt()
     } catch { /* ignore */ }
   }
 
-  const handleResolve = async (name, status) => {
+  const handleDismissExtra = async (name) => {
     try {
-      await api.resolveReceiptItem(name, status)
+      await api.dismissExtra(name)
+      setExpandedItem(null)
+      loadReceipt()
+    } catch { /* ignore */ }
+  }
+
+  const handleMatchExtra = async (extraItem, groceryName) => {
+    try {
+      await api.matchExtra(extraItem.item_name, groceryName, extraItem.price, extraItem.upc)
+      setMatchingExtra(null)
+      setExpandedItem(null)
       loadReceipt()
     } catch { /* ignore */ }
   }
 
   const handleRate = async (item, rating) => {
     const upc = item.receipt_upc || item.product_upc || item.upc || ''
-    const desc = item.receipt_item || item.product_name || item.name
+    const desc = item.receipt_item || item.product_name || item.name || item.item_name
     const productKey = item.product_key || ''
     const brand = item.product_brand || item.brand || ''
     if (!upc && !productKey && !desc) return
     try {
       await api.rateProduct(upc, rating, desc, { brand, productKey })
       loadReceipt()
-      // Also update purchases cache if loaded
       if (purchases) {
         setPurchases(prev => prev.map(p =>
           (p.product_key === productKey || p.name === item.name)
@@ -148,10 +160,13 @@ export default function ReceiptPage() {
   if (loadError) return <><div className="loading">Something went wrong loading receipts. Try refreshing.</div><FeedbackFab page="receipt" /></>
   if (!receipt) return <><div className="loading">Checking the tab...</div><FeedbackFab page="receipt" /></>
 
+  const unmatchedMatches = receipt.matched.filter(i => !i.checked)
   const hasReconciled = receipt.matched.length > 0 || receipt.substituted.length > 0
-  const hasUnresolved = receipt.unresolved.length > 0
 
-  // Group purchases by week for the past purchases view
+  // Unreconciled grocery items (for "This is..." picker)
+  const unreconciledGroceryNames = receipt.unresolved.map(i => i.name)
+
+  // Group purchases by week
   const purchasesByWeek = {}
   if (purchases) {
     for (const p of purchases) {
@@ -161,18 +176,22 @@ export default function ReceiptPage() {
     }
   }
 
+  const toggleExpand = (key) => {
+    setExpandedItem(expandedItem === key ? null : key)
+    setMatchingExtra(null)
+  }
+
   return (
     <>
       <div className="page-header">
         <h2 className="screen-heading">Receipt</h2>
         <div className="screen-sub">
           {hasReconciled
-            ? `${receipt.matched.length + receipt.substituted.length} confirmed`
+            ? `${receipt.matched.filter(i => i.checked).length} confirmed`
             : 'Upload a receipt to reconcile'}
         </div>
       </div>
 
-      {/* Camera overlay */}
       {showCamera && (
         <CameraCapture
           onCapture={handleCameraCapture}
@@ -180,7 +199,6 @@ export default function ReceiptPage() {
         />
       )}
 
-      {/* Upload section */}
       <div className="receipt-upload">
         <div className="receipt-upload-buttons">
           {hasCamera && (
@@ -210,7 +228,6 @@ export default function ReceiptPage() {
             Found {uploadResult.matched + (uploadResult.extras || 0)} item{(uploadResult.matched + (uploadResult.extras || 0)) !== 1 ? 's' : ''} on the receipt
           </div>
         )}
-
       </div>
 
       <button
@@ -239,49 +256,47 @@ export default function ReceiptPage() {
         </div>
       )}
 
-      {/* Matches awaiting confirmation (confirmed items go to previous purchases) */}
-      {receipt.matched.filter(i => !i.checked).length > 0 && (
+      {/* Matched items awaiting confirmation */}
+      {unmatchedMatches.length > 0 && (
         <div className="receipt-section">
-          <div className="receipt-section-label">Confirm these matches</div>
-          {receipt.matched.filter(i => !i.checked).map(item => (
-            <div key={item.name} className="receipt-item match-confirm">
-              {item.product_image && (
-                <img className="receipt-product-img" src={item.product_image} alt="" />
-              )}
-              <div className="receipt-item-info">
-                <div className="receipt-item-name">
-                  {item.receipt_item || item.product_name || item.name}
+          <div className="receipt-section-label">Matched ({unmatchedMatches.length})</div>
+          {unmatchedMatches.map(item => {
+            const key = `match-${item.name}`
+            const isExpanded = expandedItem === key
+            return (
+              <div key={item.name} className="receipt-item-row">
+                <div className="receipt-item-top" onClick={() => toggleExpand(key)}>
+                  <div className="receipt-item-info">
+                    <div className="receipt-item-name">
+                      {item.receipt_item || item.product_name || item.name}
+                    </div>
+                    {(item.receipt_item || item.product_name) && item.receipt_item !== item.name && (
+                      <div className="receipt-item-detail">{'\u2192'} {item.name}</div>
+                    )}
+                    <div className="receipt-item-meta">
+                      {item.product_brand && <span>{item.product_brand}</span>}
+                      {item.receipt_price != null && <span> · {formatPrice(item.receipt_price)}</span>}
+                    </div>
+                  </div>
+                  <button className="grocery-expand-btn">{'\u2630'}</button>
                 </div>
-                {(item.receipt_item || item.product_name) && item.receipt_item !== item.name && (
-                  <div className="receipt-item-detail">{item.name}</div>
+                {isExpanded && (
+                  <div className="receipt-action-bar">
+                    <button className="receipt-action-btn confirm" onClick={() => handleConfirmMatch(item.name)}>Confirm</button>
+                    <button className="receipt-action-btn" onClick={() => handleRejectMatch(item.name)}>Not this</button>
+                    <button
+                      className={`receipt-action-btn rate${item.rating === 1 ? ' active-up' : ''}`}
+                      onClick={() => handleRate(item, item.rating === 1 ? 0 : 1)}
+                    >{'\u{1F44D}'}</button>
+                    <button
+                      className={`receipt-action-btn rate${item.rating === -1 ? ' active-down' : ''}`}
+                      onClick={() => handleRate(item, item.rating === -1 ? 0 : -1)}
+                    >{'\u{1F44E}'}</button>
+                  </div>
                 )}
-                <div className="receipt-item-meta">
-                  {item.product_brand && <span>{item.product_brand}</span>}
-                  {item.product_brand && item.product_size && <span> · </span>}
-                  {item.product_size && <span>{item.product_size}</span>}
-                  {item.receipt_price != null && <span> · {formatPrice(item.receipt_price)}</span>}
-                </div>
               </div>
-              <div className="receipt-confirm-actions">
-                <button className="receipt-confirm-btn" onClick={() => handleConfirmMatch(item.name)}>
-                  {'\u2713'} Confirm
-                </button>
-                <button className="receipt-reject-btn" onClick={() => handleRejectMatch(item.name)}>
-                  Not this
-                </button>
-              </div>
-              <div className="receipt-rating">
-                <button
-                  className={`receipt-rate-btn up${item.rating === 1 ? ' active' : ''}`}
-                  onClick={() => handleRate(item, item.rating === 1 ? 0 : 1)}
-                >{'\u{1F44D}'}</button>
-                <button
-                  className={`receipt-rate-btn down${item.rating === -1 ? ' active' : ''}`}
-                  onClick={() => handleRate(item, item.rating === -1 ? 0 : -1)}
-                >{'\u{1F44E}'}</button>
-              </div>
-            </div>
-          ))}
+            )
+          })}
         </div>
       )}
 
@@ -289,98 +304,96 @@ export default function ReceiptPage() {
       {receipt.substituted.length > 0 && (
         <div className="receipt-section">
           <div className="receipt-section-label">Substituted ({receipt.substituted.length})</div>
-          {receipt.substituted.map(item => (
-            <div key={item.name} className="receipt-item substituted">
-              {item.product_image && (
-                <img className="receipt-product-img" src={item.product_image} alt="" />
-              )}
-              <div className="receipt-item-info">
-                <div className="receipt-item-name">{item.name}</div>
-                {item.receipt_item && (
-                  <div className="receipt-item-detail">
-                    Received: {item.receipt_item}
-                    {item.receipt_price != null && ` · ${formatPrice(item.receipt_price)}`}
+          {receipt.substituted.map(item => {
+            const key = `sub-${item.name}`
+            const isExpanded = expandedItem === key
+            return (
+              <div key={item.name} className="receipt-item-row">
+                <div className="receipt-item-top" onClick={() => toggleExpand(key)}>
+                  <div className="receipt-item-info">
+                    <div className="receipt-item-name">{item.receipt_item || item.name}</div>
+                    <div className="receipt-item-detail">Ordered: {item.name}</div>
+                    {item.receipt_price != null && (
+                      <div className="receipt-item-meta">{formatPrice(item.receipt_price)}</div>
+                    )}
+                  </div>
+                  <button className="grocery-expand-btn">{'\u2630'}</button>
+                </div>
+                {isExpanded && (
+                  <div className="receipt-action-bar">
+                    <button className="receipt-action-btn confirm" onClick={() => handleConfirmMatch(item.name)}>That's fine</button>
+                    <button className="receipt-action-btn" onClick={() => handleRejectMatch(item.name)}>Not this</button>
+                    <button
+                      className={`receipt-action-btn rate${item.rating === 1 ? ' active-up' : ''}`}
+                      onClick={() => handleRate(item, item.rating === 1 ? 0 : 1)}
+                    >{'\u{1F44D}'}</button>
+                    <button
+                      className={`receipt-action-btn rate${item.rating === -1 ? ' active-down' : ''}`}
+                      onClick={() => handleRate(item, item.rating === -1 ? 0 : -1)}
+                    >{'\u{1F44E}'}</button>
                   </div>
                 )}
               </div>
-              <div className="receipt-confirm-actions">
-                <button className="receipt-confirm-btn" onClick={() => handleConfirmMatch(item.name)}>
-                  That's fine
-                </button>
-                <button className="receipt-reject-btn" onClick={() => handleResolve(item.name, 'not_fulfilled')}>
-                  Note it
-                </button>
-              </div>
-              <div className="receipt-rating">
-                <button
-                  className={`receipt-rate-btn up${item.rating === 1 ? ' active' : ''}`}
-                  onClick={() => handleRate(item, item.rating === 1 ? 0 : 1)}
-                >{'\u{1F44D}'}</button>
-                <button
-                  className={`receipt-rate-btn down${item.rating === -1 ? ' active' : ''}`}
-                  onClick={() => handleRate(item, item.rating === -1 ? 0 : -1)}
-                >{'\u{1F44E}'}</button>
-              </div>
-            </div>
-          ))}
+            )
+          })}
         </div>
       )}
 
-      {/* Not on receipt — items still on your list */}
-      {receipt.not_fulfilled.length > 0 && (
-        <div className="receipt-section">
-          <div className="receipt-section-label">Not on receipt ({receipt.not_fulfilled.length})</div>
-          <div className="receipt-section-hint">These stay on your grocery list.</div>
-          {receipt.not_fulfilled.map(item => (
-            <div key={item.name} className="receipt-item not-fulfilled">
-              <div className="receipt-item-info">
-                <div className="receipt-item-name">{item.name}</div>
-              </div>
-              <div className="receipt-confirm-actions">
-                <button className="receipt-confirm-btn" onClick={() => handleConfirmMatch(item.name)}>
-                  Actually got it
-                </button>
-                <button className="receipt-reject-btn" onClick={() => handleResolve(item.name, 'dismissed')}>
-                  Don't need it
-                </button>
-              </div>
-            </div>
-          ))}
-        </div>
-      )}
-
-      {/* Extra items — on receipt but not on list */}
+      {/* Unmatched receipt items */}
       {receipt.extras && receipt.extras.length > 0 && (
         <div className="receipt-section">
-          <div className="receipt-section-label">Also on receipt ({receipt.extras.length})</div>
-          <div className="receipt-section-hint">Items not on your list.</div>
-          {receipt.extras.map((item, i) => (
-            <div key={i} className="receipt-item extra">
-              <div className="receipt-item-info">
-                <div className="receipt-item-name">{item.item_name}</div>
-                <div className="receipt-item-meta">
-                  {item.brand && <span>{item.brand}</span>}
-                  {item.brand && item.price != null && <span> · </span>}
-                  {item.price != null && <span>{formatPrice(item.price)}</span>}
+          <div className="receipt-section-label">Unmatched ({receipt.extras.length})</div>
+          {receipt.extras.map((item, i) => {
+            const key = `extra-${item.item_name}-${i}`
+            const isExpanded = expandedItem === key
+            const isMatching = matchingExtra === key
+            return (
+              <div key={key} className="receipt-item-row">
+                <div className="receipt-item-top" onClick={() => toggleExpand(key)}>
+                  <div className="receipt-item-info">
+                    <div className="receipt-item-name">{item.item_name}</div>
+                    <div className="receipt-item-meta">
+                      {item.brand && <span>{item.brand}</span>}
+                      {item.brand && item.price != null && <span> · </span>}
+                      {item.price != null && <span>{formatPrice(item.price)}</span>}
+                    </div>
+                  </div>
+                  <button className="grocery-expand-btn">{'\u2630'}</button>
                 </div>
+                {isExpanded && !isMatching && (
+                  <div className="receipt-action-bar">
+                    {unreconciledGroceryNames.length > 0 && (
+                      <button className="receipt-action-btn" onClick={() => setMatchingExtra(key)}>This is...</button>
+                    )}
+                    <button
+                      className="receipt-action-btn rate"
+                      onClick={() => handleRate(item, 1)}
+                    >{'\u{1F44D}'}</button>
+                    <button
+                      className="receipt-action-btn rate"
+                      onClick={() => handleRate(item, -1)}
+                    >{'\u{1F44E}'}</button>
+                    <button className="receipt-action-btn dismiss" onClick={() => handleDismissExtra(item.item_name)}>Dismiss</button>
+                  </div>
+                )}
+                {isMatching && (
+                  <div className="receipt-match-picker">
+                    <div className="receipt-match-label">Match to:</div>
+                    {unreconciledGroceryNames.map(name => (
+                      <button
+                        key={name}
+                        className="receipt-match-option"
+                        onClick={() => handleMatchExtra(item, name)}
+                      >
+                        {name}
+                      </button>
+                    ))}
+                    <button className="receipt-match-cancel" onClick={() => setMatchingExtra(null)}>Cancel</button>
+                  </div>
+                )}
               </div>
-            </div>
-          ))}
-        </div>
-      )}
-
-      {/* Awaiting receipt — unchecked items with no receipt match yet */}
-      {hasUnresolved && !hasReconciled && (
-        <div className="receipt-section">
-          <div className="receipt-section-label">
-            On your list ({receipt.unresolved.length})
-          </div>
-          <div className="receipt-section-hint">Upload a receipt to match these.</div>
-          {receipt.unresolved.map(item => (
-            <div key={item.name} className="receipt-item unresolved">
-              <div className="receipt-item-name">{item.name}</div>
-            </div>
-          ))}
+            )
+          })}
         </div>
       )}
 
@@ -393,7 +406,6 @@ function getWeekLabel(dateStr) {
   if (!dateStr || dateStr === 'Unknown') return 'Unknown'
   try {
     const d = new Date(dateStr + 'T00:00:00')
-    // Get Monday of that week
     const day = d.getDay()
     const diff = d.getDate() - day + (day === 0 ? -6 : 1)
     const monday = new Date(d)

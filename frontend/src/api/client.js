@@ -109,6 +109,14 @@ export const api = {
     method: 'POST',
     body: JSON.stringify({ name, status }),
   }),
+  matchExtra: (extraName, groceryName, receiptPrice, receiptUpc) => request('/receipt/match-extra', {
+    method: 'POST',
+    body: JSON.stringify({ extra_name: extraName, grocery_name: groceryName, receipt_price: receiptPrice, receipt_upc: receiptUpc }),
+  }),
+  dismissExtra: (name) => request('/receipt/dismiss-extra', {
+    method: 'POST',
+    body: JSON.stringify({ name }),
+  }),
   getPurchases: () => request('/purchases'),
   getFavorites: () => request('/product/favorites'),
   rateProduct: (upc, rating, productDescription, { brand, productKey } = {}) => request('/product/rate', {
