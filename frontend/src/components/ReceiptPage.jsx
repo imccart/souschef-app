@@ -239,8 +239,8 @@ export default function ReceiptPage() {
         </div>
       )}
 
-      {/* Matches awaiting confirmation */}
-      {receipt.matched.length > 0 && receipt.matched.some(i => !i.checked) && (
+      {/* Matches awaiting confirmation (confirmed items go to previous purchases) */}
+      {receipt.matched.filter(i => !i.checked).length > 0 && (
         <div className="receipt-section">
           <div className="receipt-section-label">Confirm these matches</div>
           {receipt.matched.filter(i => !i.checked).map(item => (
@@ -281,16 +281,6 @@ export default function ReceiptPage() {
                 >{'\u{1F44E}'}</button>
               </div>
             </div>
-          ))}
-        </div>
-      )}
-
-      {/* Already confirmed matches */}
-      {receipt.matched.some(i => i.checked) && (
-        <div className="receipt-section">
-          <div className="receipt-section-label">Confirmed ({receipt.matched.filter(i => i.checked).length})</div>
-          {receipt.matched.filter(i => i.checked).map(item => (
-            <PurchaseItem key={item.name} item={item} onRate={handleRate} />
           ))}
         </div>
       )}
