@@ -266,45 +266,39 @@ export default function PreferencesSheet({ onClose }) {
             )}
           </div>
           <div className="prefs-section-hint">More integrations coming soon.</div>
+        </AccordionSection>
 
-          {/* Price Tracking */}
-          <div className="prefs-price-tracking">
-            <div className="prefs-price-tracking-header">
-              <span className="prefs-list-name">Price Tracking</span>
-              <button className="info-dot" onClick={() => setShowPriceInfo(v => !v)} title="What is this?">{'\u24D8'}</button>
-            </div>
-            {showPriceInfo && (
-              <div className="prefs-price-info">
-                We check prices on products you've ordered to help you find the best time and place to shop. Your identity is never shared — only anonymized product prices.
-              </div>
-            )}
-            <label className="prefs-household-toggle">
-              <input
-                type="checkbox"
-                checked={pricePolling}
-                onChange={async () => {
-                  const next = !pricePolling
-                  setPricePolling(next)
-                  try { await api.setPriceTracking({ price_polling: next }) } catch { setPricePolling(!next) }
-                }}
-              />
-              <span>Track prices for me</span>
-              <div className="prefs-toggle-hint">We'll check prices on your regular items throughout the day using your store account.</div>
-            </label>
-            <label className="prefs-household-toggle">
-              <input
-                type="checkbox"
-                checked={priceSharing}
-                onChange={async () => {
-                  const next = !priceSharing
-                  setPriceSharing(next)
-                  try { await api.setPriceTracking({ price_sharing: next }) } catch { setPriceSharing(!next) }
-                }}
-              />
-              <span>Share anonymous pricing data</span>
-              <div className="prefs-toggle-hint">Help other souschef users find better prices. We share product prices (not your identity or purchase history) with the community.</div>
-            </label>
+        {/* Price Tracking */}
+        <AccordionSection title="Price Tracking">
+          <div className="prefs-price-info">
+            We check prices on products you've ordered to help you find the best time and place to shop. Your identity is never shared — only anonymized product prices.
           </div>
+          <label className="prefs-household-toggle">
+            <input
+              type="checkbox"
+              checked={pricePolling}
+              onChange={async () => {
+                const next = !pricePolling
+                setPricePolling(next)
+                try { await api.setPriceTracking({ price_polling: next }) } catch { setPricePolling(!next) }
+              }}
+            />
+            <span>Track prices for me</span>
+            <div className="prefs-toggle-hint">We'll check prices on your regular items throughout the day using your store account.</div>
+          </label>
+          <label className="prefs-household-toggle">
+            <input
+              type="checkbox"
+              checked={priceSharing}
+              onChange={async () => {
+                const next = !priceSharing
+                setPriceSharing(next)
+                try { await api.setPriceTracking({ price_sharing: next }) } catch { setPriceSharing(!next) }
+              }}
+            />
+            <span>Share anonymous pricing data</span>
+            <div className="prefs-toggle-hint">Help other souschef users find better prices. We share product prices (not your identity or purchase history) with the community.</div>
+          </label>
         </AccordionSection>
 
         {/* Behind the Label */}
