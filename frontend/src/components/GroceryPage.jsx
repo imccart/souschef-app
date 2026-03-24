@@ -478,7 +478,7 @@ export default function GroceryPage({ sidebar = false }) {
       <SwipeableItem
         key={item.name}
         className={`grocery-item-row${isSelected ? ' selected' : ''}`}
-        onSwipeRight={() => handleItemAction(item.name, 'remove')}
+        onSwipeRight={() => handleItemAction(item.name, 'bought')}
       >
         {itemContent}
       </SwipeableItem>
