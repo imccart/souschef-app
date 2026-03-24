@@ -59,6 +59,7 @@ export default function ReceiptPage() {
   const [purchases, setPurchases] = useState(null)
   const [expandedItem, setExpandedItem] = useState(null)
   const [matchingExtra, setMatchingExtra] = useState(null) // extra item being matched to grocery
+  const [expandedWeeks, setExpandedWeeks] = useState({})
 
   const loadReceipt = () => {
     api.getReceipt().then(setReceipt).catch(() => setLoadError(true))
@@ -246,8 +247,14 @@ export default function ReceiptPage() {
           ) : (
             Object.entries(purchasesByWeek).map(([week, items]) => (
               <div key={week} className="purchase-date-group">
-                <div className="purchase-date-label">{week}</div>
-                {items.map((item, i) => (
+                <button
+                  className="purchase-date-label"
+                  onClick={() => setExpandedWeeks(prev => ({ ...prev, [week]: !prev[week] }))}
+                >
+                  <span>{week} ({items.length})</span>
+                  <span>{expandedWeeks[week] ? '\u25B4' : '\u25BE'}</span>
+                </button>
+                {expandedWeeks[week] && items.map((item, i) => (
                   <PurchaseItem key={`${item.name}-${i}`} item={item} onRate={handleRate} />
                 ))}
               </div>
