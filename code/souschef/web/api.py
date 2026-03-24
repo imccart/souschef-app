@@ -1890,7 +1890,7 @@ async def get_receipt(request: Request):
     matched = [i for i in items if i["receipt_status"] == "matched"]
     substituted = [i for i in items if i["receipt_status"] == "substituted"]
     not_fulfilled = [i for i in items if i["receipt_status"] == "not_fulfilled"]
-    unresolved = [i for i in items if not i["checked"] and not i.get("have_it") and not i.get("removed") and not i["receipt_status"]]
+    unresolved = [i for i in items if not i["receipt_status"]]
 
     # Fetch ratings for reconciled items (matched + substituted)
     from souschef.kroger import get_product_ratings, _make_product_key
@@ -1961,7 +1961,6 @@ async def _process_receipt(receipt_type: str, content: str, request: Request):
         try:
             name_rows = conn.execute(
                 text("""SELECT name FROM trip_items WHERE trip_id = :trip_id
-                   AND checked = 0 AND have_it = 0 AND removed = 0
                    AND receipt_status IN ('', 'not_fulfilled')"""),
                 {"trip_id": trip["id"]},
             ).fetchall()
@@ -2032,10 +2031,9 @@ async def _process_receipt(receipt_type: str, content: str, request: Request):
             new_receipt_items.append(ri)
 
     # Get trip items that still need matching — anything unchecked on the list
-    # This includes submitted items (sent to store) and active items (grabbed in-store)
+    # Match against everything not yet reconciled (checked or not — auto-prune handles stale items)
     rows = conn.execute(
         text("""SELECT * FROM trip_items WHERE trip_id = :trip_id
-           AND checked = 0 AND have_it = 0 AND removed = 0
            AND receipt_status IN ('', 'not_fulfilled')
            ORDER BY name"""),
         {"trip_id": trip["id"]},
