@@ -1,5 +1,6 @@
 import { Component } from 'react'
 import FeedbackFab from './FeedbackFab'
+import styles from './ErrorBoundary.module.css'
 
 export default class ErrorBoundary extends Component {
   constructor(props) {
@@ -19,27 +20,27 @@ export default class ErrorBoundary extends Component {
 
 export function ErrorScreen({ onRefresh }) {
   return (
-    <div className="error-boundary">
-      <div className="error-boundary-scene">
-        <div className="dropped-bag">
-          <div className="bag-body">
-            <div className="bag-handle-left"></div>
-            <div className="bag-handle-right"></div>
-            <div className="bag-front"></div>
+    <div className={styles.boundary}>
+      <div className={styles.scene}>
+        <div className={styles.droppedBag}>
+          <div className={styles.bagBody}>
+            <div className={styles.bagHandleLeft}></div>
+            <div className={styles.bagHandleRight}></div>
+            <div className={styles.bagFront}></div>
           </div>
-          <div className="spill spill-1">{'\u{1F966}'}</div>
-          <div className="spill spill-2">{'\u{1F34E}'}</div>
-          <div className="spill spill-3">{'\u{1F956}'}</div>
-          <div className="spill spill-4">{'\u{1F95A}'}</div>
-          <div className="spill spill-5">{'\u{1F955}'}</div>
+          <div className={`${styles.spill} ${styles.spill1}`}>{'\u{1F966}'}</div>
+          <div className={`${styles.spill} ${styles.spill2}`}>{'\u{1F34E}'}</div>
+          <div className={`${styles.spill} ${styles.spill3}`}>{'\u{1F956}'}</div>
+          <div className={`${styles.spill} ${styles.spill4}`}>{'\u{1F95A}'}</div>
+          <div className={`${styles.spill} ${styles.spill5}`}>{'\u{1F955}'}</div>
         </div>
       </div>
-      <h2 className="error-boundary-title">We dropped something</h2>
-      <p className="error-boundary-sub">
+      <h2 className={styles.title}>We dropped something</h2>
+      <p className={styles.sub}>
         Sorry about the mess. Try refreshing, or let us know what happened.
       </p>
-      <div className="error-boundary-actions">
-        <button className="error-boundary-btn refresh" onClick={onRefresh}>
+      <div className={styles.actions}>
+        <button className={styles.refresh} onClick={onRefresh}>
           Try again
         </button>
       </div>

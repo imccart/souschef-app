@@ -1,6 +1,7 @@
 import { useState, useEffect } from 'react'
 import clippyImg from '../assets/clippy-chef.png'
 import mouseImg from '../assets/mouse-chef.png'
+import styles from './OnboardingFlow.module.css'
 
 export default function ClippyGuide({ quip, showMouse }) {
   const [mouseVisible, setMouseVisible] = useState(false)
@@ -15,24 +16,24 @@ export default function ClippyGuide({ quip, showMouse }) {
   }, [showMouse])
 
   return (
-    <div className="clippy-container">
+    <div className={styles.clippyContainer}>
       {quip && (
-        <div className="clippy-bubble">
+        <div className={styles.clippyBubble}>
           <span>{quip}</span>
-          <div className="clippy-bubble-tail" />
+          <div className={styles.clippyBubbleTail} />
         </div>
       )}
-      <div className="clippy-character">
+      <div className={styles.clippyCharacter}>
         <img
           src={clippyImg}
           alt="Clippy the chef"
-          className={`clippy-img${showMouse ? ' clippy-wave' : ''}`}
+          className={`${styles.clippyImg}${showMouse ? ` ${styles.clippyWave}` : ''}`}
         />
         {mouseVisible && (
           <img
             src={mouseImg}
             alt=""
-            className={`mouse-img${mouseRunning ? ' mouse-scurry' : ''}`}
+            className={`${styles.mouseImg}${mouseRunning ? ` ${styles.mouseScurry}` : ''}`}
           />
         )}
       </div>

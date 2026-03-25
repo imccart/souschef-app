@@ -1,0 +1,143 @@
+.boundary {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  min-height: 100dvh;
+  padding: 40px 20px;
+  background: var(--cream);
+  font-family: 'DM Sans', sans-serif;
+  text-align: center;
+}
+
+.scene {
+  position: relative;
+  width: 180px;
+  height: 180px;
+  margin-bottom: 24px;
+}
+
+.droppedBag {
+  position: relative;
+  width: 100%;
+  height: 100%;
+}
+
+.bagBody {
+  position: absolute;
+  bottom: 10px;
+  left: 50%;
+  transform: translateX(-50%) rotate(22deg);
+  transform-origin: bottom right;
+}
+
+.bagFront {
+  width: 70px;
+  height: 80px;
+  background: #C4A882;
+  border-radius: 0 0 6px 6px;
+  position: relative;
+  border: 2px solid #A88B6A;
+}
+
+.bagFront::after {
+  content: '';
+  position: absolute;
+  top: 8px;
+  left: 50%;
+  transform: translateX(-50%);
+  width: 30px;
+  height: 1px;
+  background: #A88B6A;
+}
+
+.bagHandleLeft, .bagHandleRight {
+  position: absolute;
+  top: -14px;
+  width: 14px;
+  height: 18px;
+  border: 2px solid #A88B6A;
+  border-bottom: none;
+  border-radius: 4px 4px 0 0;
+  background: transparent;
+}
+
+.bagHandleLeft { left: 12px; }
+.bagHandleRight { right: 12px; }
+
+.spill {
+  position: absolute;
+  font-size: 28px;
+  animation: spill-settle 0.6s ease-out both;
+}
+
+.spill1 { top: 10px; left: 20px; transform: rotate(-30deg); animation-delay: 0.1s; }
+.spill2 { top: 30px; right: 10px; transform: rotate(15deg); animation-delay: 0.2s; }
+.spill3 { bottom: 0; left: 0; transform: rotate(-50deg); animation-delay: 0.3s; }
+.spill4 { top: 50px; left: -5px; transform: rotate(40deg); animation-delay: 0.15s; }
+.spill5 { bottom: 10px; right: 5px; transform: rotate(-20deg); animation-delay: 0.25s; }
+
+@keyframes spill-settle {
+  0% { opacity: 0; transform: translateY(-20px) rotate(0deg); }
+  100% { opacity: 1; }
+}
+
+.title {
+  font-family: 'Playfair Display', serif;
+  font-size: 22px;
+  color: var(--dark);
+  margin: 0 0 8px;
+}
+
+.sub {
+  font-size: 14px;
+  color: var(--text-muted);
+  margin: 0 0 28px;
+  max-width: 300px;
+  line-height: 1.5;
+}
+
+.actions {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+  align-items: center;
+}
+
+.btn {
+  padding: 12px 28px;
+  font-size: 14px;
+  font-family: 'DM Sans', sans-serif;
+  font-weight: 500;
+  border-radius: 8px;
+  cursor: pointer;
+  min-width: 200px;
+}
+
+.refresh {
+  composes: btn;
+  background: var(--accent);
+  color: white;
+  border: none;
+}
+
+.refresh:hover {
+  background: #C0542F;
+}
+
+.report {
+  composes: btn;
+  background: white;
+  color: var(--brown);
+  border: 1.5px solid var(--tan);
+}
+
+.report:hover {
+  background: var(--warm-white);
+}
+
+.reported {
+  font-size: 13px;
+  color: var(--green);
+  font-weight: 500;
+}

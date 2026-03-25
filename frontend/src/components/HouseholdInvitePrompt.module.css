@@ -1,0 +1,51 @@
+.prompt {
+  min-height: 100dvh;
+  background: var(--cream);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 32px 24px;
+}
+
+.card {
+  width: 100%;
+  max-width: 400px;
+  text-align: center;
+}
+
+.icon {
+  font-size: 48px;
+  margin-bottom: 16px;
+}
+
+.title {
+  font-family: 'Playfair Display', serif;
+  font-size: 24px;
+  font-weight: 600;
+  color: var(--dark);
+  margin-bottom: 12px;
+}
+
+.body {
+  font-size: 16px;
+  color: var(--brown);
+  line-height: 1.5;
+  margin-bottom: 32px;
+  font-weight: 300;
+}
+
+.actions {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+}
+
+.actions :global(.btn.primary) {
+  padding: 14px;
+  font-size: 16px;
+}
+
+.actions :global(.btn):not(:global(.primary)) {
+  color: var(--text-muted);
+  font-size: 14px;
+}

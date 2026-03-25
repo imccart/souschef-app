@@ -2,6 +2,7 @@ import { useState, useEffect, useRef, useCallback } from 'react'
 import { api } from '../api/client'
 import ClippyGuide from './ClippyGuide'
 import ladleImg from '../assets/ladle.png'
+import styles from './OnboardingFlow.module.css'
 
 // ── Pre-auth Welcome Screen (unchanged) ─────────────────
 
@@ -41,36 +42,36 @@ export function WelcomeScreen({ onStart }) {
     return () => { if (cleanup) cleanup() }
   }, [runAnimation])
 
-  const ladleClass = phase >= 4 ? 'welcome-ladle upright' : phase >= 1 ? 'welcome-ladle tilt' : 'welcome-ladle'
-  const moverClass = phase >= 4 ? 'welcome-ladle-mover lift' : 'welcome-ladle-mover'
+  const ladleClass = `${styles.ladle}${phase >= 4 ? ` ${styles.upright}` : phase >= 1 ? ` ${styles.tilt}` : ''}`
+  const moverClass = `${styles.ladleMover}${phase >= 4 ? ` ${styles.lift}` : ''}`
   const moverStyle = phase >= 4 ? { '--lift-dy': `${liftDy}px` } : {}
 
   return (
-    <div className="welcome">
+    <div className={styles.welcome}>
       {phase >= 3 && (
         <>
-          <div className="welcome-splat main" style={{ left: splatPos.x - 9, top: splatPos.y - 4 }} />
-          <div className="welcome-splat a" style={{ left: splatPos.x - 18, top: splatPos.y - 3 }} />
-          <div className="welcome-splat b" style={{ left: splatPos.x - 30, top: splatPos.y + 2 }} />
-          <div className="welcome-splat c" style={{ left: splatPos.x - 14, top: splatPos.y + 6 }} />
+          <div className={`${styles.welcomeSplat} ${styles.main}`} style={{ left: splatPos.x - 9, top: splatPos.y - 4 }} />
+          <div className={`${styles.welcomeSplat} ${styles.a}`} style={{ left: splatPos.x - 18, top: splatPos.y - 3 }} />
+          <div className={`${styles.welcomeSplat} ${styles.b}`} style={{ left: splatPos.x - 30, top: splatPos.y + 2 }} />
+          <div className={`${styles.welcomeSplat} ${styles.c}`} style={{ left: splatPos.x - 14, top: splatPos.y + 6 }} />
         </>
       )}
-      <div className="welcome-content">
-        <div className="welcome-logo-slot" ref={logoRef} />
-        <div className={`welcome-wordmark ${phase >= 4 ? 'reveal' : ''}`}>sous<em>chef</em></div>
-        <div className="welcome-tagline-slot">
-          <div className={`welcome-tagline ${phase >= 4 ? 'reveal' : ''}`}>
+      <div className={styles.welcomeContent}>
+        <div className={styles.welcomeLogoSlot} ref={logoRef} />
+        <div className={`${styles.welcomeWordmark}${phase >= 4 ? ` ${styles.reveal}` : ''}`}>sous<em>chef</em></div>
+        <div className={styles.welcomeTaglineSlot}>
+          <div className={`${styles.welcomeTagline}${phase >= 4 ? ` ${styles.reveal}` : ''}`}>
             because someone has to plan dinner<br />and get groceries
           </div>
           <div className={moverClass} ref={ladleRef} style={moverStyle}>
             <img className={ladleClass} src={ladleImg} alt="" />
-            {phase >= 2 && phase < 4 && <div className="welcome-drip" ref={dripRef} />}
+            {phase >= 2 && phase < 4 && <div className={styles.welcomeDrip} ref={dripRef} />}
           </div>
         </div>
-        <button className={`welcome-btn ${phase >= 5 ? 'reveal' : ''}`} onClick={onStart}>
+        <button className={`${styles.welcomeBtn}${phase >= 5 ? ` ${styles.reveal}` : ''}`} onClick={onStart}>
           Get started
         </button>
-        <div className={`welcome-footer ${phase >= 5 ? 'show' : ''}`}>
+        <div className={`${styles.welcomeFooter}${phase >= 5 ? ` ${styles.show}` : ''}`}>
           an <a href="https://aletheia.fyi">aletheia</a> project
         </div>
       </div>
@@ -313,97 +314,97 @@ export default function OnboardingFlow({ onComplete }) {
   // ── Render ──
 
   return (
-    <div className="onboarding">
-      <div className="onboarding-card">
+    <div className={styles.onboarding}>
+      <div className={styles.card}>
         {/* Progress dots */}
-        <div className="onboarding-dots">
+        <div className={styles.dots}>
           {Array.from({ length: totalSteps }).map((_, i) => (
-            <div key={i} className={`onboarding-dot ${i === step ? 'active' : i < step ? 'done' : ''}`} />
+            <div key={i} className={`${styles.dot}${i === step ? ` ${styles.active}` : i < step ? ` ${styles.done}` : ''}`} />
           ))}
         </div>
 
         {/* Step 0: Welcome */}
         {step === 0 && (
-          <div className="onboarding-step">
-            <div className="onboarding-logo">sous<em>chef</em></div>
-            <div className="onboarding-welcome-text">
+          <div className={styles.step}>
+            <div className={styles.logo}>sous<em>chef</em></div>
+            <div className={styles.welcomeText}>
               Your kitchen and meal assistant. We help you plan dinners, build grocery lists, and order from your favorite store — so you spend less time thinking about what's for dinner.
             </div>
-            <div className="onboarding-welcome-time">It takes about 5 minutes to set up.</div>
-            <button className="onboarding-btn primary" onClick={goNext}>Let's get started</button>
+            <div className={styles.welcomeTime}>It takes about 5 minutes to set up.</div>
+            <button className={`${styles.obBtn} ${styles.primary}`} onClick={goNext}>Let's get started</button>
           </div>
         )}
 
         {/* Step 1: Meals + Sides */}
         {step === 1 && (
-          <div className="onboarding-step">
-            <div className="onboarding-step-title">What does your family eat?</div>
-            <div className="onboarding-step-desc">
+          <div className={styles.step}>
+            <div className={styles.stepTitle}>What does your family eat?</div>
+            <div className={styles.stepDesc}>
               Pick the meals your family makes regularly. We'll use these to build your grocery list. Don't overthink it — you can always add more later.
             </div>
-            <div className="onboarding-step-hint">
+            <div className={styles.stepHint}>
               We keep it simple. "Tacos" means ground beef, tortillas, cheese, and salsa. We won't ask you to buy a tablespoon of cumin.
             </div>
 
             {!library ? (
               <div className="loading">Loading recipes...</div>
             ) : (
-              <div className="onboarding-recipe-columns">
-                <div className="onboarding-recipe-section">
-                  <div className="onboarding-section-label">Meals</div>
-                  <div className="onboarding-tile-grid">
+              <div className={styles.recipeColumns}>
+                <div className={styles.recipeSection}>
+                  <div className={styles.sectionLabel}>Meals</div>
+                  <div className={styles.tileGrid}>
                     {library.meals.map(r => (
-                      <div key={r.id} className={`onboarding-tile ${selectedMealIds.has(r.id) ? 'selected' : ''}`}>
-                        <button className="onboarding-tile-btn" onClick={() => toggleMealId(r.id)}>
+                      <div key={r.id} className={`${styles.tile}${selectedMealIds.has(r.id) ? ` ${styles.selected}` : ''}`}>
+                        <button className={styles.tileBtn} onClick={() => toggleMealId(r.id)}>
                           {r.name}
                         </button>
                         {selectedMealIds.has(r.id) && r.ingredients && r.ingredients.length > 0 && (
-                          <div className="onboarding-tile-preview">
+                          <div className={styles.tilePreview}>
                             {r.ingredients.join(', ')}
                           </div>
                         )}
                       </div>
                     ))}
                     {customMeals.map(name => (
-                      <div key={`custom-${name}`} className="onboarding-tile selected custom">
-                        <button className="onboarding-tile-btn" onClick={() => setCustomMeals(prev => prev.filter(n => n !== name))}>
+                      <div key={`custom-${name}`} className={`${styles.tile} ${styles.selected} ${styles.custom}`}>
+                        <button className={styles.tileBtn} onClick={() => setCustomMeals(prev => prev.filter(n => n !== name))}>
                           {name}
                         </button>
                       </div>
                     ))}
                   </div>
-                  <form onSubmit={handleAddCustomMeal} className="onboarding-input-row">
-                    <input className="onboarding-input" type="text" placeholder="Add your own meal..."
+                  <form onSubmit={handleAddCustomMeal} className={styles.inputRow}>
+                    <input className={styles.input} type="text" placeholder="Add your own meal..."
                       value={customMealInput} onChange={(e) => setCustomMealInput(e.target.value)} />
                     <button className="btn primary" type="submit">+</button>
                   </form>
                 </div>
 
-                <div className="onboarding-recipe-section">
-                  <div className="onboarding-section-label">Sides</div>
-                  <div className="onboarding-tile-grid">
+                <div className={styles.recipeSection}>
+                  <div className={styles.sectionLabel}>Sides</div>
+                  <div className={styles.tileGrid}>
                     {library.sides.map(r => (
-                      <div key={r.id} className={`onboarding-tile ${selectedSideIds.has(r.id) ? 'selected' : ''}`}>
-                        <button className="onboarding-tile-btn" onClick={() => toggleSideId(r.id)}>
+                      <div key={r.id} className={`${styles.tile}${selectedSideIds.has(r.id) ? ` ${styles.selected}` : ''}`}>
+                        <button className={styles.tileBtn} onClick={() => toggleSideId(r.id)}>
                           {r.name}
                         </button>
                         {selectedSideIds.has(r.id) && r.ingredients && r.ingredients.length > 0 && (
-                          <div className="onboarding-tile-preview">
+                          <div className={styles.tilePreview}>
                             {r.ingredients.join(', ')}
                           </div>
                         )}
                       </div>
                     ))}
                     {customSides.map(name => (
-                      <div key={`custom-${name}`} className="onboarding-tile selected custom">
-                        <button className="onboarding-tile-btn" onClick={() => setCustomSides(prev => prev.filter(n => n !== name))}>
+                      <div key={`custom-${name}`} className={`${styles.tile} ${styles.selected} ${styles.custom}`}>
+                        <button className={styles.tileBtn} onClick={() => setCustomSides(prev => prev.filter(n => n !== name))}>
                           {name}
                         </button>
                       </div>
                     ))}
                   </div>
-                  <form onSubmit={handleAddCustomSide} className="onboarding-input-row">
-                    <input className="onboarding-input" type="text" placeholder="Add your own side..."
+                  <form onSubmit={handleAddCustomSide} className={styles.inputRow}>
+                    <input className={styles.input} type="text" placeholder="Add your own side..."
                       value={customSideInput} onChange={(e) => setCustomSideInput(e.target.value)} />
                     <button className="btn primary" type="submit">+</button>
                   </form>
@@ -412,13 +413,13 @@ export default function OnboardingFlow({ onComplete }) {
             )}
 
             {/* Time survey */}
-            <div className="onboarding-time-survey">
-              <div className="onboarding-time-label">Before Souschef, how long did meal planning and grocery shopping take each week?</div>
-              <div className="onboarding-time-options">
+            <div className={styles.timeSurvey}>
+              <div className={styles.timeLabel}>Before Souschef, how long did meal planning and grocery shopping take each week?</div>
+              <div className={styles.timeOptions}>
                 {TIME_OPTIONS.map(opt => (
                   <button
                     key={opt.value}
-                    className={`onboarding-time-btn ${timeBaseline === opt.value ? 'selected' : ''}`}
+                    className={`${styles.timeBtn}${timeBaseline === opt.value ? ` ${styles.selected}` : ''}`}
                     onClick={() => setTimeBaseline(opt.value)}
                   >
                     {opt.label}
@@ -431,16 +432,16 @@ export default function OnboardingFlow({ onComplete }) {
 
         {/* Step 2: Staples */}
         {step === 2 && (
-          <div className="onboarding-step">
-            <div className="onboarding-step-title">What's already in your kitchen?</div>
-            <div className="onboarding-step-desc">
+          <div className={styles.step}>
+            <div className={styles.stepTitle}>What's already in your kitchen?</div>
+            <div className={styles.stepDesc}>
               Things you always have at home. We'll leave these off your grocery list.
             </div>
 
             {!staplesData ? (
               <div className="loading">Loading staples...</div>
             ) : (
-              <div className="onboarding-checklist">
+              <div className={styles.checklist}>
                 {Object.entries(
                   staplesData.reduce((acc, s) => {
                     const group = s.aisle || 'Other'
@@ -449,12 +450,12 @@ export default function OnboardingFlow({ onComplete }) {
                     return acc
                   }, {})
                 ).map(([group, items]) => (
-                  <div key={group} className="onboarding-category">
-                    <div className="onboarding-category-label">{group}</div>
+                  <div key={group} className={styles.category}>
+                    <div className={styles.categoryLabel}>{group}</div>
                     {items.map(s => (
                       <div
                         key={s.id}
-                        className="onboarding-check-item"
+                        className={styles.checkItem}
                         onClick={() => {
                           setSelectedStaples(prev => {
                             const next = new Set(prev)
@@ -463,7 +464,7 @@ export default function OnboardingFlow({ onComplete }) {
                           })
                         }}
                       >
-                        <div className={`regular-check ${selectedStaples.has(s.name) ? 'active' : ''}`}>
+                        <div className={`regular-check${selectedStaples.has(s.name) ? ' active' : ''}`}>
                           {selectedStaples.has(s.name) && '\u2713'}
                         </div>
                         <span>{s.name}</span>
@@ -473,7 +474,7 @@ export default function OnboardingFlow({ onComplete }) {
                 ))}
               </div>
             )}
-            <div className="onboarding-step-hint" style={{ marginTop: 12 }}>
+            <div className={styles.stepHint} style={{ marginTop: 12 }}>
               If you run out of something, you can always add it to your grocery list manually.
             </div>
           </div>
@@ -481,20 +482,20 @@ export default function OnboardingFlow({ onComplete }) {
 
         {/* Step 3: Regulars */}
         {step === 3 && (
-          <div className="onboarding-step">
-            <div className="onboarding-step-title">What's always in your cart?</div>
-            <div className="onboarding-step-desc">
+          <div className={styles.step}>
+            <div className={styles.stepTitle}>What's always in your cart?</div>
+            <div className={styles.stepDesc}>
               Things you buy almost every trip. These go on your list automatically.
             </div>
 
-            <div className="onboarding-checklist">
+            <div className={styles.checklist}>
               {Object.entries(REGULAR_CATEGORIES).map(([cat, items]) => (
-                <div key={cat} className="onboarding-category">
-                  <div className="onboarding-category-label">{cat}</div>
+                <div key={cat} className={styles.category}>
+                  <div className={styles.categoryLabel}>{cat}</div>
                   {items.map(name => (
                     <div
                       key={name}
-                      className="onboarding-check-item"
+                      className={styles.checkItem}
                       onClick={() => {
                         setSelectedRegulars(prev => {
                           const next = new Set(prev)
@@ -503,7 +504,7 @@ export default function OnboardingFlow({ onComplete }) {
                         })
                       }}
                     >
-                      <div className={`regular-check ${selectedRegulars.has(name) ? 'active' : ''}`}>
+                      <div className={`regular-check${selectedRegulars.has(name) ? ' active' : ''}`}>
                         {selectedRegulars.has(name) && '\u2713'}
                       </div>
                       <span>{name}</span>
@@ -513,7 +514,7 @@ export default function OnboardingFlow({ onComplete }) {
               ))}
               {/* Custom additions */}
               {[...selectedRegulars].filter(n => !Object.values(REGULAR_CATEGORIES).flat().includes(n)).map(name => (
-                <div key={name} className="onboarding-check-item" onClick={() => {
+                <div key={name} className={styles.checkItem} onClick={() => {
                   setSelectedRegulars(prev => { const next = new Set(prev); next.delete(name); return next })
                 }}>
                   <div className="regular-check active">{'\u2713'}</div>
@@ -526,8 +527,8 @@ export default function OnboardingFlow({ onComplete }) {
               if (!regularInput.trim()) return
               setSelectedRegulars(prev => new Set(prev).add(regularInput.trim().toLowerCase()))
               setRegularInput('')
-            }} className="onboarding-input-row">
-              <input className="onboarding-input" type="text" placeholder="Add something else..."
+            }} className={styles.inputRow}>
+              <input className={styles.input} type="text" placeholder="Add something else..."
                 value={regularInput} onChange={(e) => setRegularInput(e.target.value)} />
               <button className="btn primary" type="submit">+</button>
             </form>
@@ -536,31 +537,31 @@ export default function OnboardingFlow({ onComplete }) {
 
         {/* Step 4: Store Setup */}
         {step === 4 && (
-          <div className="onboarding-step">
-            <div className="onboarding-step-title">Where do you order groceries?</div>
-            <div className="onboarding-step-desc">
+          <div className={styles.step}>
+            <div className={styles.stepTitle}>Where do you order groceries?</div>
+            <div className={styles.stepDesc}>
               Connect your store to send your grocery list straight to your cart. You can skip this and set it up later.
             </div>
 
             {krogerConnected ? (
-              <div className="onboarding-store-connected">
-                <div className="onboarding-store-check">{'\u2713'}</div>
+              <div className={styles.storeConnected}>
+                <div className={styles.storeCheck}>{'\u2713'}</div>
                 <div>Kroger connected!</div>
                 {!selectedLocation && (
                   <>
-                    <form onSubmit={handleSearchStores} className="onboarding-input-row" style={{ marginTop: 12 }}>
-                      <input className="onboarding-input" type="text" placeholder="Zip code..."
+                    <form onSubmit={handleSearchStores} className={styles.inputRow} style={{ marginTop: 12 }}>
+                      <input className={styles.input} type="text" placeholder="Zip code..."
                         value={storeZip} onChange={(e) => setStoreZip(e.target.value)} />
                       <button className="btn primary" type="submit">Find stores</button>
                     </form>
                     {storeResults && (
-                      <div className="onboarding-store-list">
+                      <div className={styles.storeList}>
                         {storeResults.length === 0 ? (
-                          <div className="onboarding-step-hint">No stores found. Try a different zip code.</div>
+                          <div className={styles.stepHint}>No stores found. Try a different zip code.</div>
                         ) : storeResults.map(loc => (
                           <button
                             key={loc.locationId}
-                            className="onboarding-store-item"
+                            className={styles.storeItem}
                             onClick={() => setSelectedLocation(loc.locationId)}
                           >
                             <strong>{loc.name}</strong>
@@ -572,11 +573,11 @@ export default function OnboardingFlow({ onComplete }) {
                   </>
                 )}
                 {selectedLocation && (
-                  <div className="onboarding-step-hint">Store selected! {'\u2713'}</div>
+                  <div className={styles.stepHint}>Store selected! {'\u2713'}</div>
                 )}
               </div>
             ) : (
-              <button className="onboarding-btn primary" onClick={handleConnectKroger} style={{ marginTop: 16 }}>
+              <button className={`${styles.obBtn} ${styles.primary}`} onClick={handleConnectKroger} style={{ marginTop: 16 }}>
                 Connect Kroger
               </button>
             )}
@@ -585,21 +586,21 @@ export default function OnboardingFlow({ onComplete }) {
 
         {/* Step 5: Tour */}
         {step === 5 && (
-          <div className="onboarding-step">
-            <div className="onboarding-step-title">Here's where everything lives</div>
-            <div className="onboarding-tour-cards">
+          <div className={styles.step}>
+            <div className={styles.stepTitle}>Here's where everything lives</div>
+            <div className={styles.tourCards}>
               {TOUR_STOPS.map((stop, i) => (
-                <div key={i} className={`onboarding-tour-card ${i <= tourStep ? 'visible' : ''}`}>
-                  <div className="onboarding-tour-icon">{stop.icon}</div>
-                  <div className="onboarding-tour-info">
-                    <div className="onboarding-tour-label">{stop.label}</div>
-                    <div className="onboarding-tour-desc">{stop.desc}</div>
+                <div key={i} className={`${styles.tourCard}${i <= tourStep ? ` ${styles.visible}` : ''}`}>
+                  <div className={styles.tourIcon}>{stop.icon}</div>
+                  <div className={styles.tourInfo}>
+                    <div className={styles.tourLabel}>{stop.label}</div>
+                    <div className={styles.tourDesc}>{stop.desc}</div>
                   </div>
                 </div>
               ))}
             </div>
             {tourStep < TOUR_STOPS.length - 1 ? (
-              <button className="onboarding-btn primary" onClick={() => setTourStep(t => t + 1)}>
+              <button className={`${styles.obBtn} ${styles.primary}`} onClick={() => setTourStep(t => t + 1)}>
                 Next
               </button>
             ) : null}
@@ -608,24 +609,24 @@ export default function OnboardingFlow({ onComplete }) {
 
         {/* Navigation buttons */}
         {step > 0 && (
-          <div className="onboarding-btn-row">
+          <div className={styles.btnRow}>
             {step > 0 && step < 5 && (
-              <button className="onboarding-skip" onClick={skipStep}>Skip for now</button>
+              <button className={styles.skip} onClick={skipStep}>Skip for now</button>
             )}
             {step === 5 && tourStep < TOUR_STOPS.length - 1 && (
-              <button className="onboarding-skip" onClick={() => { setTourStep(TOUR_STOPS.length - 1) }}>Skip tour</button>
+              <button className={styles.skip} onClick={() => { setTourStep(TOUR_STOPS.length - 1) }}>Skip tour</button>
             )}
-            <div className="onboarding-btn-spacer" />
+            <div className={styles.btnSpacer} />
             {step > 1 && (
-              <button className="onboarding-btn secondary" onClick={goBack}>Back</button>
+              <button className={`${styles.obBtn} ${styles.secondary}`} onClick={goBack}>Back</button>
             )}
             {step >= 1 && step <= 4 && (
-              <button className="onboarding-btn primary" onClick={goNext} disabled={saving}>
+              <button className={`${styles.obBtn} ${styles.primary}`} onClick={goNext} disabled={saving}>
                 {saving ? '...' : 'Next'}
               </button>
             )}
             {step === 5 && tourStep >= TOUR_STOPS.length - 1 && (
-              <button className="onboarding-btn primary" onClick={goNext} disabled={saving}>
+              <button className={`${styles.obBtn} ${styles.primary}`} onClick={goNext} disabled={saving}>
                 {saving ? '...' : "Let's cook!"}
               </button>
             )}

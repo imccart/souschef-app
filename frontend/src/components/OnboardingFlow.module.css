@@ -1,0 +1,651 @@
+/* ── Welcome Screen ──────────────────── */
+
+.welcome {
+  position: fixed;
+  inset: 0;
+  background: var(--cream);
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  padding: 48px 32px;
+  overflow: hidden;
+}
+
+.welcomeContent {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  max-width: 360px;
+  width: 100%;
+}
+
+.welcomeLogoSlot {
+  width: 72px;
+  height: 72px;
+  margin-bottom: 16px;
+  flex-shrink: 0;
+}
+
+.welcomeWordmark {
+  font-family: 'Playfair Display', serif;
+  font-size: 32px;
+  font-weight: 600;
+  color: var(--dark);
+  letter-spacing: -0.5px;
+  margin-bottom: 14px;
+  opacity: 0;
+  transform: translateY(6px);
+}
+
+.welcomeWordmark.reveal {
+  animation: fadeUp 0.55s ease forwards;
+}
+
+.welcomeWordmark em {
+  color: var(--accent);
+  font-style: italic;
+  font-weight: 400;
+}
+
+.welcomeTaglineSlot {
+  position: relative;
+  height: 48px;
+  width: 100%;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  margin-bottom: 40px;
+}
+
+.welcomeTagline {
+  font-family: 'Playfair Display', serif;
+  font-style: italic;
+  font-size: 17px;
+  color: var(--brown);
+  line-height: 1.5;
+  text-align: center;
+  max-width: 300px;
+  opacity: 0;
+  transform: translateY(4px);
+  position: absolute;
+}
+
+.welcomeTagline.reveal {
+  animation: fadeUp 0.55s ease 0.08s forwards;
+}
+
+.ladleMover {
+  position: absolute;
+  top: 50%;
+  left: 50%;
+  transform: translate(-50%, -50%);
+  width: 90px;
+  height: 90px;
+  z-index: 10;
+}
+
+.ladleMover.lift {
+  animation: ladleLift 0.65s cubic-bezier(0.34, 1.2, 0.64, 1) forwards;
+}
+
+@keyframes ladleLift {
+  0%   { transform: translate(-50%, -50%) translateY(0); }
+  100% { transform: translate(-50%, -50%) translateY(var(--lift-dy, -120px)); }
+}
+
+.ladle {
+  width: 90px;
+  height: 90px;
+  object-fit: contain;
+  transform-origin: 38% 81%;
+  filter: drop-shadow(0 4px 14px rgba(212, 98, 58, 0.25));
+  display: block;
+}
+
+.ladle.tilt {
+  animation: ladleTilt 0.7s cubic-bezier(0.34, 1.4, 0.64, 1) both;
+}
+
+@keyframes ladleTilt {
+  0%   { transform: rotate(0deg); }
+  100% { transform: rotate(-38deg); }
+}
+
+.ladle.upright {
+  animation: ladleUpright 0.55s cubic-bezier(0.34, 1.3, 0.64, 1) forwards;
+}
+
+@keyframes ladleUpright {
+  0%   { transform: rotate(-38deg); }
+  100% { transform: rotate(0deg); }
+}
+
+.welcomeDrip {
+  position: absolute;
+  left: 30px;
+  top: 74px;
+  width: 8px;
+  height: 11px;
+  background: var(--accent);
+  border-radius: 50% 50% 58% 58%;
+  animation: dripFall 0.55s cubic-bezier(0.55, 0, 1, 0.45) forwards;
+}
+
+@keyframes dripFall {
+  0%   { opacity: 1; transform: translateY(0) scaleY(1) scaleX(1); }
+  70%  { opacity: 1; transform: translateY(150px) scaleY(1.4) scaleX(0.7); }
+  100% { opacity: 0; transform: translateY(162px) scaleY(0.1) scaleX(2); }
+}
+
+.welcomeSplat {
+  position: fixed;
+  border-radius: 50%;
+  background: var(--accent);
+  pointer-events: none;
+  z-index: 1;
+}
+
+.welcomeSplat.main {
+  animation: splatMain 0.5s cubic-bezier(0.34, 1.2, 0.64, 1) forwards;
+}
+
+@keyframes splatMain {
+  0%   { opacity: 0; width: 0; height: 0; }
+  100% { opacity: 0.45; width: 18px; height: 9px; }
+}
+
+.welcomeSplat.a {
+  animation: splatSmall 0.45s cubic-bezier(0.34, 1.3, 0.64, 1) forwards;
+}
+
+.welcomeSplat.b {
+  animation: splatSmall 0.4s cubic-bezier(0.34, 1.3, 0.64, 1) 0.05s forwards;
+  opacity: 0;
+}
+
+.welcomeSplat.c {
+  animation: splatSmall 0.35s cubic-bezier(0.34, 1.3, 0.64, 1) 0.08s forwards;
+  opacity: 0;
+}
+
+@keyframes splatSmall {
+  0%   { opacity: 0; width: 0; height: 0; }
+  100% { opacity: 0.4; width: 6px; height: 6px; }
+}
+
+.welcomeBtn {
+  background: var(--accent);
+  color: white;
+  border: none;
+  border-radius: 14px;
+  padding: 16px 48px;
+  font-family: 'DM Sans', sans-serif;
+  font-size: 16px;
+  font-weight: 500;
+  letter-spacing: 0.2px;
+  cursor: pointer;
+  box-shadow: 0 4px 16px rgba(212, 98, 58, 0.25);
+  opacity: 0;
+  transform: scale(0.88);
+  pointer-events: none;
+  position: relative;
+  z-index: 2;
+}
+
+.welcomeBtn.reveal {
+  animation: btnBloom 0.5s cubic-bezier(0.34, 1.4, 0.64, 1) forwards;
+  pointer-events: all;
+}
+
+@keyframes btnBloom {
+  0%   { opacity: 0; transform: scale(0.88); }
+  100% { opacity: 1; transform: scale(1); }
+}
+
+.welcomeBtn:active {
+  transform: scale(0.97) !important;
+  background: #c25530;
+}
+
+.welcomeFooter {
+  margin-top: 32px;
+  font-size: 11px;
+  color: var(--text-muted);
+  opacity: 0;
+  transition: opacity 0.6s ease;
+}
+
+.welcomeFooter.show {
+  opacity: 1;
+}
+
+.welcomeFooter a {
+  color: var(--accent);
+  text-decoration: none;
+}
+
+@keyframes fadeUp {
+  0%   { opacity: 0; transform: translateY(6px); }
+  100% { opacity: 1; transform: translateY(0); }
+}
+
+/* ── Onboarding Flow ─────────────────── */
+
+.onboarding {
+  min-height: 100dvh;
+  background: var(--cream);
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  padding: 32px 24px;
+  padding-bottom: 140px;
+}
+
+.card {
+  width: 100%;
+  max-width: 720px;
+  text-align: center;
+}
+
+.step { text-align: left; }
+
+.logo {
+  font-family: 'Playfair Display', serif;
+  font-size: 32px;
+  font-weight: 600;
+  color: var(--dark);
+  margin-bottom: 8px;
+  text-align: center;
+}
+.logo em { color: var(--accent); font-style: italic; }
+
+.welcomeText {
+  font-size: 16px;
+  color: var(--brown);
+  line-height: 1.6;
+  margin-bottom: 16px;
+  font-weight: 300;
+  text-align: center;
+}
+.welcomeTime {
+  font-size: 13px;
+  color: var(--text-muted);
+  margin-bottom: 24px;
+  text-align: center;
+}
+
+.stepTitle {
+  font-family: 'Playfair Display', serif;
+  font-size: 22px;
+  font-weight: 600;
+  color: var(--dark);
+  margin-bottom: 6px;
+}
+.stepDesc {
+  font-size: 14px;
+  color: var(--text-muted);
+  margin-bottom: 16px;
+  font-weight: 300;
+  line-height: 1.5;
+}
+.stepHint {
+  font-size: 12px;
+  color: var(--text-light);
+  font-style: italic;
+  margin-bottom: 12px;
+}
+
+/* Progress dots */
+.dots {
+  display: flex;
+  justify-content: center;
+  gap: 8px;
+  margin-bottom: 28px;
+}
+.dot {
+  width: 8px; height: 8px;
+  border-radius: 50%;
+  background: var(--tan);
+  transition: background 0.2s;
+}
+.dot.active { background: var(--accent); }
+.dot.done { background: var(--green); }
+
+/* Input rows */
+.inputRow {
+  display: flex;
+  gap: 8px;
+  margin-bottom: 12px;
+}
+.input {
+  flex: 1;
+  border: 1.5px solid var(--tan);
+  border-radius: 8px;
+  padding: 10px 14px;
+  font-family: 'DM Sans', sans-serif;
+  font-size: 14px;
+  background: white;
+  outline: none;
+  color: var(--dark);
+}
+.input:focus { border-color: var(--accent); }
+
+/* Recipe columns */
+.recipeColumns {
+  display: flex;
+  gap: 24px;
+  text-align: left;
+  margin-bottom: 16px;
+}
+@media (max-width: 767px) {
+  .recipeColumns { flex-direction: column; }
+}
+.recipeSection { flex: 1; min-width: 0; }
+.sectionLabel {
+  font-family: 'Playfair Display', serif;
+  font-size: 15px;
+  font-weight: 600;
+  color: var(--dark);
+  margin-bottom: 10px;
+  text-transform: uppercase;
+  letter-spacing: 0.5px;
+}
+
+/* Tile grid (meals/sides) */
+.tileGrid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(140px, 1fr));
+  gap: 8px;
+  margin-bottom: 12px;
+  max-height: 45vh;
+  overflow-y: auto;
+}
+.tile {
+  border-radius: 8px;
+  border: 1.5px solid var(--tan);
+  background: white;
+  transition: all 0.15s;
+  overflow: hidden;
+}
+.tile:hover { border-color: var(--brown); }
+.tile.selected {
+  border-color: var(--accent);
+  background: var(--accent-bg);
+}
+.tile.custom { border-style: dashed; }
+.tileBtn {
+  width: 100%;
+  padding: 10px 12px;
+  background: none;
+  border: none;
+  font-family: 'DM Sans', sans-serif;
+  font-size: 13px;
+  color: var(--dark);
+  cursor: pointer;
+  text-align: center;
+}
+.tile.selected .tileBtn {
+  color: var(--accent);
+  font-weight: 600;
+}
+.tilePreview {
+  font-size: 11px;
+  color: var(--text-muted);
+  padding: 0 10px 8px;
+  line-height: 1.4;
+}
+
+/* Checklists (staples/regulars) */
+.checklist {
+  text-align: left;
+  max-height: 45vh;
+  overflow-y: auto;
+  margin-bottom: 16px;
+}
+.category { margin-bottom: 8px; }
+.categoryLabel {
+  font-size: 11px;
+  font-weight: 600;
+  text-transform: uppercase;
+  letter-spacing: 0.08em;
+  color: var(--text-muted);
+  padding: 8px 0 4px;
+  border-bottom: 1px solid var(--tan);
+}
+.checkItem {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 9px 0;
+  cursor: pointer;
+  font-size: 14px;
+  border-bottom: 1px solid var(--warm-white);
+}
+.checkItem :global(.regular-check) { width: 20px; height: 20px; }
+
+/* Time survey */
+.timeSurvey {
+  margin-top: 24px;
+  padding-top: 20px;
+  border-top: 1px solid var(--tan);
+}
+.timeLabel {
+  font-size: 14px;
+  color: var(--dark);
+  margin-bottom: 10px;
+  font-weight: 500;
+}
+.timeOptions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+}
+.timeBtn {
+  padding: 8px 14px;
+  border-radius: 20px;
+  font-size: 13px;
+  font-family: 'DM Sans', sans-serif;
+  background: white;
+  border: 1.5px solid var(--tan);
+  cursor: pointer;
+  color: var(--dark);
+  transition: all 0.15s;
+}
+.timeBtn.selected {
+  border-color: var(--accent);
+  background: var(--accent-bg);
+  color: var(--accent);
+  font-weight: 600;
+}
+
+/* Store setup */
+.storeConnected {
+  text-align: center;
+  padding: 16px 0;
+}
+.storeCheck {
+  font-size: 32px;
+  color: var(--green);
+  margin-bottom: 8px;
+}
+.storeList {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  margin-top: 12px;
+  text-align: left;
+}
+.storeItem {
+  display: flex;
+  flex-direction: column;
+  padding: 10px 12px;
+  border: 1.5px solid var(--tan);
+  border-radius: 8px;
+  background: white;
+  cursor: pointer;
+  font-family: 'DM Sans', sans-serif;
+  font-size: 13px;
+}
+.storeItem:hover { border-color: var(--accent); }
+
+/* Tour cards */
+.tourCards {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+  margin: 16px 0;
+}
+.tourCard {
+  display: flex;
+  align-items: center;
+  gap: 14px;
+  padding: 14px 16px;
+  border-radius: 10px;
+  background: white;
+  border: 1px solid var(--tan);
+  opacity: 0.3;
+  transform: translateY(8px);
+  transition: all 0.3s ease;
+}
+.tourCard.visible {
+  opacity: 1;
+  transform: translateY(0);
+}
+.tourIcon { font-size: 24px; flex-shrink: 0; }
+.tourLabel {
+  font-weight: 600;
+  font-size: 14px;
+  color: var(--dark);
+}
+.tourDesc {
+  font-size: 12px;
+  color: var(--text-muted);
+  margin-top: 2px;
+}
+
+/* Buttons */
+.btnRow {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  margin-top: 20px;
+}
+.btnSpacer { flex: 1; }
+.obBtn {
+  padding: 12px 24px;
+  border-radius: 8px;
+  font-family: 'DM Sans', sans-serif;
+  font-size: 14px;
+  font-weight: 600;
+  cursor: pointer;
+  transition: all 0.15s;
+}
+.obBtn.primary {
+  background: var(--accent);
+  color: white;
+  border: none;
+  box-shadow: 0 2px 8px rgba(212,98,58,0.25);
+}
+.obBtn.primary:hover { background: #C0562F; }
+.obBtn.primary:disabled { opacity: 0.5; cursor: not-allowed; }
+.obBtn.secondary {
+  background: var(--warm-white);
+  color: var(--dark);
+  border: 1px solid var(--tan);
+}
+.obBtn.secondary:hover { border-color: var(--brown); }
+.skip {
+  font-size: 12px;
+  color: var(--text-muted);
+  background: none;
+  border: none;
+  cursor: pointer;
+  font-family: 'DM Sans', sans-serif;
+}
+.skip:hover { color: var(--brown); }
+
+/* Clippy guide */
+.clippyContainer {
+  position: fixed;
+  bottom: 20px;
+  right: 20px;
+  display: flex;
+  flex-direction: column;
+  align-items: flex-end;
+  gap: 8px;
+  z-index: 100;
+  pointer-events: none;
+}
+.clippyBubble {
+  background: white;
+  border: 1.5px solid var(--brown);
+  border-radius: 12px;
+  padding: 10px 14px;
+  max-width: 260px;
+  font-size: 13px;
+  color: var(--dark);
+  line-height: 1.5;
+  position: relative;
+  pointer-events: auto;
+}
+.clippyBubbleTail {
+  position: absolute;
+  bottom: -8px;
+  right: 24px;
+  width: 14px;
+  height: 8px;
+  background: white;
+  border-right: 1.5px solid var(--brown);
+  border-bottom: 1.5px solid var(--brown);
+  transform: rotate(45deg);
+  transform-origin: top left;
+}
+.clippyCharacter {
+  position: relative;
+  display: flex;
+  align-items: flex-end;
+}
+.clippyImg {
+  width: 80px;
+  height: auto;
+  animation: clippyWobble 3s ease-in-out infinite;
+}
+.clippyWave { animation: clippyWaveAnim 1s ease; }
+.mouseImg {
+  width: 48px;
+  height: auto;
+  position: absolute;
+  bottom: 0;
+  right: -10px;
+  animation: mousePeek 0.5s ease forwards;
+}
+.mouseImg.mouseScurry {
+  animation: mouseScurryAnim 1.5s ease-in forwards;
+}
+@keyframes clippyWobble {
+  0%, 100% { transform: rotate(0deg); }
+  25% { transform: rotate(2deg); }
+  75% { transform: rotate(-2deg); }
+}
+@keyframes clippyWaveAnim {
+  0% { transform: rotate(0deg); }
+  30% { transform: rotate(-8deg); }
+  60% { transform: rotate(4deg); }
+  100% { transform: rotate(0deg); }
+}
+@keyframes mousePeek {
+  from { transform: translateX(-20px); opacity: 0; }
+  to { transform: translateX(0); opacity: 1; }
+}
+@keyframes mouseScurryAnim {
+  0% { transform: translateX(0); opacity: 1; }
+  100% { transform: translateX(120vw); opacity: 0; }
+}
+
+@media (max-width: 640px) {
+  .clippyContainer { bottom: 12px; right: 12px; }
+  .clippyImg { width: 60px; }
+  .clippyBubble { max-width: 200px; font-size: 12px; }
+  .mouseImg { width: 36px; }
+}
