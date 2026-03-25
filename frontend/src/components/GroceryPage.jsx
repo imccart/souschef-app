@@ -105,6 +105,7 @@ export default function GroceryPage({ sidebar = false }) {
   const [showRecent, setShowRecent] = useState(false)
   const [stapleSuggestion, setStapleSuggestion] = useState(null)
   const [shoppingMode, setShoppingMode] = useState(false)
+  const [showShopChecked, setShowShopChecked] = useState(false)
   const [wakeLock, setWakeLock] = useState(null)
 
   // Inline prompt state
@@ -206,6 +207,15 @@ export default function GroceryPage({ sidebar = false }) {
 
   // Shopping mode render
   if (shoppingMode) {
+    const shopListRef = React.createRef()
+    const allChecked = []
+    const handleShopCheckAndScroll = async (name) => {
+      await handleShopCheck(name)
+      requestAnimationFrame(() => {
+        if (shopListRef.current) shopListRef.current.scrollTop = 0
+      })
+    }
+
     return (
       <div className="shopping-mode">
         <div className="shopping-header">
@@ -214,7 +224,7 @@ export default function GroceryPage({ sidebar = false }) {
           </div>
           <button className="shopping-done" onClick={exitShoppingMode}>Done</button>
         </div>
-        <div className="shopping-list">
+        <div className="shopping-list" ref={shopListRef}>
           {sortedGroups.map(group => {
             const items = items_by_group[group]
             const active = items.filter(i => {
@@ -225,7 +235,8 @@ export default function GroceryPage({ sidebar = false }) {
               const nl = i.name.toLowerCase()
               return checkedSet.has(nl) || haveItSet.has(nl)
             })
-            if (active.length === 0 && done.length === 0) return null
+            done.forEach(item => allChecked.push(item))
+            if (active.length === 0) return null
             return (
               <div key={group} className="shopping-group">
                 <div className="shopping-group-header">{group}</div>
@@ -233,22 +244,13 @@ export default function GroceryPage({ sidebar = false }) {
                   <SwipeableItem
                     key={item.name}
                     className="shopping-item"
-                    onSwipeRight={() => handleShopCheck(item.name)}
+                    onSwipeRight={() => handleShopCheckAndScroll(item.name)}
                   >
-                    <div className="shopping-item-name" onClick={() => handleShopCheck(item.name)}>
+                    <div className="shopping-item-name" onClick={() => handleShopCheckAndScroll(item.name)}>
                       {item.name}
                       {item.meal_count > 1 && <span className="shopping-multi">x{item.meal_count}</span>}
                     </div>
                   </SwipeableItem>
-                ))}
-                {done.map(item => (
-                  <div
-                    key={item.name}
-                    className="shopping-item checked"
-                    onClick={() => handleShopUncheck(item.name)}
-                  >
-                    <div className="shopping-item-name">{item.name}</div>
-                  </div>
                 ))}
               </div>
             )
@@ -256,6 +258,25 @@ export default function GroceryPage({ sidebar = false }) {
           {totalActive === 0 && (
             <div className="shopping-all-done">
               All done! {'\u{1F389}'}
+            </div>
+          )}
+          {allChecked.length > 0 && (
+            <div className="shopping-checked-section">
+              <div
+                className="shopping-checked-header"
+                onClick={() => setShowShopChecked(prev => !prev)}
+              >
+                {showShopChecked ? '\u25BC' : '\u25B6'} {allChecked.length} checked
+              </div>
+              {showShopChecked && allChecked.map(item => (
+                <div
+                  key={item.name}
+                  className="shopping-item checked"
+                  onClick={() => handleShopUncheck(item.name)}
+                >
+                  <div className="shopping-item-name">{item.name}</div>
+                </div>
+              ))}
             </div>
           )}
         </div>

@@ -5406,7 +5406,7 @@ main {
 }
 
 .shopping-item-name {
-  font-size: 28px;
+  font-size: 36px;
   font-family: 'DM Sans', sans-serif;
   font-weight: 400;
   color: #FAF7F2;
@@ -5414,9 +5414,24 @@ main {
 }
 
 .shopping-multi {
-  font-size: 16px;
+  font-size: 18px;
   color: #D4623A;
   margin-left: 8px;
+}
+
+.shopping-checked-section {
+  margin-top: 32px;
+  border-top: 1px solid rgba(139, 111, 94, 0.4);
+  padding-top: 12px;
+}
+
+.shopping-checked-header {
+  font-size: 16px;
+  font-family: 'DM Sans', sans-serif;
+  color: rgba(250, 247, 242, 0.4);
+  cursor: pointer;
+  padding: 8px 0;
+  user-select: none;
 }
 
 .shopping-item.checked {
@@ -5426,7 +5441,7 @@ main {
 .shopping-item.checked .shopping-item-name {
   color: rgba(250, 247, 242, 0.3);
   text-decoration: line-through;
-  font-size: 22px;
+  font-size: 20px;
 }
 
 .shopping-all-done {
