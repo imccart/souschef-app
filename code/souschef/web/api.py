@@ -949,7 +949,11 @@ async def add_grocery_item(body: dict, request: Request):
         text("""INSERT INTO trip_items
            (trip_id, name, shopping_group, source, for_meals, meal_count)
            VALUES (:trip_id, :name, :group, 'extra', '', 0)
-           ON CONFLICT DO NOTHING"""),
+           ON CONFLICT (trip_id, name) DO UPDATE SET
+             checked = 0, checked_at = NULL,
+             have_it = 0, have_it_at = NULL,
+             removed = 0, removed_at = NULL,
+             shopping_group = :group"""),
         {"trip_id": trip["id"], "name": name, "group": group},
     )
     conn.commit()
