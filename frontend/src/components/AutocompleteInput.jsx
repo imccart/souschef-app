@@ -53,6 +53,7 @@ export default function AutocompleteInput({
     onSubmit(name)
     setShowSuggestions(false)
     setSelectedIndex(-1)
+    inputRef.current?.blur()
   }
 
   const handleKeyDown = (e) => {
@@ -109,7 +110,7 @@ export default function AutocompleteInput({
             <div
               key={name}
               className={`autocomplete-item ${i === selectedIndex ? 'selected' : ''}`}
-              onPointerDown={() => handleSelect(name)}
+              onPointerDown={(e) => { e.preventDefault(); handleSelect(name) }}
             >
               {name}
             </div>
