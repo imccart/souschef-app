@@ -6,6 +6,7 @@ import SwapPrompt from './SwapPrompt'
 import SidePickerSheet from './SidePickerSheet'
 import MealIngredientsSheet from './MealIngredientsSheet'
 import FeedbackFab from './FeedbackFab'
+import styles from './PlanPage.module.css'
 
 function formatDateRange(start, end) {
   if (!start || !end) return ''
@@ -71,11 +72,11 @@ export default function PlanPage({ showHeader = true, onLoad, onNavigate }) {
     if (navigator.vibrate) navigator.vibrate(50)
 
     // Create floating ghost of the row
-    const row = e.target.closest('.meal-row')
+    const row = e.target.closest('[data-role="meal-row"]')
     if (row) {
       const rect = row.getBoundingClientRect()
       const clone = row.cloneNode(true)
-      clone.className = 'meal-row drag-ghost'
+      clone.className = `${styles.mealRow} ${styles.dragGhost}`
       clone.style.width = rect.width + 'px'
       clone.style.left = rect.left + 'px'
       clone.style.top = rect.top + 'px'
@@ -98,7 +99,7 @@ export default function PlanPage({ showHeader = true, onLoad, onNavigate }) {
     if (ghostRef.current) ghostRef.current.el.style.pointerEvents = 'none'
     const el = document.elementFromPoint(touch.clientX, touch.clientY)
     if (ghostRef.current) ghostRef.current.el.style.pointerEvents = ''
-    const row = el?.closest('.meal-row, .add-meal-row')
+    const row = el?.closest('[data-role="meal-row"], [data-role="add-meal-row"]')
     if (rowsRef.current) {
       rowsRef.current.querySelectorAll('.touch-drop-hover').forEach(
         n => n.classList.remove('touch-drop-hover')
@@ -114,7 +115,7 @@ export default function PlanPage({ showHeader = true, onLoad, onNavigate }) {
 
     const touch = e.changedTouches[0]
     const el = document.elementFromPoint(touch.clientX, touch.clientY)
-    const row = el?.closest('.meal-row, .add-meal-row')
+    const row = el?.closest('[data-role="meal-row"], [data-role="add-meal-row"]')
     const targetDate = row?.dataset.date
 
     if (targetDate && targetDate !== touchDragFrom.current) {
@@ -292,10 +293,10 @@ export default function PlanPage({ showHeader = true, onLoad, onNavigate }) {
       {showHeader && (
         <>
           <div className="page-header">
-            <div className="date-range-big">
+            <div className={styles.dateRangeBig}>
               {dateRange.text} <em>&ndash;</em> {dateRange.endText}
             </div>
-            <div className="date-subtitle">Your next 10 days</div>
+            <div className={styles.dateSubtitle}>Your next 10 days</div>
           </div>
         </>
       )}
@@ -305,18 +306,18 @@ export default function PlanPage({ showHeader = true, onLoad, onNavigate }) {
         {showPast ? 'Hide past meals' : 'View past meals'}
       </div>
       {showPast && pastDays && (
-        <div className="meal-rows past-meals">
+        <div className={`${styles.mealRows} ${styles.pastMeals}`}>
           {pastDays.map(({ date, day_short, meal }) => (
-            <div key={date} className="meal-row past">
-              <div className="meal-day">{day_short}</div>
-              <div className="meal-info">
+            <div key={date} className={`${styles.mealRow} ${styles.past}`}>
+              <div className={styles.mealDay}>{day_short}</div>
+              <div className={styles.mealInfo}>
                 {meal ? (
                   <>
-                    <div className="meal-name">{meal.recipe_name}</div>
-                    {meal.sides?.length > 0 && <div className="meal-side-text">{meal.sides.map(s => s.name).join(', ')}</div>}
+                    <div className={styles.mealName}>{meal.recipe_name}</div>
+                    {meal.sides?.length > 0 && <div className={styles.mealSideText}>{meal.sides.map(s => s.name).join(', ')}</div>}
                   </>
                 ) : (
-                  <div className="meal-name freeform">No meal</div>
+                  <div className={`${styles.mealName} ${styles.freeform}`}>No meal</div>
                 )}
               </div>
             </div>
@@ -324,7 +325,7 @@ export default function PlanPage({ showHeader = true, onLoad, onNavigate }) {
         </div>
       )}
 
-      <div className={`meal-rows${erasing ? ' erasing' : ''}`} ref={rowsRef}>
+      <div className={`${styles.mealRows}${erasing ? ` ${styles.erasing}` : ''}`} ref={rowsRef}>
         {days.map(({ date, day_short, meal }, idx) => {
           const today = isToday(date)
           const hasMeal = !!meal
@@ -338,13 +339,14 @@ export default function PlanPage({ showHeader = true, onLoad, onNavigate }) {
             return (
               <div
                 key={date}
+                data-role="add-meal-row"
                 data-date={date}
-                className={`add-meal-row ${today ? 'today' : ''}`}
+                className={`${styles.addMealRow} ${today ? styles.today : ''}`}
                 style={{ '--row-index': idx }}
                 onClick={() => handleEmptyTap(date)}
               >
-                <div className="meal-day">{day_short}</div>
-                <div className="add-label">
+                <div className={styles.mealDay}>{day_short}</div>
+                <div className={styles.addLabel}>
                   {showHint ? 'Tap to add a meal' : '+'}
                 </div>
               </div>
@@ -354,27 +356,28 @@ export default function PlanPage({ showHeader = true, onLoad, onNavigate }) {
           return (
             <div
               key={date}
+              data-role="meal-row"
               data-date={date}
               style={{ '--row-index': idx }}
-              className={`meal-row ${today ? 'today' : ''} ${onList ? 'on-list' : ''} ${isDragging ? 'dragging' : ''}`}
+              className={`${styles.mealRow} ${today ? styles.today : ''} ${onList ? styles.onList : ''} ${isDragging ? styles.dragging : ''}`}
               onClick={() => handleMealTap(date)}
             >
-              <div className="meal-day">{day_short}</div>
-              <div className="meal-info">
-                <div className={`meal-name ${isFreeform ? 'freeform' : ''}`}>{meal.recipe_name}</div>
-                {meal.sides?.length > 0 && <div className="meal-side-text">{meal.sides.map(s => s.name).join(', ')}</div>}
-                {meal.notes && <div className="meal-note">{meal.notes}</div>}
+              <div className={styles.mealDay}>{day_short}</div>
+              <div className={styles.mealInfo}>
+                <div className={`${styles.mealName} ${isFreeform ? styles.freeform : ''}`}>{meal.recipe_name}</div>
+                {meal.sides?.length > 0 && <div className={styles.mealSideText}>{meal.sides.map(s => s.name).join(', ')}</div>}
+                {meal.notes && <div className={styles.mealNote}>{meal.notes}</div>}
               </div>
-              <div className="meal-actions" onClick={(e) => e.stopPropagation()}>
+              <div className={styles.mealActions} onClick={(e) => e.stopPropagation()}>
                 {!isFreeform && (
                   <button
-                    className={`meal-btn ${meal.on_grocery ? 'on-list' : ''}`}
+                    className={`${styles.mealBtn} ${meal.on_grocery ? styles.onList : ''}`}
                     onClick={() => handleToggleGrocery(date)}
                     title={meal.on_grocery ? 'On list' : 'Add to list'}
                   >{meal.on_grocery ? '\u2713' : '\u{1F6D2}'}</button>
                 )}
                 <div
-                  className="drag-handle"
+                  className={styles.dragHandle}
                   onTouchStart={(e) => handleGripStart(e, date)}
                   onTouchMove={handleGripMove}
                   onTouchEnd={handleGripEnd}
@@ -453,8 +456,8 @@ export default function PlanPage({ showHeader = true, onLoad, onNavigate }) {
 
 
       {/* Plan footer */}
-      <div className="plan-footer">
-        <button className="fresh-start-btn" onClick={handleStartNewPlan}>
+      <div className={styles.planFooter}>
+        <button className={styles.freshStartBtn} onClick={handleStartNewPlan}>
           {'\u{1F9F9}'} Fresh Start
         </button>
       </div>

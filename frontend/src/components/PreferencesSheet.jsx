@@ -2,17 +2,18 @@ import { useState, useEffect } from 'react'
 import { api } from '../api/client'
 import Sheet from './Sheet'
 import ls from '../shared/lists.module.css'
+import styles from './PreferencesSheet.module.css'
 
 function AccordionSection({ title, count, children, defaultOpen = false }) {
   const [open, setOpen] = useState(defaultOpen)
   return (
-    <div className="prefs-accordion">
-      <button className="prefs-accordion-header" onClick={() => setOpen(!open)}>
-        <span className="prefs-accordion-title">{title}</span>
-        {count != null && <span className="prefs-accordion-count">{count}</span>}
-        <span className="prefs-accordion-arrow">{open ? '\u25B4' : '\u25BE'}</span>
+    <div className={styles.prefsAccordion}>
+      <button className={styles.prefsAccordionHeader} onClick={() => setOpen(!open)}>
+        <span className={styles.prefsAccordionTitle}>{title}</span>
+        {count != null && <span className={styles.prefsAccordionCount}>{count}</span>}
+        <span className={styles.prefsAccordionArrow}>{open ? '\u25B4' : '\u25BE'}</span>
       </button>
-      {open && <div className="prefs-accordion-body">{children}</div>}
+      {open && <div className={styles.prefsAccordionBody}>{children}</div>}
     </div>
   )
 }
@@ -147,13 +148,13 @@ export default function PreferencesSheet({ onClose }) {
   }
 
   return (
-    <Sheet onClose={onClose} className="prefs-sheet">
+    <Sheet onClose={onClose} className={styles.prefsSheet}>
         <div className="sheet-title">Account</div>
 
         {/* About You */}
         <AccordionSection title="About You">
-          <div className="prefs-account-field">
-            <label className="prefs-field-label">Name</label>
+          <div className={styles.prefsAccountField}>
+            <label className={styles.prefsFieldLabel}>Name</label>
             <div className={ls.addRow}>
               <input
                 className={ls.addInput}
@@ -163,12 +164,12 @@ export default function PreferencesSheet({ onClose }) {
                 onChange={(e) => { setDisplayName(e.target.value); setNameSaved(false) }}
                 onBlur={() => displayName.trim() && handleSaveName()}
               />
-              {nameSaved && <span className="prefs-saved">{'\u2713'}</span>}
+              {nameSaved && <span className={styles.prefsSaved}>{'\u2713'}</span>}
             </div>
           </div>
-          <div className="prefs-account-field">
-            <label className="prefs-field-label">Email</label>
-            <div className="prefs-field-value">{userEmail}</div>
+          <div className={styles.prefsAccountField}>
+            <label className={styles.prefsFieldLabel}>Email</label>
+            <div className={styles.prefsFieldValue}>{userEmail}</div>
           </div>
           <button className={ls.logout} onClick={async () => {
             await api.logout()
@@ -182,23 +183,23 @@ export default function PreferencesSheet({ onClose }) {
 
         {/* Online Ordering */}
         <AccordionSection title="Online Ordering">
-          <div className="prefs-integration-block">
+          <div className={styles.prefsIntegrationBlock}>
             {krogerConnected === null ? (
               <div className={ls.listMeta}>Checking connection...</div>
             ) : krogerConnected ? (
               <>
-                <div className="prefs-integration-connected">
-                  <span className="prefs-connected">Kroger: Connected {'\u2713'}</span>
-                  <button className="prefs-disconnect" onClick={handleDisconnectKroger}>Disconnect</button>
+                <div className={styles.prefsIntegrationConnected}>
+                  <span className={styles.prefsConnected}>Kroger: Connected {'\u2713'}</span>
+                  <button className={styles.prefsDisconnect} onClick={handleDisconnectKroger}>Disconnect</button>
                 </div>
                 {/* Store location picker */}
-                <div className="prefs-kroger-store">
+                <div className={styles.prefsKrogerStore}>
                   {krogerLocationId ? (
-                    <div className="prefs-kroger-selected">
+                    <div className={styles.prefsKrogerSelected}>
                       <span className={ls.listMeta}>
                         Store: {krogerLocationName || `#${krogerLocationId}`}
                       </span>
-                      <button className="prefs-disconnect" onClick={() => { setKrogerLocationId(''); setKrogerLocationName(''); setStoreResults(null) }}>
+                      <button className={styles.prefsDisconnect} onClick={() => { setKrogerLocationId(''); setKrogerLocationName(''); setStoreResults(null) }}>
                         Change
                       </button>
                     </div>
@@ -223,9 +224,9 @@ export default function PreferencesSheet({ onClose }) {
                         <div className={ls.sectionHint}>No stores found near that zip.</div>
                       )}
                       {storeResults && storeResults.length > 0 && (
-                        <div className={`${ls.list} prefs-store-results`}>
+                        <div className={`${ls.list} ${styles.prefsStoreResults}`}>
                           {storeResults.map(loc => (
-                            <div key={loc.location_id} className={`${ls.listItem} prefs-store-result`} onClick={() => handleSelectStore(loc)}>
+                            <div key={loc.location_id} className={`${ls.listItem} ${styles.prefsStoreResult}`} onClick={() => handleSelectStore(loc)}>
                               <div>
                                 <div className={ls.listName}>{loc.name}</div>
                                 <div className={ls.listMeta}>{loc.address}</div>
@@ -238,7 +239,7 @@ export default function PreferencesSheet({ onClose }) {
                   )}
                 </div>
                 {members && members.length > 1 && (
-                  <label className="prefs-household-toggle">
+                  <label className={styles.prefsHouseholdToggle}>
                     <input
                       type="checkbox"
                       checked={allowHousehold}
@@ -249,18 +250,18 @@ export default function PreferencesSheet({ onClose }) {
                       }}
                     />
                     <span>Let household members order through this account</span>
-                    <div className="prefs-toggle-hint">They can place orders using your account and loyalty points.</div>
+                    <div className={styles.prefsToggleHint}>They can place orders using your account and loyalty points.</div>
                   </label>
                 )}
               </>
             ) : (
               <>
                 {sharedAccountName && (
-                  <div className="prefs-shared-account">
+                  <div className={styles.prefsSharedAccount}>
                     Ordering through {sharedAccountName}'s Kroger account
                   </div>
                 )}
-                <button className="btn primary prefs-integration-btn" onClick={handleConnectKroger}>
+                <button className={`btn primary ${styles.prefsIntegrationBtn}`} onClick={handleConnectKroger}>
                   {sharedAccountName ? 'Connect your own account' : 'Connect Kroger Account'}
                 </button>
               </>
@@ -271,10 +272,10 @@ export default function PreferencesSheet({ onClose }) {
 
         {/* Price Tracking */}
         <AccordionSection title="Price Tracking">
-          <div className="prefs-price-info">
+          <div className={styles.prefsPriceInfo}>
             We check prices on products you've ordered to help you find the best time and place to shop. Your identity is never shared — only anonymized product prices.
           </div>
-          <label className="prefs-household-toggle">
+          <label className={styles.prefsHouseholdToggle}>
             <input
               type="checkbox"
               checked={pricePolling}
@@ -285,9 +286,9 @@ export default function PreferencesSheet({ onClose }) {
               }}
             />
             <span>Track prices for me</span>
-            <div className="prefs-toggle-hint">We'll check prices on your regular items throughout the day using your store account.</div>
+            <div className={styles.prefsToggleHint}>We'll check prices on your regular items throughout the day using your store account.</div>
           </label>
-          <label className="prefs-household-toggle">
+          <label className={styles.prefsHouseholdToggle}>
             <input
               type="checkbox"
               checked={priceSharing}
@@ -298,7 +299,7 @@ export default function PreferencesSheet({ onClose }) {
               }}
             />
             <span>Share anonymous pricing data</span>
-            <div className="prefs-toggle-hint">Help other souschef users find better prices. We share product prices (not your identity or purchase history) with the community.</div>
+            <div className={styles.prefsToggleHint}>Help other souschef users find better prices. We share product prices (not your identity or purchase history) with the community.</div>
           </label>
         </AccordionSection>
 
@@ -309,21 +310,21 @@ export default function PreferencesSheet({ onClose }) {
               <span className={ls.listName}>NOVA processing scores</span>
               <span className={ls.listMeta}>On</span>
             </div>
-            <div className="prefs-btl-info">
+            <div className={styles.prefsBtlInfo}>
               Classifies foods by processing level (1 = unprocessed, 4 = ultra-processed). Data from <a href="https://world.openfoodfacts.org" target="_blank" rel="noopener noreferrer">Open Food Facts</a>.
             </div>
             <div className={ls.listItem}>
               <span className={ls.listName}>Nutri-Score</span>
               <span className={ls.listMeta}>On</span>
             </div>
-            <div className="prefs-btl-info">
+            <div className={styles.prefsBtlInfo}>
               Rates overall nutritional quality from A (best) to E. Data from <a href="https://world.openfoodfacts.org" target="_blank" rel="noopener noreferrer">Open Food Facts</a>.
             </div>
             <div className={ls.listItem}>
               <span className={ls.listName}>Brand ownership</span>
               <span className={ls.listMeta}>On</span>
             </div>
-            <div className="prefs-btl-info">
+            <div className={styles.prefsBtlInfo}>
               Shows the parent company behind each brand, so you know who you're buying from.
             </div>
           </div>
@@ -357,7 +358,7 @@ export default function PreferencesSheet({ onClose }) {
             <button className="btn primary" type="submit">Invite</button>
           </form>
           {inviteStatus && (
-            <div className={`prefs-invite-status ${inviteStatus.type}`}>
+            <div className={`${styles.prefsInviteStatus} ${inviteStatus.type === 'success' ? styles.success : styles.error}`}>
               {inviteStatus.msg}
             </div>
           )}
@@ -379,17 +380,17 @@ export default function PreferencesSheet({ onClose }) {
             <button className="btn primary" type="submit">Send</button>
           </form>
           {betaInviteStatus && (
-            <div className={`prefs-invite-status ${betaInviteStatus.type}`}>
+            <div className={`${styles.prefsInviteStatus} ${betaInviteStatus.type === 'success' ? styles.success : styles.error}`}>
               {betaInviteStatus.msg}
             </div>
           )}
         </AccordionSection>
 
         {/* About */}
-        <div className="prefs-about">
-          <div className="brand-name">sous<em style={{ color: 'var(--accent)', fontStyle: 'italic' }}>chef</em></div>
+        <div className={styles.prefsAbout}>
+          <div className={styles.brandName}>sous<em style={{ color: 'var(--accent)', fontStyle: 'italic' }}>chef</em></div>
           <div style={{ marginTop: '4px' }}>by Aletheia</div>
-          <div className="prefs-version">v0.1.0</div>
+          <div className={styles.prefsVersion}>v0.1.0</div>
         </div>
     </Sheet>
   )

@@ -1,0 +1,286 @@
+/* ── PlanPage ─────────────────────────── */
+
+.dateRangeBig {
+  font-family: 'Playfair Display', serif;
+  font-size: 28px;
+  font-weight: 600;
+  color: var(--dark);
+}
+
+.dateRangeBig em {
+  font-style: italic;
+  color: var(--accent);
+}
+
+.dateSubtitle {
+  font-size: 14px;
+  color: var(--text-muted);
+  margin-top: 4px;
+  font-weight: 300;
+}
+
+/* ── Meal Rows ────────────────────────── */
+
+.mealRows {
+  margin-bottom: 8px;
+}
+
+.mealRows.erasing {
+  animation: eraseWipe 0.7s ease-in forwards;
+}
+
+@keyframes eraseWipe {
+  0% {
+    opacity: 1;
+    mask-image: linear-gradient(to right, black 0%, black 100%);
+    -webkit-mask-image: linear-gradient(to right, black 0%, black 100%);
+  }
+  100% {
+    opacity: 0;
+    mask-image: linear-gradient(to right, transparent 0%, transparent 100%);
+    -webkit-mask-image: linear-gradient(to right, transparent 0%, transparent 100%);
+  }
+}
+
+.mealRows.erasing .mealRow,
+.mealRows.erasing .addMealRow {
+  animation: eraseRow 0.5s ease-in forwards;
+  animation-delay: calc(var(--row-index, 0) * 0.06s);
+}
+
+@keyframes eraseRow {
+  0% { opacity: 1; transform: translateX(0); }
+  60% { opacity: 0.3; transform: translateX(10px); }
+  100% { opacity: 0; transform: translateX(30px); filter: blur(2px); }
+}
+
+.mealRow {
+  background: white;
+  border: 1px solid var(--tan);
+  border-radius: 10px;
+  padding: 14px 14px;
+  margin-bottom: 8px;
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  cursor: pointer;
+  min-height: 44px;
+  -webkit-tap-highlight-color: transparent;
+  transition: background 0.15s;
+}
+
+.mealRow:active {
+  background: var(--warm-white);
+}
+
+.mealRow.today {
+  border-color: var(--accent-light);
+  background: linear-gradient(135deg, #fff 0%, #FDF5F0 100%);
+}
+
+.mealRow.onList {
+  border-color: #B8D4BF;
+  background: linear-gradient(135deg, #fff 0%, #F2F8F4 100%);
+}
+
+.mealRow.onList .mealDay {
+  color: var(--green);
+}
+
+.mealDay {
+  font-family: 'Playfair Display', serif;
+  font-size: 12px;
+  font-weight: 600;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+  color: var(--text-muted);
+  width: 32px;
+  flex-shrink: 0;
+}
+
+.mealRow.today .mealDay {
+  color: var(--accent);
+}
+
+.mealInfo {
+  flex: 1;
+  min-width: 0;
+}
+
+.mealName {
+  font-size: 16px;
+  font-weight: 500;
+  color: var(--dark);
+  line-height: 1.3;
+}
+
+.mealName.freeform {
+  color: var(--text-muted);
+  font-weight: 400;
+}
+
+.mealSideText {
+  font-size: 13px;
+  color: var(--text-muted);
+  margin-top: 2px;
+}
+
+.mealNote {
+  font-size: 12px;
+  color: var(--text-muted);
+  font-style: italic;
+  margin-top: 1px;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.mealActions {
+  display: flex;
+  gap: 6px;
+  flex-shrink: 0;
+}
+
+.mealBtn {
+  width: 28px;
+  height: 28px;
+  border-radius: 6px;
+  background: var(--warm-white);
+  border: 1px solid var(--tan);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 12px;
+  cursor: pointer;
+  color: var(--text-muted);
+  padding: 0;
+  font-family: inherit;
+  -webkit-tap-highlight-color: transparent;
+}
+
+.mealBtn:active {
+  background: var(--tan);
+}
+
+.mealBtn.onList {
+  background: var(--green-light);
+  border-color: #B8D4BF;
+  color: var(--green);
+}
+
+.dragHandle {
+  width: 28px;
+  height: 28px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  color: var(--tan);
+  touch-action: none;
+  cursor: grab;
+  -webkit-tap-highlight-color: transparent;
+}
+
+.dragGhost {
+  position: fixed;
+  z-index: 9999;
+  opacity: 0.85;
+  box-shadow: 0 8px 24px rgba(0,0,0,0.18);
+  transform: scale(1.03);
+  border-radius: 12px;
+  pointer-events: none;
+}
+
+.addMealRow {
+  background: #FFFAF8;
+  border: 1px dashed var(--accent-light);
+  border-radius: 10px;
+  padding: 12px 14px;
+  margin-bottom: 8px;
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  cursor: pointer;
+  -webkit-tap-highlight-color: transparent;
+}
+
+.addMealRow:active {
+  background: var(--warm-white);
+}
+
+.addMealRow .mealDay {
+  color: var(--text-light);
+}
+
+.addMealRow.today .mealDay {
+  color: var(--accent);
+}
+
+.addLabel {
+  font-size: 14px;
+  color: var(--accent-light);
+  font-weight: 400;
+}
+
+/* ── Dragging States ──────────────────── */
+
+.mealRow.dragging {
+  opacity: 0.4;
+}
+
+/* touch-drop-hover stays in global.css (applied imperatively) */
+
+/* ── Past Meals ───────────────────────── */
+
+.pastMeals {
+  opacity: 0.5;
+  margin-bottom: 4px;
+}
+
+.mealRow.past {
+  cursor: default;
+  background: var(--warm-white);
+  border-color: transparent;
+}
+
+.mealRow.past:active {
+  background: var(--warm-white);
+}
+
+/* ── Plan Footer ──────────────────────── */
+
+.planFooter {
+  padding: 20px 0 16px;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+}
+
+.freshStartBtn {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  background: none;
+  border: 1.5px solid var(--tan);
+  border-radius: 20px;
+  padding: 8px 20px;
+  font-family: 'DM Sans', sans-serif;
+  font-size: 13px;
+  font-weight: 500;
+  color: var(--text-light);
+  cursor: pointer;
+  -webkit-tap-highlight-color: transparent;
+  transition: border-color 0.15s, color 0.15s;
+}
+
+.freshStartBtn:hover { border-color: var(--accent); color: var(--brown); }
+
+.freshStartIcon {
+  display: inline-flex;
+  align-items: center;
+}
+
+/* ── Responsive ───────────────────────── */
+
+@media (max-width: 640px) {
+  .dateRangeBig { font-size: 22px; }
+}

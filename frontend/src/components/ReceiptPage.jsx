@@ -3,6 +3,7 @@ import { api } from '../api/client'
 import FeedbackFab from './FeedbackFab'
 import CameraCapture from './CameraCapture'
 import ls from '../shared/lists.module.css'
+import styles from './ReceiptPage.module.css'
 
 const hasCamera = typeof navigator !== 'undefined'
   && !!navigator.mediaDevices?.getUserMedia
@@ -17,31 +18,31 @@ function PurchaseItem({ item, onRate }) {
   const brand = item.product_brand || ''
   const price = item.receipt_price ?? item.product_price
   return (
-    <div className="receipt-item matched">
+    <div className={`${styles.receiptItem} ${styles.matched}`}>
       {item.product_image && (
-        <img className="receipt-product-img" src={item.product_image} alt="" />
+        <img className={styles.receiptProductImg} src={item.product_image} alt="" />
       )}
-      {!item.product_image && <div className="receipt-item-check">{'\u2713'}</div>}
-      <div className="receipt-item-info">
-        <div className="receipt-item-name">{desc}</div>
+      {!item.product_image && <div className={styles.receiptItemCheck}>{'\u2713'}</div>}
+      <div className={styles.receiptItemInfo}>
+        <div className={styles.receiptItemName}>{desc}</div>
         {desc !== item.name && (
-          <div className="receipt-item-detail">{item.name}</div>
+          <div className={styles.receiptItemDetail}>{item.name}</div>
         )}
-        <div className="receipt-item-meta">
+        <div className={styles.receiptItemMeta}>
           {brand && <span>{brand}</span>}
           {brand && item.product_size && <span> · </span>}
           {item.product_size && <span>{item.product_size}</span>}
           {price != null && <span> · {formatPrice(price)}</span>}
         </div>
       </div>
-      <div className="receipt-rating">
+      <div className={styles.receiptRating}>
         <button
-          className={`receipt-rate-btn up${item.rating === 1 ? ' active' : ''}`}
+          className={`${styles.receiptRateBtn} ${styles.up}${item.rating === 1 ? ` ${styles.active}` : ''}`}
           onClick={() => onRate(item, item.rating === 1 ? 0 : 1)}
           title="Thumbs up"
         >{'\u{1F44D}'}</button>
         <button
-          className={`receipt-rate-btn down${item.rating === -1 ? ' active' : ''}`}
+          className={`${styles.receiptRateBtn} ${styles.down}${item.rating === -1 ? ` ${styles.active}` : ''}`}
           onClick={() => onRate(item, item.rating === -1 ? 0 : -1)}
           title="Thumbs down"
         >{'\u{1F44E}'}</button>
@@ -201,14 +202,14 @@ export default function ReceiptPage() {
         />
       )}
 
-      <div className="receipt-upload">
-        <div className="receipt-upload-buttons">
+      <div className={styles.receiptUpload}>
+        <div className={styles.receiptUploadButtons}>
           {hasCamera && (
-            <button className="receipt-upload-btn" onClick={() => setShowCamera(true)}>
+            <button className={styles.receiptUploadBtn} onClick={() => setShowCamera(true)}>
               Take photo
             </button>
           )}
-          <label className="receipt-upload-btn secondary">
+          <label className={`${styles.receiptUploadBtn} ${styles.secondary}`}>
             Choose from library
             <input
               type="file"
@@ -220,7 +221,7 @@ export default function ReceiptPage() {
         </div>
 
         {uploading && (
-          <div className="receipt-processing">Reading the receipt...</div>
+          <div className={styles.receiptProcessing}>Reading the receipt...</div>
         )}
         {!uploading && uploadResult && !uploadResult.ok && (
           <div className="submit-error">{uploadResult.error}</div>
@@ -240,16 +241,16 @@ export default function ReceiptPage() {
       </button>
 
       {showPast && (
-        <div className="past-purchases">
+        <div className={styles.pastPurchases}>
           {purchases === null ? (
             <div className="loading">Loading...</div>
           ) : purchases.length === 0 ? (
             <div className={ls.sectionHint}>No purchase history yet.</div>
           ) : (
             Object.entries(purchasesByWeek).map(([week, items]) => (
-              <div key={week} className="purchase-date-group">
+              <div key={week} className={styles.purchaseDateGroup}>
                 <button
-                  className="purchase-date-label"
+                  className={styles.purchaseDateLabel}
                   onClick={() => setExpandedWeeks(prev => ({ ...prev, [week]: !prev[week] }))}
                 >
                   <span>{week} ({items.length})</span>
@@ -266,22 +267,22 @@ export default function ReceiptPage() {
 
       {/* Matched items awaiting confirmation */}
       {unmatchedMatches.length > 0 && (
-        <div className="receipt-section">
-          <div className="receipt-section-label">Matched ({unmatchedMatches.length})</div>
+        <div className={styles.receiptSection}>
+          <div className={styles.receiptSectionLabel}>Matched ({unmatchedMatches.length})</div>
           {unmatchedMatches.map(item => {
             const key = `match-${item.name}`
             const isExpanded = expandedItem === key
             return (
-              <div key={item.name} className="receipt-item-row">
-                <div className="receipt-item-top" onClick={() => toggleExpand(key)}>
-                  <div className="receipt-item-info">
-                    <div className="receipt-item-name">
+              <div key={item.name} className={styles.receiptItemRow}>
+                <div className={styles.receiptItemTop} onClick={() => toggleExpand(key)}>
+                  <div className={styles.receiptItemInfo}>
+                    <div className={styles.receiptItemName}>
                       {item.receipt_item || item.product_name || item.name}
                     </div>
                     {(item.receipt_item || item.product_name) && item.receipt_item !== item.name && (
-                      <div className="receipt-item-detail">{'\u2192'} {item.name}</div>
+                      <div className={styles.receiptItemDetail}>{'\u2192'} {item.name}</div>
                     )}
-                    <div className="receipt-item-meta">
+                    <div className={styles.receiptItemMeta}>
                       {item.product_brand && <span>{item.product_brand}</span>}
                       {item.receipt_price != null && <span> · {formatPrice(item.receipt_price)}</span>}
                     </div>
@@ -289,15 +290,15 @@ export default function ReceiptPage() {
                   <button className="grocery-expand-btn">{'\u2630'}</button>
                 </div>
                 {isExpanded && (
-                  <div className="receipt-action-bar">
-                    <button className="receipt-action-btn confirm" onClick={() => handleConfirmMatch(item.name)}>Confirm</button>
-                    <button className="receipt-action-btn" onClick={() => handleRejectMatch(item.name)}>Not this</button>
+                  <div className={styles.receiptActionBar}>
+                    <button className={`${styles.receiptActionBtn} ${styles.confirm}`} onClick={() => handleConfirmMatch(item.name)}>Confirm</button>
+                    <button className={styles.receiptActionBtn} onClick={() => handleRejectMatch(item.name)}>Not this</button>
                     <button
-                      className={`receipt-action-btn rate${item.rating === 1 ? ' active-up' : ''}`}
+                      className={`${styles.receiptActionBtn} ${styles.rate}${item.rating === 1 ? ` ${styles.activeUp}` : ''}`}
                       onClick={() => handleRate(item, item.rating === 1 ? 0 : 1)}
                     >{'\u{1F44D}'}</button>
                     <button
-                      className={`receipt-action-btn rate${item.rating === -1 ? ' active-down' : ''}`}
+                      className={`${styles.receiptActionBtn} ${styles.rate}${item.rating === -1 ? ` ${styles.activeDown}` : ''}`}
                       onClick={() => handleRate(item, item.rating === -1 ? 0 : -1)}
                     >{'\u{1F44E}'}</button>
                   </div>
@@ -310,33 +311,33 @@ export default function ReceiptPage() {
 
       {/* Substituted items */}
       {receipt.substituted.length > 0 && (
-        <div className="receipt-section">
-          <div className="receipt-section-label">Substituted ({receipt.substituted.length})</div>
+        <div className={styles.receiptSection}>
+          <div className={styles.receiptSectionLabel}>Substituted ({receipt.substituted.length})</div>
           {receipt.substituted.map(item => {
             const key = `sub-${item.name}`
             const isExpanded = expandedItem === key
             return (
-              <div key={item.name} className="receipt-item-row">
-                <div className="receipt-item-top" onClick={() => toggleExpand(key)}>
-                  <div className="receipt-item-info">
-                    <div className="receipt-item-name">{item.receipt_item || item.name}</div>
-                    <div className="receipt-item-detail">Ordered: {item.name}</div>
+              <div key={item.name} className={styles.receiptItemRow}>
+                <div className={styles.receiptItemTop} onClick={() => toggleExpand(key)}>
+                  <div className={styles.receiptItemInfo}>
+                    <div className={styles.receiptItemName}>{item.receipt_item || item.name}</div>
+                    <div className={styles.receiptItemDetail}>Ordered: {item.name}</div>
                     {item.receipt_price != null && (
-                      <div className="receipt-item-meta">{formatPrice(item.receipt_price)}</div>
+                      <div className={styles.receiptItemMeta}>{formatPrice(item.receipt_price)}</div>
                     )}
                   </div>
                   <button className="grocery-expand-btn">{'\u2630'}</button>
                 </div>
                 {isExpanded && (
-                  <div className="receipt-action-bar">
-                    <button className="receipt-action-btn confirm" onClick={() => handleConfirmMatch(item.name)}>That's fine</button>
-                    <button className="receipt-action-btn" onClick={() => handleRejectMatch(item.name)}>Not this</button>
+                  <div className={styles.receiptActionBar}>
+                    <button className={`${styles.receiptActionBtn} ${styles.confirm}`} onClick={() => handleConfirmMatch(item.name)}>That's fine</button>
+                    <button className={styles.receiptActionBtn} onClick={() => handleRejectMatch(item.name)}>Not this</button>
                     <button
-                      className={`receipt-action-btn rate${item.rating === 1 ? ' active-up' : ''}`}
+                      className={`${styles.receiptActionBtn} ${styles.rate}${item.rating === 1 ? ` ${styles.activeUp}` : ''}`}
                       onClick={() => handleRate(item, item.rating === 1 ? 0 : 1)}
                     >{'\u{1F44D}'}</button>
                     <button
-                      className={`receipt-action-btn rate${item.rating === -1 ? ' active-down' : ''}`}
+                      className={`${styles.receiptActionBtn} ${styles.rate}${item.rating === -1 ? ` ${styles.activeDown}` : ''}`}
                       onClick={() => handleRate(item, item.rating === -1 ? 0 : -1)}
                     >{'\u{1F44E}'}</button>
                   </div>
@@ -349,18 +350,18 @@ export default function ReceiptPage() {
 
       {/* Unmatched receipt items */}
       {receipt.extras && receipt.extras.length > 0 && (
-        <div className="receipt-section">
-          <div className="receipt-section-label">Unmatched ({receipt.extras.length})</div>
+        <div className={styles.receiptSection}>
+          <div className={styles.receiptSectionLabel}>Unmatched ({receipt.extras.length})</div>
           {receipt.extras.map((item, i) => {
             const key = `extra-${item.item_name}-${i}`
             const isExpanded = expandedItem === key
             const isMatching = matchingExtra === key
             return (
-              <div key={key} className="receipt-item-row">
-                <div className="receipt-item-top" onClick={() => toggleExpand(key)}>
-                  <div className="receipt-item-info">
-                    <div className="receipt-item-name">{item.item_name}</div>
-                    <div className="receipt-item-meta">
+              <div key={key} className={styles.receiptItemRow}>
+                <div className={styles.receiptItemTop} onClick={() => toggleExpand(key)}>
+                  <div className={styles.receiptItemInfo}>
+                    <div className={styles.receiptItemName}>{item.item_name}</div>
+                    <div className={styles.receiptItemMeta}>
                       {item.brand && <span>{item.brand}</span>}
                       {item.brand && item.price != null && <span> · </span>}
                       {item.price != null && <span>{formatPrice(item.price)}</span>}
@@ -369,34 +370,34 @@ export default function ReceiptPage() {
                   <button className="grocery-expand-btn">{'\u2630'}</button>
                 </div>
                 {isExpanded && !isMatching && (
-                  <div className="receipt-action-bar">
+                  <div className={styles.receiptActionBar}>
                     {unreconciledGroceryNames.length > 0 && (
-                      <button className="receipt-action-btn" onClick={() => setMatchingExtra(key)}>This is...</button>
+                      <button className={styles.receiptActionBtn} onClick={() => setMatchingExtra(key)}>This is...</button>
                     )}
                     <button
-                      className="receipt-action-btn rate"
+                      className={`${styles.receiptActionBtn} ${styles.rate}`}
                       onClick={() => handleRate(item, 1)}
                     >{'\u{1F44D}'}</button>
                     <button
-                      className="receipt-action-btn rate"
+                      className={`${styles.receiptActionBtn} ${styles.rate}`}
                       onClick={() => handleRate(item, -1)}
                     >{'\u{1F44E}'}</button>
-                    <button className="receipt-action-btn dismiss" onClick={() => handleDismissExtra(item.item_name)}>Dismiss</button>
+                    <button className={`${styles.receiptActionBtn} ${styles.dismiss}`} onClick={() => handleDismissExtra(item.item_name)}>Dismiss</button>
                   </div>
                 )}
                 {isMatching && (
-                  <div className="receipt-match-picker">
-                    <div className="receipt-match-label">Match to:</div>
+                  <div className={styles.receiptMatchPicker}>
+                    <div className={styles.receiptMatchLabel}>Match to:</div>
                     {unreconciledGroceryNames.map(name => (
                       <button
                         key={name}
-                        className="receipt-match-option"
+                        className={styles.receiptMatchOption}
                         onClick={() => handleMatchExtra(item, name)}
                       >
                         {name}
                       </button>
                     ))}
-                    <button className="receipt-match-cancel" onClick={() => setMatchingExtra(null)}>Cancel</button>
+                    <button className={styles.receiptMatchCancel} onClick={() => setMatchingExtra(null)}>Cancel</button>
                   </div>
                 )}
               </div>

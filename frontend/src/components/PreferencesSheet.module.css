@@ -1,0 +1,233 @@
+/* ── Preferences Sheet ────────────────── */
+
+.prefsSheet {
+  max-height: 80vh;
+}
+@media (min-width: 1024px) {
+  .prefsSheet {
+    max-width: 600px;
+  }
+}
+
+.prefsAccordion {
+  border-bottom: 1px solid var(--tan);
+}
+
+.prefsAccordion:last-of-type {
+  border-bottom: none;
+}
+
+.prefsAccordionHeader {
+  display: flex;
+  align-items: center;
+  width: 100%;
+  padding: 14px 0;
+  background: none;
+  border: none;
+  cursor: pointer;
+  font-family: 'Playfair Display', serif;
+  font-size: 15px;
+  font-weight: 600;
+  color: var(--dark);
+  text-align: left;
+  gap: 8px;
+}
+
+.prefsAccordionTitle {
+  flex: 1;
+}
+
+.prefsAccordionCount {
+  font-family: 'DM Sans', sans-serif;
+  font-size: 12px;
+  font-weight: 500;
+  color: var(--text-muted);
+  background: var(--warm-white);
+  padding: 2px 8px;
+  border-radius: 10px;
+}
+
+.prefsAccordionArrow {
+  font-size: 12px;
+  color: var(--text-muted);
+}
+
+.prefsAccordionBody {
+  padding: 0 0 16px;
+}
+
+.prefsAccountField {
+  margin-bottom: 12px;
+}
+.prefsFieldLabel {
+  font-size: 11px;
+  font-weight: 600;
+  text-transform: uppercase;
+  letter-spacing: 0.06em;
+  color: var(--text-muted);
+  margin-bottom: 4px;
+  display: block;
+}
+.prefsFieldValue {
+  font-size: 14px;
+  color: var(--brown);
+  padding: 8px 0;
+}
+.prefsSaved {
+  color: var(--green);
+  font-size: 14px;
+  padding: 0 8px;
+  flex-shrink: 0;
+}
+
+.prefsLogout {
+  width: 100%;
+  padding: 12px;
+  background: none;
+  border: 1.5px solid var(--tan);
+  border-radius: 8px;
+  font-family: 'DM Sans', sans-serif;
+  font-size: 14px;
+  color: var(--brown);
+  cursor: pointer;
+  transition: border-color 0.2s, color 0.2s;
+}
+
+.prefsLogout:hover {
+  border-color: #c0392b;
+  color: #c0392b;
+}
+
+.prefsAbout {
+  text-align: center;
+  padding: 20px 0 8px;
+  color: var(--text-muted);
+  font-size: 13px;
+  line-height: 1.6;
+}
+
+.prefsAbout .brandName {
+  font-family: 'Playfair Display', serif;
+  font-size: 16px;
+  color: var(--dark);
+  font-weight: 600;
+}
+
+.prefsInviteStatus {
+  font-size: 13px;
+  padding: 8px 12px;
+  margin-top: 8px;
+  border-radius: 8px;
+  text-align: center;
+}
+.success { background: var(--green-light); color: var(--green); }
+.error { background: #FFF0F0; color: #C44; }
+
+.prefsConnected {
+  font-size: 13px;
+  color: var(--green);
+  font-weight: 500;
+  flex: 1;
+}
+.prefsDisconnect {
+  background: none;
+  border: none;
+  color: var(--brown);
+  font-size: 12px;
+  cursor: pointer;
+  padding: 4px 8px;
+  text-decoration: underline;
+}
+.prefsHouseholdToggle {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 8px;
+  margin-top: 12px;
+  padding: 10px 0;
+  cursor: pointer;
+  font-size: 14px;
+  color: var(--brown);
+  -webkit-tap-highlight-color: transparent;
+}
+.prefsHouseholdToggle input[type="checkbox"] {
+  width: 18px;
+  height: 18px;
+  accent-color: var(--accent);
+  cursor: pointer;
+}
+.prefsToggleHint {
+  width: 100%;
+  font-size: 12px;
+  color: #a09080;
+  margin-top: -4px;
+  padding-left: 26px;
+}
+
+.prefsPriceTracking {
+  margin-top: 16px;
+  padding-top: 16px;
+  border-top: 1px solid var(--tan);
+}
+.prefsPriceTrackingHeader {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+}
+.prefsPriceInfo {
+  font-size: 12px;
+  color: var(--text-muted);
+  line-height: 1.5;
+  margin: 6px 0 4px;
+  padding: 8px 10px;
+  background: var(--warm-white);
+  border-radius: 6px;
+}
+
+.prefsIntegrationBlock {
+  /* container for integration content */
+}
+.prefsIntegrationConnected {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+.prefsIntegrationBtn {
+  /* applied alongside global btn primary */
+}
+
+.prefsKrogerStore {
+  margin-top: 8px;
+}
+.prefsKrogerSelected {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+.prefsStoreResults {
+  /* applied alongside ls.list */
+}
+.prefsStoreResult {
+  cursor: pointer;
+}
+
+.prefsVersion {
+  /* version label in about section */
+}
+
+.prefsBtlInfo {
+  font-size: 0.8rem;
+  color: var(--text-muted);
+  padding: 0 0 10px;
+  line-height: 1.4;
+}
+.prefsBtlInfo a {
+  color: var(--accent);
+}
+
+.prefsSharedAccount {
+  color: var(--accent);
+  font-size: 0.9rem;
+  margin-bottom: 8px;
+  font-style: italic;
+}

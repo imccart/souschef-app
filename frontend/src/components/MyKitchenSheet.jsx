@@ -3,6 +3,7 @@ import { api } from '../api/client'
 import Sheet from './Sheet'
 import AutocompleteInput from './AutocompleteInput'
 import ls from '../shared/lists.module.css'
+import styles from './MyKitchenSheet.module.css'
 
 function _getWeekLabel(dateStr) {
   if (!dateStr || dateStr === 'Unknown') return 'Unknown'
@@ -262,10 +263,10 @@ export default function MyKitchenSheet({ onClose }) {
   // Detail view
   if (detailRecipe) {
     return (
-      <Sheet onClose={onClose} className="kitchen-sheet">
-        <div className="kitchen-detail-header">
-          <button className="kitchen-back" onClick={() => setDetailRecipe(null)}>{'\u2190'}</button>
-          <div className="kitchen-detail-title">{detailRecipe.name}</div>
+      <Sheet onClose={onClose} className={styles.kitchenSheet}>
+        <div className={styles.kitchenDetailHeader}>
+          <button className={styles.kitchenBack} onClick={() => setDetailRecipe(null)}>{'\u2190'}</button>
+          <div className={styles.kitchenDetailTitle}>{detailRecipe.name}</div>
         </div>
         {detailIngredients && (
           <div className={ls.sectionHint} style={{ marginBottom: 12 }}>
@@ -311,14 +312,14 @@ export default function MyKitchenSheet({ onClose }) {
   }
 
   return (
-    <Sheet onClose={onClose} className="kitchen-sheet">
+    <Sheet onClose={onClose} className={styles.kitchenSheet}>
       <div className="sheet-title">My Kitchen</div>
 
-      <div className="kitchen-tabs">
+      <div className={styles.kitchenTabs}>
         {['meals', 'sides', 'staples', 'ratings'].map(tab => (
           <button
             key={tab}
-            className={`kitchen-tab${activeTab === tab ? ' active' : ''}`}
+            className={`${styles.kitchenTab}${activeTab === tab ? ` ${styles.active}` : ''}`}
             onClick={() => setActiveTab(tab)}
           >
             {tab.charAt(0).toUpperCase() + tab.slice(1)}
@@ -327,7 +328,7 @@ export default function MyKitchenSheet({ onClose }) {
       </div>
 
       {activeTab === 'meals' && (
-        <div className="kitchen-tab-content">
+        <div className={styles.kitchenTabContent}>
           <div className={ls.sectionHint}>What your family eats. We'll use these to build your grocery list.</div>
           <form onSubmit={handleAddRecipe} className={ls.addRow} style={{ marginBottom: 12 }}>
             <input
@@ -360,7 +361,7 @@ export default function MyKitchenSheet({ onClose }) {
       )}
 
       {activeTab === 'sides' && (
-        <div className="kitchen-tab-content">
+        <div className={styles.kitchenTabContent}>
           <div className={ls.sectionHint}>Your usual accompaniments.</div>
           <form onSubmit={handleAddSide} className={ls.addRow} style={{ marginBottom: 12 }}>
             <input
@@ -393,15 +394,15 @@ export default function MyKitchenSheet({ onClose }) {
       )}
 
       {activeTab === 'staples' && (
-        <div className="kitchen-tab-content">
+        <div className={styles.kitchenTabContent}>
           <div className={ls.sectionHint}>
             Your go-to items.{' '}
-            <button className="staple-info-btn" onClick={() => setShowStapleInfo(v => !v)}>
+            <button className={styles.stapleInfoBtn} onClick={() => setShowStapleInfo(v => !v)}>
               {'\u24D8'}
             </button>
           </div>
           {showStapleInfo && (
-            <div className="staple-info-box">
+            <div className={styles.stapleInfoBox}>
               <strong>Every trip</strong> — automatically added to your grocery list each time you build it.<br />
               <strong>Keep on hand</strong> — things you usually have at home; only added when you choose.<br />
               <span style={{ marginTop: 4, display: 'inline-block' }}>These are just defaults. You can always add or skip items when building your list.</span>
@@ -420,13 +421,13 @@ export default function MyKitchenSheet({ onClose }) {
             <button className="btn primary" onClick={() => addStapleText.trim() && handleAddStaple(addStapleText)}>+</button>
           </div>
           {pendingStaple && (
-            <div className="staple-type-prompt">
-              <span className="staple-type-name">{pendingStaple}</span>
-              <div className="staple-toggle-pair">
-                <button className="staple-toggle" onClick={() => handleConfirmStaple('regular')}>Every trip</button>
-                <button className="staple-toggle" onClick={() => handleConfirmStaple('pantry')}>Keep on hand</button>
+            <div className={styles.stapleTypePrompt}>
+              <span className={styles.stapleTypeName}>{pendingStaple}</span>
+              <div className={styles.stapleTogglePair}>
+                <button className={styles.stapleToggle} onClick={() => handleConfirmStaple('regular')}>Every trip</button>
+                <button className={styles.stapleToggle} onClick={() => handleConfirmStaple('pantry')}>Keep on hand</button>
               </div>
-              <button className="staple-type-cancel" onClick={() => setPendingStaple(null)}>{'\u00D7'}</button>
+              <button className={styles.stapleTypeCancel} onClick={() => setPendingStaple(null)}>{'\u00D7'}</button>
             </div>
           )}
           {regulars === null && pantry === null ? (
@@ -446,15 +447,15 @@ export default function MyKitchenSheet({ onClose }) {
                         title="Change category"
                         onClick={() => setRecatStaple({ name: s.name, type: s.type, id: s.id })}
                       >{'\u2630'}</button>
-                      <div className="staple-toggle-pair">
+                      <div className={styles.stapleTogglePair}>
                         <button
-                          className={`staple-toggle${s.type === 'regular' ? ' active' : ''}`}
+                          className={`${styles.stapleToggle}${s.type === 'regular' ? ` ${styles.active}` : ''}`}
                           onClick={() => { if (s.type !== 'regular') handleMoveToRegulars(s.name, s.id, s.shopping_group) }}
                         >
                           Every trip
                         </button>
                         <button
-                          className={`staple-toggle${s.type === 'pantry' ? ' active' : ''}`}
+                          className={`${styles.stapleToggle}${s.type === 'pantry' ? ` ${styles.active}` : ''}`}
                           onClick={() => { if (s.type !== 'pantry') handleMoveToPantry(s.id, s.name, s.shopping_group) }}
                         >
                           Keep on hand
@@ -473,7 +474,7 @@ export default function MyKitchenSheet({ onClose }) {
         </div>
       )}
       {activeTab === 'ratings' && (
-        <div className="kitchen-tab-content">
+        <div className={styles.kitchenTabContent}>
           <div className={ls.sectionHint}>Products you've purchased. Rate them after you've tried them.</div>
           {purchases === null ? (
             <div className={ls.sectionHint}>Loading...</div>
@@ -496,25 +497,25 @@ export default function MyKitchenSheet({ onClose }) {
                       const brand = p.product_brand || p.brand || ''
                       const price = p.receipt_price ?? p.product_price
                       return (
-                        <div key={`${p.product_key || p.name}-${i}`} className={`${ls.listItem} history-item`}>
-                          <div className="history-item-info">
+                        <div key={`${p.product_key || p.name}-${i}`} className={`${ls.listItem} ${styles.historyItem}`}>
+                          <div className={styles.historyItemInfo}>
                             <span className={ls.listName}>{desc}</span>
-                            {desc !== p.name && <div className="history-item-detail">{p.name}</div>}
-                            <div className="history-item-meta">
+                            {desc !== p.name && <div className={styles.historyItemDetail}>{p.name}</div>}
+                            <div className={styles.historyItemMeta}>
                               {brand && <span>{brand}</span>}
                               {brand && price != null && <span> · </span>}
                               {price != null && <span>${price.toFixed(2)}</span>}
                             </div>
                           </div>
-                          <div className="staple-toggle-pair">
+                          <div className={styles.stapleTogglePair}>
                             <button
-                              className={`staple-toggle${p.rating === 1 ? ' active' : ''}`}
+                              className={`${styles.stapleToggle}${p.rating === 1 ? ` ${styles.active}` : ''}`}
                               onClick={() => handleRatePurchase(p, p.rating === 1 ? 0 : 1)}
                             >
                               {'\uD83D\uDC4D'}
                             </button>
                             <button
-                              className={`staple-toggle${p.rating === -1 ? ' active' : ''}`}
+                              className={`${styles.stapleToggle}${p.rating === -1 ? ` ${styles.active}` : ''}`}
                               onClick={() => handleRatePurchase(p, p.rating === -1 ? 0 : -1)}
                             >
                               {'\uD83D\uDC4E'}

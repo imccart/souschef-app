@@ -5,6 +5,7 @@ import BentSpoonIcon from './BentSpoonIcon'
 import Sheet from './Sheet'
 import FeedbackFab from './FeedbackFab'
 import ls from '../shared/lists.module.css'
+import styles from './GroceryPage.module.css'
 
 const GROUP_ORDER = [
   'Produce', 'Meat', 'Dairy & Eggs', 'Bread & Bakery',
@@ -221,14 +222,14 @@ export default function GroceryPage({ sidebar = false }) {
     }
 
     return (
-      <div className="shopping-mode">
-        <div className="shopping-header">
-          <div className="shopping-count">
+      <div className={styles.shoppingMode}>
+        <div className={styles.shoppingHeader}>
+          <div className={styles.shoppingCount}>
             {checkedCount} of {checkedCount + totalActive}
           </div>
-          <button className="shopping-done" onClick={exitShoppingMode}>Done</button>
+          <button className={styles.shoppingDone} onClick={exitShoppingMode}>Done</button>
         </div>
-        <div className="shopping-list" ref={shopListRef}>
+        <div className={styles.shoppingList} ref={shopListRef}>
           {sortedGroups.map(group => {
             const items = items_by_group[group]
             const active = items.filter(i => {
@@ -242,17 +243,17 @@ export default function GroceryPage({ sidebar = false }) {
             done.forEach(item => allChecked.push(item))
             if (active.length === 0) return null
             return (
-              <div key={group} className="shopping-group">
-                <div className="shopping-group-header">{group}</div>
+              <div key={group} className={styles.shoppingGroup}>
+                <div className={styles.shoppingGroupHeader}>{group}</div>
                 {active.map(item => (
                   <SwipeableItem
                     key={item.name}
-                    className="shopping-item"
+                    className={styles.shoppingItem}
                     onSwipeRight={() => handleShopCheckAndScroll(item.name)}
                   >
-                    <div className="shopping-item-name" onClick={() => handleShopCheckAndScroll(item.name)}>
+                    <div className={styles.shoppingItemName} onClick={() => handleShopCheckAndScroll(item.name)}>
                       {item.name}
-                      {item.meal_count > 1 && <span className="shopping-multi">x{item.meal_count}</span>}
+                      {item.meal_count > 1 && <span className={styles.shoppingMulti}>x{item.meal_count}</span>}
                     </div>
                   </SwipeableItem>
                 ))}
@@ -260,14 +261,14 @@ export default function GroceryPage({ sidebar = false }) {
             )
           })}
           {totalActive === 0 && (
-            <div className="shopping-all-done">
+            <div className={styles.shoppingAllDone}>
               All done! {'\u{1F389}'}
             </div>
           )}
           {allChecked.length > 0 && (
-            <div className="shopping-checked-section">
+            <div className={styles.shoppingCheckedSection}>
               <div
-                className="shopping-checked-header"
+                className={styles.shoppingCheckedHeader}
                 onClick={() => setShowShopChecked(prev => !prev)}
               >
                 {showShopChecked ? '\u25BC' : '\u25B6'} {allChecked.length} checked
@@ -275,10 +276,10 @@ export default function GroceryPage({ sidebar = false }) {
               {showShopChecked && allChecked.map(item => (
                 <div
                   key={item.name}
-                  className="shopping-item checked"
+                  className={`${styles.shoppingItem} ${styles.checked}`}
                   onClick={() => handleShopUncheck(item.name)}
                 >
-                  <div className="shopping-item-name">{item.name}</div>
+                  <div className={styles.shoppingItemName}>{item.name}</div>
                 </div>
               ))}
             </div>
@@ -442,20 +443,20 @@ export default function GroceryPage({ sidebar = false }) {
   const renderActionCard = ({ expanded, label, onExpand, onSubmit, data, checkedSet, setChecked, groupField }) => {
     if (expanded) {
       return (
-        <div className="grocery-prompt-card">
-          <div className="grocery-prompt-body">
-            <div className="grocery-prompt-title">{label}</div>
-            <div className="grocery-prompt-desc">
+        <div className={styles.groceryPromptCard}>
+          <div className={styles.groceryPromptBody}>
+            <div className={styles.groceryPromptTitle}>{label}</div>
+            <div className={styles.groceryPromptDesc}>
               {groupField ? 'Uncheck anything you don\'t need this time.' : 'Check anything you need to restock.'}
             </div>
             {data && data.length > 0 ? (
-              <div className="grocery-prompt-checklist">
+              <div className={styles.groceryPromptChecklist}>
                 {data.map(item => {
                   const alreadyOnList = onListSet.has(item.name.toLowerCase())
                   return (
                     <div
                       key={item.id}
-                      className={`grocery-prompt-check-item ${alreadyOnList ? 'on-list' : ''}`}
+                      className={`${styles.groceryPromptCheckItem} ${alreadyOnList ? styles.onList : ''}`}
                       onClick={() => {
                         if (alreadyOnList) return
                         setChecked(prev => {
@@ -465,26 +466,26 @@ export default function GroceryPage({ sidebar = false }) {
                         })
                       }}
                     >
-                      <div className={`grocery-prompt-check ${alreadyOnList ? 'on-list' : checkedSet.has(item.name) ? 'active' : ''}`}>
+                      <div className={`${styles.groceryPromptCheck} ${alreadyOnList ? styles.onList : checkedSet.has(item.name) ? styles.active : ''}`}>
                         {(alreadyOnList || checkedSet.has(item.name)) && '\u2713'}
                       </div>
                       <span>{item.name}</span>
-                      {alreadyOnList && <span className="grocery-prompt-on-list">on list</span>}
-                      {!alreadyOnList && groupField && item[groupField] && <span className="grocery-prompt-group">{item[groupField]}</span>}
+                      {alreadyOnList && <span className={styles.groceryPromptOnList}>on list</span>}
+                      {!alreadyOnList && groupField && item[groupField] && <span className={styles.groceryPromptGroup}>{item[groupField]}</span>}
                     </div>
                   )
                 })}
               </div>
             ) : (
-              <div className="grocery-prompt-empty">
+              <div className={styles.groceryPromptEmpty}>
                 {groupField ? 'No regulars yet. Add them in My Kitchen.' : 'No staples yet. Add them in My Kitchen.'}
               </div>
             )}
-            <div className="grocery-prompt-actions">
-              <button className="grocery-prompt-dismiss" onClick={() => { setChecked(new Set()); onExpand() }}>
+            <div className={styles.groceryPromptActions}>
+              <button className={styles.groceryPromptDismiss} onClick={() => { setChecked(new Set()); onExpand() }}>
                 Cancel
               </button>
-              <button className="grocery-prompt-submit" onClick={onSubmit}>
+              <button className={styles.groceryPromptSubmit} onClick={onSubmit}>
                 Add to list {checkedSet.size > 0 ? `(${checkedSet.size})` : ''}
               </button>
             </div>
@@ -494,16 +495,16 @@ export default function GroceryPage({ sidebar = false }) {
     }
 
     return (
-      <button className="grocery-action-btn" onClick={onExpand}>
+      <button className={styles.groceryActionBtn} onClick={onExpand}>
         <span>{label}</span>
-        <span className="grocery-prompt-arrow">{'\u203A'}</span>
+        <span className={styles.groceryPromptArrow}>{'\u203A'}</span>
       </button>
     )
   }
 
   const promptCards = (
     <>
-      <div className="grocery-actions">
+      <div className={styles.groceryActions}>
         {renderActionCard({
           expanded: regularsExpanded,
           label: 'Add my regulars',
@@ -541,22 +542,22 @@ export default function GroceryPage({ sidebar = false }) {
 
     const itemContent = (
       <>
-        <div className="grocery-item-top">
-          <span className="item-name">
+        <div className={styles.groceryItemTop}>
+          <span className={styles.itemName}>
             {item.name}
-            {item.meal_count > 1 && <span className="multi-badge">x{item.meal_count}</span>}
+            {item.meal_count > 1 && <span className={styles.multiBadge}>x{item.meal_count}</span>}
           </span>
-          {isOrdered && <span className="ordered-badge">{'\u2191'} ordered</span>}
+          {isOrdered && <span className={styles.orderedBadge}>{'\u2191'} ordered</span>}
           <button className="grocery-expand-btn" onClick={handleToggle} title="Actions">{'\u2630'}</button>
         </div>
         {item.notes && (
-          <div className="grocery-note">
+          <div className={styles.groceryNote}>
             {item.notes}
           </div>
         )}
         {hasMeals && (
-          <div className="grocery-item-meals">
-            <span className="item-meals">{item.for_meals.join(', ')}</span>
+          <div className={styles.groceryItemMeals}>
+            <span className={styles.itemMeals}>{item.for_meals.join(', ')}</span>
           </div>
         )}
         {isSelected && (
@@ -564,7 +565,7 @@ export default function GroceryPage({ sidebar = false }) {
             {editingNote === item.name ? (
               <input
                 type="text"
-                className="note-input grocery-note-input"
+                className={`note-input ${styles.groceryNoteInput}`}
                 placeholder="Add a note..."
                 value={noteText}
                 autoFocus
@@ -579,12 +580,12 @@ export default function GroceryPage({ sidebar = false }) {
                 onClick={(e) => e.stopPropagation()}
               />
             ) : null}
-            <div className="grocery-action-bar">
-              <button className="grocery-action-btn-item" onClick={() => handleItemAction(item.name, 'bought')}>Bought</button>
-              <button className="grocery-action-btn-item" onClick={() => handleItemAction(item.name, 'have_it')}>Have it</button>
-              <button className="grocery-action-btn-item" onClick={(e) => { e.stopPropagation(); setEditingNote(item.name); setNoteText(item.notes || '') }}>Note</button>
-              <button className="grocery-action-btn-item" onClick={(e) => { e.stopPropagation(); setRecatItem(item.name) }}>Aisle</button>
-              <button className="grocery-action-btn-item remove" onClick={() => handleItemAction(item.name, 'remove')}>{'\u00D7'}</button>
+            <div className={styles.groceryActionBar}>
+              <button className={styles.groceryActionBtnItem} onClick={() => handleItemAction(item.name, 'bought')}>Bought</button>
+              <button className={styles.groceryActionBtnItem} onClick={() => handleItemAction(item.name, 'have_it')}>Have it</button>
+              <button className={styles.groceryActionBtnItem} onClick={(e) => { e.stopPropagation(); setEditingNote(item.name); setNoteText(item.notes || '') }}>Note</button>
+              <button className={styles.groceryActionBtnItem} onClick={(e) => { e.stopPropagation(); setRecatItem(item.name) }}>Aisle</button>
+              <button className={`${styles.groceryActionBtnItem} ${styles.remove}`} onClick={() => handleItemAction(item.name, 'remove')}>{'\u00D7'}</button>
             </div>
           </>
         )}
@@ -594,7 +595,7 @@ export default function GroceryPage({ sidebar = false }) {
     return (
       <SwipeableItem
         key={item.name}
-        className={`grocery-item-row${isSelected ? ' selected' : ''}`}
+        className={`${styles.groceryItemRow}${isSelected ? ` ${styles.selected}` : ''}`}
         onSwipeRight={() => handleItemAction(item.name, 'bought')}
       >
         {itemContent}
@@ -623,14 +624,14 @@ export default function GroceryPage({ sidebar = false }) {
           const expanded = isGroupExpanded(group)
 
           return (
-            <div key={group} className="grocery-group">
+            <div key={group} className={styles.groceryGroup}>
               <button
-                className="grocery-group-header"
+                className={styles.groceryGroupHeader}
                 onClick={() => handleGroupToggle(group)}
               >
-                <span className="grocery-group-arrow">{expanded ? '\u25B4' : '\u25BE'}</span>
-                <span className="grocery-group-title">{group}</span>
-                <span className="group-left-count">{groupLeft}</span>
+                <span className={styles.groceryGroupArrow}>{expanded ? '\u25B4' : '\u25BE'}</span>
+                <span className={styles.groceryGroupTitle}>{group}</span>
+                <span className={styles.groupLeftCount}>{groupLeft}</span>
               </button>
               {expanded && items.map(renderItem)}
             </div>
@@ -639,31 +640,31 @@ export default function GroceryPage({ sidebar = false }) {
       )}
       {/* Staple suggestion */}
       {stapleSuggestion && (
-        <div className="staple-suggestion">
+        <div className={styles.stapleSuggestion}>
           <span>You always have <strong>{stapleSuggestion}</strong> on hand.</span>
-          <div className="staple-suggestion-actions">
+          <div className={styles.stapleSuggestionActions}>
             <button onClick={() => {
               api.addPantryItem(stapleSuggestion, '').catch(() => {})
               setStapleSuggestion(null)
             }}>Add to staples</button>
-            <button className="dismiss" onClick={() => setStapleSuggestion(null)}>Not now</button>
+            <button className={styles.dismiss} onClick={() => setStapleSuggestion(null)}>Not now</button>
           </div>
         </div>
       )}
       {/* Recently checked — 24-hour undo window */}
       {recently_checked && recently_checked.length > 0 && (
-        <div className="recently-checked">
-          <button className="recently-checked-toggle" onClick={() => setShowRecent(r => !r)}>
+        <div className={styles.recentlyChecked}>
+          <button className={styles.recentlyCheckedToggle} onClick={() => setShowRecent(r => !r)}>
             Recently checked ({recently_checked.length})
-            <span className="grocery-prompt-arrow">{showRecent ? '\u25B4' : '\u25BE'}</span>
+            <span className={styles.groceryPromptArrow}>{showRecent ? '\u25B4' : '\u25BE'}</span>
           </button>
           {showRecent && (
-            <div className="recently-checked-list">
+            <div className={styles.recentlyCheckedList}>
               {recently_checked.map(r => (
-                <div key={r.name} className="recently-checked-item">
+                <div key={r.name} className={styles.recentlyCheckedItem}>
                   <span>{r.name}</span>
-                  <span className="recently-checked-type">{r.type === 'bought' ? 'Bought' : r.type === 'removed' ? 'Removed' : 'Have it'}</span>
-                  <button className="recently-checked-undo" onClick={() => handleUndoRecent(r.name)}>Undo</button>
+                  <span className={styles.recentlyCheckedType}>{r.type === 'bought' ? 'Bought' : r.type === 'removed' ? 'Removed' : 'Have it'}</span>
+                  <button className={styles.recentlyCheckedUndo} onClick={() => handleUndoRecent(r.name)}>Undo</button>
                 </div>
               ))}
             </div>
@@ -704,10 +705,10 @@ export default function GroceryPage({ sidebar = false }) {
   }
 
   const sidebarTitleBlock = (
-    <div className="sidebar-title">
+    <div className={styles.sidebarTitle}>
       <span>Grocery List</span>
       {totalActive > 0 && (
-        <span className="count-badge">
+        <span className={styles.countBadge}>
           {totalActive} item{totalActive !== 1 ? 's' : ''} left
         </span>
       )}
@@ -724,14 +725,14 @@ export default function GroceryPage({ sidebar = false }) {
   return (
     <>
       {sidebar ? (
-        <>
-          <div className="sidebar-card">
+        <div className={styles.colGrocery}>
+          <div className={styles.sidebarCard}>
             {sidebarTitleBlock}
             {promptCards}
             {listContent}
           </div>
           {addBar}
-        </>
+        </div>
       ) : (
         <>
           {mobileTitleBlock}
@@ -739,7 +740,7 @@ export default function GroceryPage({ sidebar = false }) {
           {addBar}
           {listContent}
           {totalActive > 0 && (
-            <button className="shopping-now-btn" onClick={enterShoppingMode}>
+            <button className={styles.shoppingNowBtn} onClick={enterShoppingMode}>
               Shopping Now
             </button>
           )}

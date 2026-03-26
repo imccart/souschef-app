@@ -2,17 +2,18 @@ import { useState, useEffect } from 'react'
 import { api } from '../api/client'
 import Sheet from './Sheet'
 import FeedbackFab from './FeedbackFab'
+import styles from './OrderPage.module.css'
 
 function NovaBadge({ nova }) {
   if (!nova) return null
   const labels = { 1: 'Minimal processing', 2: 'Processed ingredient', 3: 'Processed', 4: 'Ultra-processed' }
-  const cls = `nova-badge nova-${nova}`
+  const cls = `${styles.novaBadge} ${styles[`nova${nova}`]}`
   return <span className={cls}>NOVA {nova} {'\u00B7'} {labels[nova]}</span>
 }
 
 function NutriBadge({ grade }) {
   if (!grade) return null
-  const cls = `nutri-badge nutri-${grade}`
+  const cls = `${styles.nutriBadge} ${styles[`nutri${grade.toUpperCase()}`]}`
   return <span className={cls}>Nutri-Score {grade.toUpperCase()}</span>
 }
 
@@ -20,12 +21,12 @@ function ProductInsights({ nova, nutriscore }) {
   const [showInfo, setShowInfo] = useState(false)
   if (!nova && !nutriscore) return null
   return (
-    <div className="product-insights">
+    <div className={styles.productInsights}>
       <NovaBadge nova={nova} />
       <NutriBadge grade={nutriscore} />
-      <button className="info-dot" onClick={(e) => { e.stopPropagation(); setShowInfo(!showInfo) }} title="What is this?">{'\u24D8'}</button>
+      <button className={styles.infoDot} onClick={(e) => { e.stopPropagation(); setShowInfo(!showInfo) }} title="What is this?">{'\u24D8'}</button>
       {showInfo && (
-        <div className="info-tooltip" onClick={(e) => e.stopPropagation()}>
+        <div className={styles.infoTooltip} onClick={(e) => e.stopPropagation()}>
           {nova && <>NOVA classifies foods by processing level. </>}
           {nutriscore && <>Nutri-Score rates nutritional quality (A=best). </>}
           Data from Open Food Facts.
@@ -44,39 +45,39 @@ function ParentCoBadge({ brand, parentCompany, violations, onTapUnknown }) {
   const hasViolations = v.fda_total_recalls > 0
   const hasDetails = !unknown && hasViolations
   return (
-    <div className={`parent-co-wrap`}>
+    <div className={styles.parentCoWrap}>
       <div
-        className={`parent-co${unknown ? ' unknown' : ''}${hasDetails ? ' expandable' : ''}`}
+        className={`${styles.parentCo}${unknown ? ` ${styles.unknown}` : ''}${hasDetails ? ` ${styles.expandable}` : ''}`}
         onClick={unknown ? (e) => { e.stopPropagation(); onTapUnknown(brand) } : hasDetails ? (e) => { e.stopPropagation(); setExpanded(!expanded) } : undefined}
       >
         Parent Co.: {parentCompany}{unknown && ' \u00B7 ?'}
-        {hasDetails && <span className="parent-co-chevron">{expanded ? '\u25B4' : '\u25BE'}</span>}
-        {!unknown && !hasDetails && <button className="info-dot" onClick={(e) => { e.stopPropagation(); setShowInfo(!showInfo) }} title="What is this?">{'\u24D8'}</button>}
+        {hasDetails && <span className={styles.parentCoChevron}>{expanded ? '\u25B4' : '\u25BE'}</span>}
+        {!unknown && !hasDetails && <button className={styles.infoDot} onClick={(e) => { e.stopPropagation(); setShowInfo(!showInfo) }} title="What is this?">{'\u24D8'}</button>}
       </div>
       {showInfo && (
-        <div className="info-tooltip" onClick={(e) => e.stopPropagation()}>
+        <div className={styles.infoTooltip} onClick={(e) => e.stopPropagation()}>
           Shows the parent company behind this brand, so you know who you're buying from.
         </div>
       )}
       {expanded && hasDetails && (
-        <div className="company-details" onClick={(e) => e.stopPropagation()}>
-          <div className="company-details-row">
-            <span className="company-details-label">FDA food recalls</span>
-            <span className="company-details-value">{v.fda_total_recalls}</span>
+        <div className={styles.companyDetails} onClick={(e) => e.stopPropagation()}>
+          <div className={styles.companyDetailsRow}>
+            <span className={styles.companyDetailsLabel}>FDA food recalls</span>
+            <span className={styles.companyDetailsValue}>{v.fda_total_recalls}</span>
           </div>
           {v.fda_class_i > 0 && (
-            <div className="company-details-row">
-              <span className="company-details-label">Class I (serious)</span>
-              <span className="company-details-value">{v.fda_class_i}</span>
+            <div className={styles.companyDetailsRow}>
+              <span className={styles.companyDetailsLabel}>Class I (serious)</span>
+              <span className={styles.companyDetailsValue}>{v.fda_class_i}</span>
             </div>
           )}
           {v.fda_most_recent && (
-            <div className="company-details-row">
-              <span className="company-details-label">Most recent</span>
-              <span className="company-details-value">{v.fda_most_recent.slice(0, 4)}-{v.fda_most_recent.slice(4, 6)}-{v.fda_most_recent.slice(6, 8)}</span>
+            <div className={styles.companyDetailsRow}>
+              <span className={styles.companyDetailsLabel}>Most recent</span>
+              <span className={styles.companyDetailsValue}>{v.fda_most_recent.slice(0, 4)}-{v.fda_most_recent.slice(4, 6)}-{v.fda_most_recent.slice(6, 8)}</span>
             </div>
           )}
-          <div className="company-details-source">Source: FDA openFDA</div>
+          <div className={styles.companyDetailsSource}>Source: FDA openFDA</div>
         </div>
       )}
     </div>
@@ -310,54 +311,54 @@ export default function OrderPage() {
   }
 
   const storeDetails = (
-    <div className="store-details">
-      <div className="store-details-row">
-        <div className="store-details-name">
-          <select className="store-select" value="kroger" disabled>
+    <div className={styles.storeDetails}>
+      <div className={styles.storeDetailsRow}>
+        <div className={styles.storeDetailsName}>
+          <select className={styles.storeSelect} value="kroger" disabled>
             <option value="kroger">{storeName}</option>
           </select>
         </div>
-        <div className="fulfillment-toggle">
+        <div className={styles.fulfillmentToggle}>
           <button
-            className={`fulfillment-btn${fulfillment === 'curbside' ? ' active' : ''}`}
+            className={`${styles.fulfillmentBtn}${fulfillment === 'curbside' ? ` ${styles.active}` : ''}`}
             onClick={() => { setFulfillment('curbside'); localStorage.setItem('souschef_fulfillment', 'curbside') }}
           >Pickup</button>
           <button
-            className={`fulfillment-btn${fulfillment === 'delivery' ? ' active' : ''}`}
+            className={`${styles.fulfillmentBtn}${fulfillment === 'delivery' ? ` ${styles.active}` : ''}`}
             onClick={() => { setFulfillment('delivery'); localStorage.setItem('souschef_fulfillment', 'delivery') }}
           >Delivery</button>
         </div>
       </div>
       {storeInfo?.address && (
-        <div className="store-details-address">{storeInfo.address}</div>
+        <div className={styles.storeDetailsAddress}>{storeInfo.address}</div>
       )}
       {sharedAccountName && (
-        <div className="store-details-shared">Ordering through {sharedAccountName}'s account</div>
+        <div className={styles.storeDetailsShared}>Ordering through {sharedAccountName}'s account</div>
       )}
     </div>
   )
 
   // Mobile header counts
   const mobileHeaderCounts = (
-    <div className="order-mobile-counts">
+    <div className={styles.orderMobileCounts}>
       <button
-        className={`order-count-btn${!mobileSection ? ' active' : ''}`}
+        className={`${styles.orderCountBtn}${!mobileSection ? ` ${styles.active}` : ''}`}
         onClick={() => setMobileSection(null)}
       >
         {pendingCount} left
       </button>
-      <span className="order-count-dot">{'\u00B7'}</span>
+      <span className={styles.orderCountDot}>{'\u00B7'}</span>
       <button
-        className={`order-count-btn${mobileSection === 'ordered' ? ' active' : ''}`}
+        className={`${styles.orderCountBtn}${mobileSection === 'ordered' ? ` ${styles.active}` : ''}`}
         onClick={() => setMobileSection(mobileSection === 'ordered' ? null : 'ordered')}
       >
         {pickedCount} ordered
       </button>
       {elsewhereCount > 0 && (
         <>
-          <span className="order-count-dot">{'\u00B7'}</span>
+          <span className={styles.orderCountDot}>{'\u00B7'}</span>
           <button
-            className={`order-count-btn${mobileSection === 'elsewhere' ? ' active' : ''}`}
+            className={`${styles.orderCountBtn}${mobileSection === 'elsewhere' ? ` ${styles.active}` : ''}`}
             onClick={() => setMobileSection(mobileSection === 'elsewhere' ? null : 'elsewhere')}
           >
             {elsewhereCount} elsewhere
@@ -369,58 +370,58 @@ export default function OrderPage() {
 
   // Mobile collapsed queue row
   const mobileQueueRow = activeItem ? (
-    <div className="picking-row">
-      <button className="picking-row-nav" onClick={handlePrev}>{'\u2190'}</button>
-      <div className="picking-row-main" onClick={() => setShowQueue(true)}>
-        <span className="picking-row-label">Picking for</span>
-        <span className="picking-row-item">{activeItem}</span>
-        <span className="picking-row-progress">[{pickedCount}/{totalCount}]</span>
-        <span className="picking-row-expand">{'\u25BE'}</span>
+    <div className={styles.pickingRow}>
+      <button className={styles.pickingRowNav} onClick={handlePrev}>{'\u2190'}</button>
+      <div className={styles.pickingRowMain} onClick={() => setShowQueue(true)}>
+        <span className={styles.pickingRowLabel}>Picking for</span>
+        <span className={styles.pickingRowItem}>{activeItem}</span>
+        <span className={styles.pickingRowProgress}>[{pickedCount}/{totalCount}]</span>
+        <span className={styles.pickingRowExpand}>{'\u25BE'}</span>
       </div>
-      <button className="picking-row-nav" onClick={handleBuyElsewhere} title="Buy elsewhere">{'\u2192'}</button>
+      <button className={styles.pickingRowNav} onClick={handleBuyElsewhere} title="Buy elsewhere">{'\u2192'}</button>
     </div>
   ) : (
-    <div className="picking-row done">
-      <div className="picking-row-main">
-        <span className="picking-row-summary">
+    <div className={`${styles.pickingRow} ${styles.done}`}>
+      <div className={styles.pickingRowMain}>
+        <span className={styles.pickingRowSummary}>
           {pickedCount} of {totalCount} picked
           {order.total_price > 0 && ` \u00B7 ${formatPrice(order.total_price)}`}
         </span>
       </div>
       {pickedCount > 0 && !submitResult?.ok && (
-        <button className="picking-row-send" onClick={handleSubmit} disabled={submitting}>
+        <button className={styles.pickingRowSend} onClick={handleSubmit} disabled={submitting}>
           {submitting ? '...' : `Send to ${storeName} \u2192`}
         </button>
       )}
       {submitResult?.ok && (
-        <span className="picking-row-sent">Sent {'\u2713'}</span>
+        <span className={styles.pickingRowSent}>Sent {'\u2713'}</span>
       )}
     </div>
   )
 
   const queuePanel = (
-    <div className="order-queue-panel">
-      <div className="order-queue-header">
-        <div className="order-queue-title">Items</div>
-        <div className="order-queue-sub">
+    <div className={styles.orderQueuePanel}>
+      <div className={styles.orderQueueHeader}>
+        <div className={styles.orderQueueTitle}>Items</div>
+        <div className={styles.orderQueueSub}>
           {pendingCount > 0
             ? `${pendingCount} left to pick`
             : 'All items selected'}
         </div>
       </div>
-      <div className="order-queue-list">
+      <div className={styles.orderQueueList}>
         {order.pending.length > 0 && (
           <>
-            <div className="queue-section-label">Active</div>
+            <div className={styles.queueSectionLabel}>Active</div>
             {order.pending.map(item => {
               const isActive = item.name === activeItem
               return (
                 <button
                   key={item.name}
-                  className={`queue-item ${isActive ? 'active' : ''}`}
+                  className={`${styles.queueItem}${isActive ? ` ${styles.active}` : ''}`}
                   onClick={() => setActiveItem(item.name)}
                 >
-                  <span className="queue-item-name">{item.name}</span>
+                  <span className={styles.queueItemName}>{item.name}</span>
                 </button>
               )
             })}
@@ -428,30 +429,30 @@ export default function OrderPage() {
         )}
         {order.selected.length > 0 && (
           <>
-            <div className="queue-section-label">Ordered</div>
+            <div className={styles.queueSectionLabel}>Ordered</div>
             {order.selected.map(item => (
               <button
                 key={item.name}
-                className="queue-item selected"
+                className={`${styles.queueItem} ${styles.selected}`}
                 onClick={() => handleDeselect(item.name)}
               >
-                <span className="queue-item-name">{item.name}</span>
-                <span className="queue-check">{'\u2713'}</span>
+                <span className={styles.queueItemName}>{item.name}</span>
+                <span className={styles.queueCheck}>{'\u2713'}</span>
               </button>
             ))}
           </>
         )}
         {elsewhereItems.length > 0 && (
           <>
-            <div className="queue-section-label">Buying elsewhere</div>
+            <div className={styles.queueSectionLabel}>Buying elsewhere</div>
             {elsewhereItems.map(item => (
               <button
                 key={item.name}
-                className="queue-item elsewhere"
+                className={`${styles.queueItem} ${styles.elsewhere}`}
                 onClick={() => handleUndoBuyElsewhere(item.name)}
                 title="Bring back to ordering"
               >
-                <span className="queue-item-name">{item.name}</span>
+                <span className={styles.queueItemName}>{item.name}</span>
               </button>
             ))}
           </>
@@ -461,31 +462,31 @@ export default function OrderPage() {
   )
 
   const centerPanel = (
-    <div className="order-center-panel">
-      <div className="order-desktop-store-details">
+    <div className={styles.orderCenterPanel}>
+      <div className={styles.orderDesktopStoreDetails}>
         {storeDetails}
       </div>
       {activeItem && (
-        <div className="order-active-item">
-          <div className="order-item-top-row">
+        <div className={styles.orderActiveItem}>
+          <div className={styles.orderItemTopRow}>
             <div>
-              <div className="order-item-label">Picking for</div>
-              <div className="order-item-name">{activeItem}</div>
+              <div className={styles.orderItemLabel}>Picking for</div>
+              <div className={styles.orderItemName}>{activeItem}</div>
             </div>
-            <div className="order-item-actions">
-              <button className="order-grocery-btn" onClick={() => handleGroceryAction('bought')}>Bought</button>
-              <button className="order-grocery-btn" onClick={() => handleGroceryAction('have_it')}>Have it</button>
-              <button className="order-grocery-btn elsewhere" onClick={handleBuyElsewhere}>Elsewhere</button>
-              <button className="order-remove-x" onClick={() => handleGroceryAction('remove')} title="Remove from list">{'\u00D7'}</button>
+            <div className={styles.orderItemActions}>
+              <button className={styles.orderGroceryBtn} onClick={() => handleGroceryAction('bought')}>Bought</button>
+              <button className={styles.orderGroceryBtn} onClick={() => handleGroceryAction('have_it')}>Have it</button>
+              <button className={`${styles.orderGroceryBtn} ${styles.elsewhere}`} onClick={handleBuyElsewhere}>Elsewhere</button>
+              <button className={styles.orderRemoveX} onClick={() => handleGroceryAction('remove')} title="Remove from list">{'\u00D7'}</button>
             </div>
           </div>
-          <form className="order-search-form" onSubmit={e => {
+          <form className={styles.orderSearchForm} onSubmit={e => {
             e.preventDefault()
             doSearch(searchTerm)
             e.target.querySelector('input')?.blur()
           }}>
             <input
-              className="order-search-input"
+              className={styles.orderSearchInput}
               type="search"
               enterKeyHint="search"
               value={searchTerm}
@@ -493,7 +494,7 @@ export default function OrderPage() {
               placeholder="Search products..."
             />
             {searchTerm !== activeItem && (
-              <button type="button" className="order-search-reset" onClick={() => {
+              <button type="button" className={styles.orderSearchReset} onClick={() => {
                 setSearchTerm(activeItem)
                 doSearch(activeItem)
               }} title="Reset search">{'\u21BA'}</button>
@@ -503,27 +504,27 @@ export default function OrderPage() {
       )}
 
       {pendingProduct && (
-        <div className="order-modal-overlay" onClick={() => setPendingProduct(null)}>
-          <div className="order-modal" onClick={e => e.stopPropagation()}>
-            <div className="order-qty-label">How many?</div>
-            <div className="order-qty-product">{pendingProduct.name}</div>
-            <div className="order-qty-controls">
-              <button className="order-qty-btn" onClick={() => setPendingQty(q => Math.max(1, q - 1))}>{'\u2212'}</button>
+        <div className={styles.orderModalOverlay} onClick={() => setPendingProduct(null)}>
+          <div className={styles.orderModal} onClick={e => e.stopPropagation()}>
+            <div className={styles.orderQtyLabel}>How many?</div>
+            <div className={styles.orderQtyProduct}>{pendingProduct.name}</div>
+            <div className={styles.orderQtyControls}>
+              <button className={styles.orderQtyBtn} onClick={() => setPendingQty(q => Math.max(1, q - 1))}>{'\u2212'}</button>
               <span className="order-qty-value">{pendingQty}</span>
-              <button className="order-qty-btn" onClick={() => setPendingQty(q => q + 1)}>+</button>
+              <button className={styles.orderQtyBtn} onClick={() => setPendingQty(q => q + 1)}>+</button>
             </div>
-            <button className="order-qty-confirm" onClick={handleConfirmQuantity}>Confirm</button>
+            <button className={styles.orderQtyConfirm} onClick={handleConfirmQuantity}>Confirm</button>
           </div>
         </div>
       )}
 
       {showAnythingElse && (
-        <div className="order-modal-overlay">
-          <div className="order-modal">
+        <div className={styles.orderModalOverlay}>
+          <div className={styles.orderModal}>
             <span>Anything else for <strong>{activeItem}</strong>?</span>
-            <div className="order-anything-else-btns">
-              <button className="order-grocery-btn" onClick={handleAnythingElseYes}>Yes</button>
-              <button className="order-grocery-btn" onClick={handleAnythingElseNo}>No</button>
+            <div className={styles.orderAnythingElseBtns}>
+              <button className={styles.orderGroceryBtn} onClick={handleAnythingElseYes}>Yes</button>
+              <button className={styles.orderGroceryBtn} onClick={handleAnythingElseNo}>No</button>
             </div>
           </div>
         </div>
@@ -544,12 +545,12 @@ export default function OrderPage() {
       {products && !searching && (
         <>
           {products.preferences.length > 0 && (
-            <div className="order-section">
-              <div className="order-section-label">Prior selections</div>
+            <div className={styles.orderSection}>
+              <div className={styles.orderSectionLabel}>Prior selections</div>
               {products.preferences.map(pref => (
                 <button
                   key={pref.upc}
-                  className="product-card preference"
+                  className={`${styles.productCard} ${styles.preference}`}
                   onClick={() => handleSelect({
                     upc: pref.upc, name: pref.name,
                     brand: pref.brand, size: pref.size,
@@ -558,43 +559,43 @@ export default function OrderPage() {
                   })}
                 >
                   {pref.image && (
-                    <div className="product-image">
+                    <div className={styles.productImage}>
                       <img src={pref.image} alt="" loading="lazy" />
                     </div>
                   )}
-                  <div className="product-info">
-                    <div className="product-name">{pref.name}</div>
-                    <div className="product-meta">
+                  <div className={styles.productInfo}>
+                    <div className={styles.productName}>{pref.name}</div>
+                    <div className={styles.productMeta}>
                       {pref.brand && <span>{pref.brand}</span>}
                       {pref.size && <span> {'\u00B7'} {pref.size}</span>}
                     </div>
                     {(pref.price || pref.promo_price) && (
-                      <div className="product-price-row">
+                      <div className={styles.productPriceRow}>
                         {pref.promo_price ? (
                           <>
-                            <span className="price-promo">{formatPrice(pref.promo_price)}</span>
-                            <span className="price-original">{formatPrice(pref.price)}</span>
+                            <span className={styles.pricePromo}>{formatPrice(pref.promo_price)}</span>
+                            <span className={styles.priceOriginal}>{formatPrice(pref.price)}</span>
                           </>
                         ) : (
-                          <span className="price">{formatPrice(pref.price)}</span>
+                          <span className={styles.price}>{formatPrice(pref.price)}</span>
                         )}
                       </div>
                     )}
                   </div>
                   <ProductInsights nova={pref.nova} nutriscore={pref.nutriscore} />
-                  {pref.rating === 1 && <span className="pref-star">{'\u{1F44D}'}</span>}
-                  {pref.rating === -1 && <span className="pref-down">{'\u{1F44E}'}</span>}
+                  {pref.rating === 1 && <span className={styles.prefStar}>{'\u{1F44D}'}</span>}
+                  {pref.rating === -1 && <span className={styles.prefDown}>{'\u{1F44E}'}</span>}
                   <ParentCoBadge brand={pref.brand} parentCompany={pref.parent_company} violations={pref.violations} onTapUnknown={(b) => setCommunityBrand(b)} />
                 </button>
               ))}
             </div>
           )}
 
-          <div className="order-section">
-            <div className="order-section-label">
+          <div className={styles.orderSection}>
+            <div className={styles.orderSectionLabel}>
               {storeName} results
               {products.search_term !== activeItem && (
-                <span className="search-term-note"> for "{products.search_term}"</span>
+                <span className={styles.searchTermNote}> for "{products.search_term}"</span>
               )}
             </div>
             {products.products.length === 0 ? (
@@ -602,11 +603,11 @@ export default function OrderPage() {
                 <p>No products found.</p>
               </div>
             ) : (
-              <div className="product-grid">
+              <div className={styles.productGrid}>
                 {products.products.map(p => (
                   <button
                     key={p.upc}
-                    className={`product-card ${!p.in_stock ? 'out-of-stock' : ''}`}
+                    className={`${styles.productCard}${!p.in_stock ? ` ${styles.outOfStock}` : ''}`}
                     onClick={() => p.in_stock && handleSelect({
                       upc: p.upc, name: p.name,
                       brand: p.brand, size: p.size,
@@ -616,38 +617,38 @@ export default function OrderPage() {
                     disabled={!p.in_stock}
                   >
                     {p.image && (
-                      <div className="product-image">
+                      <div className={styles.productImage}>
                         <img src={p.image} alt="" loading="lazy" />
                       </div>
                     )}
-                    <div className="product-info">
-                      <div className="product-name">{p.name}</div>
-                      <div className="product-meta">
+                    <div className={styles.productInfo}>
+                      <div className={styles.productName}>{p.name}</div>
+                      <div className={styles.productMeta}>
                         {p.brand && <span>{p.brand}</span>}
                         {p.size && <span> {'\u00B7'} {p.size}</span>}
                       </div>
-                      <div className="product-price-row">
+                      <div className={styles.productPriceRow}>
                         {p.promo_price ? (
                           <>
-                            <span className="price-promo">{formatPrice(p.promo_price)}</span>
-                            <span className="price-original">{formatPrice(p.price)}</span>
+                            <span className={styles.pricePromo}>{formatPrice(p.promo_price)}</span>
+                            <span className={styles.priceOriginal}>{formatPrice(p.price)}</span>
                           </>
                         ) : (
-                          <span className="price">{formatPrice(p.price)}</span>
+                          <span className={styles.price}>{formatPrice(p.price)}</span>
                         )}
                       </div>
-                      {!p.in_stock && <div className="out-of-stock-label">Unavailable</div>}
+                      {!p.in_stock && <div className={styles.outOfStockLabel}>Unavailable</div>}
                     </div>
                     <ProductInsights nova={p.nova} nutriscore={p.nutriscore} />
                     <ParentCoBadge brand={p.brand} parentCompany={p.parent_company} violations={p.violations} onTapUnknown={(b) => setCommunityBrand(b)} />
-                    {p.rating === 1 && <span className="pref-star">{'\u{1F44D}'}</span>}
-                    {p.rating === -1 && <span className="pref-down">{'\u{1F44E}'}</span>}
+                    {p.rating === 1 && <span className={styles.prefStar}>{'\u{1F44D}'}</span>}
+                    {p.rating === -1 && <span className={styles.prefDown}>{'\u{1F44E}'}</span>}
                   </button>
                 ))}
               </div>
             )}
             {products.has_more && (
-              <button className="load-more-btn" onClick={loadMore} disabled={loadingMore}>
+              <button className={styles.loadMoreBtn} onClick={loadMore} disabled={loadingMore}>
                 {loadingMore ? 'Loading...' : 'More results'}
               </button>
             )}
@@ -659,54 +660,54 @@ export default function OrderPage() {
   )
 
   const summaryPanel = (
-    <div className="order-summary-panel">
-      <div className="order-summary-header">
-        <div className="order-summary-title">Order Summary</div>
-        <div className="order-summary-sub">
+    <div className={styles.orderSummaryPanel}>
+      <div className={styles.orderSummaryHeader}>
+        <div className={styles.orderSummaryTitle}>Order Summary</div>
+        <div className={styles.orderSummarySub}>
           {pickedCount} of {totalCount} items selected
         </div>
       </div>
-      <div className="order-summary-scroll">
+      <div className={styles.orderSummaryScroll}>
         {pickedCount > 0 ? (
           <>
-            <div className="order-summary-list-label">Selected so far</div>
+            <div className={styles.orderSummaryListLabel}>Selected so far</div>
             {order.selected.map(item => (
-              <div key={item.name} className="order-summary-row">
-                <span className="order-summary-item-name">{item.name}</span>
-                <span className="order-summary-item-price">
+              <div key={item.name} className={styles.orderSummaryRow}>
+                <span className={styles.orderSummaryItemName}>{item.name}</span>
+                <span className={styles.orderSummaryItemPrice}>
                   {item.product?.price ? formatPrice(item.product.price) : ''}
                 </span>
               </div>
             ))}
             {activeItem && order.pending.some(p => p.name === activeItem) && (
-              <div className="order-summary-row selecting">
-                <span className="order-summary-item-name">{activeItem}</span>
-                <span className="order-summary-item-selecting">selecting...</span>
+              <div className={`${styles.orderSummaryRow} ${styles.selecting}`}>
+                <span className={styles.orderSummaryItemName}>{activeItem}</span>
+                <span className={styles.orderSummaryItemSelecting}>selecting...</span>
               </div>
             )}
-            <div className="order-summary-total">
+            <div className={styles.orderSummaryTotal}>
               <span>Est. subtotal</span>
               <strong>{formatPrice(order.total_price)}</strong>
             </div>
           </>
         ) : (
-          <div className="order-summary-empty">
+          <div className={styles.orderSummaryEmpty}>
             No products selected yet. Pick items from the search results.
           </div>
         )}
       </div>
-      <div className="order-summary-footer">
+      <div className={styles.orderSummaryFooter}>
         {pickedCount > 0 && (
           <>
             {krogerAccounts && krogerAccounts.length === 0 ? (
-              <div className="submit-hint">Connect your account in Preferences, or ask a household member to share access</div>
+              <div className={styles.submitHint}>Connect your account in Preferences, or ask a household member to share access</div>
             ) : (
               <>
                 {krogerAccounts && krogerAccounts.length > 1 && (
-                  <div className="account-picker">
-                    <label className="account-picker-label">Submit as</label>
+                  <div className={styles.accountPicker}>
+                    <label className={styles.accountPickerLabel}>Submit as</label>
                     <select
-                      className="account-picker-select"
+                      className={styles.accountPickerSelect}
                       value={selectedAccount || ''}
                       onChange={e => setSelectedAccount(e.target.value)}
                     >
@@ -722,7 +723,7 @@ export default function OrderPage() {
                   <div className="submit-success">Sent to {storeName} {'\u2713'}</div>
                 ) : (
                   <button
-                    className="order-finalize-btn"
+                    className={styles.orderFinalizeBtn}
                     onClick={handleSubmit}
                     disabled={submitting}
                   >
@@ -743,22 +744,22 @@ export default function OrderPage() {
   return (
     <>
       {/* Mobile header */}
-      <div className="page-header order-mobile-header">
+      <div className={`page-header ${styles.orderMobileHeader}`}>
         <h2 className="screen-heading">Order</h2>
       </div>
 
       {/* Mobile: store details */}
-      <div className="order-mobile-store-details">
+      <div className={styles.orderMobileStoreDetails}>
         {storeDetails}
       </div>
 
       {/* Mobile: header counts */}
-      <div className="order-mobile-queue-row">
+      <div className={styles.orderMobileQueueRow}>
         {mobileHeaderCounts}
       </div>
 
       {/* Mobile: collapsed queue row */}
-      <div className="order-mobile-queue-row">
+      <div className={styles.orderMobileQueueRow}>
         {mobileQueueRow}
       </div>
 
@@ -767,14 +768,14 @@ export default function OrderPage() {
         <Sheet onClose={() => setShowQueue(false)}>
           <div className="sheet-title">Items to pick</div>
           <div className="sheet-sub">{pickedCount} of {totalCount} selected</div>
-          <div className="queue-sheet-list">
+          <div className={styles.queueSheetList}>
             {order.pending.length > 0 && (
               <>
-                <div className="queue-sheet-section">Active</div>
+                <div className={styles.queueSheetSection}>Active</div>
                 {order.pending.map(item => (
                   <button
                     key={item.name}
-                    className={`queue-sheet-item${item.name === activeItem ? ' active' : ''}`}
+                    className={`${styles.queueSheetItem}${item.name === activeItem ? ` ${styles.active}` : ''}`}
                     onClick={() => { setActiveItem(item.name); setShowQueue(false); setMobileSection(null) }}
                   >
                     <span>{item.name}</span>
@@ -784,30 +785,30 @@ export default function OrderPage() {
             )}
             {order.selected.length > 0 && (
               <>
-                <div className="queue-sheet-section">Ordered</div>
+                <div className={styles.queueSheetSection}>Ordered</div>
                 {order.selected.map(item => (
                   <button
                     key={item.name}
-                    className="queue-sheet-item picked"
+                    className={`${styles.queueSheetItem} ${styles.selected}`}
                     onClick={() => { handleDeselect(item.name); setShowQueue(false); setMobileSection(null) }}
                   >
                     <span>{item.name}</span>
-                    <span className="queue-check">{'\u2713'}</span>
+                    <span className={styles.queueCheck}>{'\u2713'}</span>
                   </button>
                 ))}
               </>
             )}
             {elsewhereItems.length > 0 && (
               <>
-                <div className="queue-sheet-section">Buying elsewhere</div>
+                <div className={styles.queueSheetSection}>Buying elsewhere</div>
                 {elsewhereItems.map(item => (
                   <button
                     key={item.name}
-                    className="queue-sheet-item elsewhere"
+                    className={`${styles.queueSheetItem} ${styles.elsewhere}`}
                     onClick={() => { handleUndoBuyElsewhere(item.name); setShowQueue(false) }}
                   >
                     <span>{item.name}</span>
-                    <span className="queue-sheet-elsewhere">elsewhere</span>
+                    <span className={styles.queueSheetElsewhere}>elsewhere</span>
                   </button>
                 ))}
               </>
@@ -817,7 +818,7 @@ export default function OrderPage() {
       )}
 
       {/* Desktop 3-column layout */}
-      <div className="order-desktop-layout">
+      <div className={styles.orderDesktopLayout}>
         {queuePanel}
         {centerPanel}
         {summaryPanel}
@@ -825,34 +826,34 @@ export default function OrderPage() {
 
       {/* Mobile: section views (when tapping ordered/elsewhere counts) */}
       {mobileSection === 'ordered' && (
-        <div className="order-mobile-content">
-          <div className="order-mobile-section">
-            <div className="order-mobile-section-title">Ordered ({pickedCount})</div>
+        <div className={styles.orderMobileContent}>
+          <div className={styles.orderMobileSection}>
+            <div className={styles.orderMobileSectionTitle}>Ordered ({pickedCount})</div>
             {order.selected.map(item => (
               <button
                 key={item.name}
-                className="queue-sheet-item picked"
+                className={`${styles.queueSheetItem} ${styles.selected}`}
                 onClick={() => { handleDeselect(item.name); setMobileSection(null) }}
               >
                 <span>{item.name}</span>
-                <span className="queue-check">{'\u2713'}</span>
+                <span className={styles.queueCheck}>{'\u2713'}</span>
               </button>
             ))}
           </div>
         </div>
       )}
       {mobileSection === 'elsewhere' && (
-        <div className="order-mobile-content">
-          <div className="order-mobile-section">
-            <div className="order-mobile-section-title">Buying elsewhere ({elsewhereCount})</div>
+        <div className={styles.orderMobileContent}>
+          <div className={styles.orderMobileSection}>
+            <div className={styles.orderMobileSectionTitle}>Buying elsewhere ({elsewhereCount})</div>
             {elsewhereItems.map(item => (
               <button
                 key={item.name}
-                className="queue-sheet-item elsewhere"
+                className={`${styles.queueSheetItem} ${styles.elsewhere}`}
                 onClick={() => handleUndoBuyElsewhere(item.name)}
               >
                 <span>{item.name}</span>
-                <span className="queue-sheet-elsewhere">tap to bring back</span>
+                <span className={styles.queueSheetElsewhere}>tap to bring back</span>
               </button>
             ))}
           </div>
@@ -861,22 +862,22 @@ export default function OrderPage() {
 
       {/* Mobile: center content inline */}
       {!mobileSection && (
-        <div className="order-mobile-content">
+        <div className={styles.orderMobileContent}>
           {centerPanel}
         </div>
       )}
 
       {/* Mobile: send footer — only when done picking */}
       {!activeItem && pickedCount > 0 && !submitResult?.ok && (
-        <div className="order-footer order-mobile-footer">
+        <div className={`${styles.orderFooter} ${styles.orderMobileFooter}`}>
           {krogerAccounts && krogerAccounts.length === 0 ? (
-            <div className="submit-hint">Connect your account in Preferences, or ask a household member to share access</div>
+            <div className={styles.submitHint}>Connect your account in Preferences, or ask a household member to share access</div>
           ) : (
             <>
               {krogerAccounts && krogerAccounts.length > 1 && (
-                <div className="account-picker account-picker-mobile">
+                <div className={`${styles.accountPicker} ${styles.accountPickerMobile}`}>
                   <select
-                    className="account-picker-select"
+                    className={styles.accountPickerSelect}
                     value={selectedAccount || ''}
                     onChange={e => setSelectedAccount(e.target.value)}
                   >
@@ -889,7 +890,7 @@ export default function OrderPage() {
                 </div>
               )}
               <button
-                className="build-list-btn"
+                className={styles.buildListBtn}
                 onClick={handleSubmit}
                 disabled={submitting}
               >
@@ -904,10 +905,10 @@ export default function OrderPage() {
         <Sheet onClose={() => { setCommunityBrand(null); setCommunityValue('') }}>
           <div className="sheet-title">Who makes this?</div>
           <div className="sheet-sub">Help us fill in the gaps.</div>
-          <div className="community-form">
-            <div className="community-brand">Brand: <strong>{communityBrand}</strong></div>
+          <div className={styles.communityForm}>
+            <div className={styles.communityBrand}>Brand: <strong>{communityBrand}</strong></div>
             <input
-              className="community-input"
+              className={styles.communityInput}
               type="text"
               placeholder="e.g. General Mills"
               value={communityValue}
@@ -929,7 +930,7 @@ export default function OrderPage() {
         </Sheet>
       )}
       {communityConfirm && (
-        <div className="community-toast">Yes, Chef!</div>
+        <div className={styles.communityToast}>Yes, Chef!</div>
       )}
       <FeedbackFab page="order" />
     </>
