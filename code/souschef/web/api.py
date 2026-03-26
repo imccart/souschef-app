@@ -771,11 +771,11 @@ def _ensure_active_trip(conn, mw, user_id: str):
         # Refresh meal-sourced items (meals may have changed) but preserve extras and checked state
         _refresh_trip_meal_items(conn, trip["id"], mw, user_id)
 
-    # Prune items checked/removed more than 7 days ago
+    # Prune items checked/removed more than 3 days ago
     conn.execute(
         text("""DELETE FROM trip_items WHERE trip_id = :tid
            AND (checked = 1 OR have_it = 1 OR removed = 1)
-           AND COALESCE(checked_at, have_it_at, removed_at)::timestamptz < NOW() - INTERVAL '7 days'"""),
+           AND COALESCE(checked_at, have_it_at, removed_at)::timestamptz < NOW() - INTERVAL '3 days'"""),
         {"tid": trip["id"]},
     )
     conn.commit()
