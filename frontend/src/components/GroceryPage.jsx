@@ -4,6 +4,7 @@ import AutocompleteInput from './AutocompleteInput'
 import BentSpoonIcon from './BentSpoonIcon'
 import Sheet from './Sheet'
 import FeedbackFab from './FeedbackFab'
+import ls from '../shared/lists.module.css'
 
 const GROUP_ORDER = [
   'Produce', 'Meat', 'Dairy & Eggs', 'Bread & Bakery',
@@ -682,11 +683,11 @@ export default function GroceryPage({ sidebar = false }) {
           candidates={itemPool}
           exclude={onListSet}
           placeholder="Anything else while you're there?"
-          inputClassName={`add-input${addDupe ? ' prefs-dupe' : ''}`}
+          inputClassName={`add-input${addDupe ? ` ${ls.dupe}` : ''}`}
         />
         <button className="btn primary" onClick={() => addText.trim() && handleAddSubmit(addText)} disabled={addDupe}>+</button>
       </div>
-      {addDupe && <div className="prefs-dupe-msg" style={{ marginTop: 4 }}>Already on your list</div>}
+      {addDupe && <div className={ls.dupeMsg} style={{ marginTop: 4 }}>Already on your list</div>}
     </div>
   )
 

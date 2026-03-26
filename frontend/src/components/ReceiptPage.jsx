@@ -2,6 +2,7 @@ import { useState, useEffect } from 'react'
 import { api } from '../api/client'
 import FeedbackFab from './FeedbackFab'
 import CameraCapture from './CameraCapture'
+import ls from '../shared/lists.module.css'
 
 const hasCamera = typeof navigator !== 'undefined'
   && !!navigator.mediaDevices?.getUserMedia
@@ -243,7 +244,7 @@ export default function ReceiptPage() {
           {purchases === null ? (
             <div className="loading">Loading...</div>
           ) : purchases.length === 0 ? (
-            <div className="prefs-section-hint">No purchase history yet.</div>
+            <div className={ls.sectionHint}>No purchase history yet.</div>
           ) : (
             Object.entries(purchasesByWeek).map(([week, items]) => (
               <div key={week} className="purchase-date-group">

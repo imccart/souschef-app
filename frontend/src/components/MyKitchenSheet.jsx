@@ -2,6 +2,7 @@ import { useState, useEffect } from 'react'
 import { api } from '../api/client'
 import Sheet from './Sheet'
 import AutocompleteInput from './AutocompleteInput'
+import ls from '../shared/lists.module.css'
 
 function _getWeekLabel(dateStr) {
   if (!dateStr || dateStr === 'Unknown') return 'Unknown'
@@ -267,11 +268,11 @@ export default function MyKitchenSheet({ onClose }) {
           <div className="kitchen-detail-title">{detailRecipe.name}</div>
         </div>
         {detailIngredients && (
-          <div className="prefs-section-hint" style={{ marginBottom: 12 }}>
+          <div className={ls.sectionHint} style={{ marginBottom: 12 }}>
             {detailIngredients.length} ingredient{detailIngredients.length !== 1 ? 's' : ''}
           </div>
         )}
-        <div className="prefs-add-row" style={{ marginBottom: 12 }}>
+        <div className={ls.addRow} style={{ marginBottom: 12 }}>
           <AutocompleteInput
             value={detailAddText}
             onChange={setDetailAddText}
@@ -279,27 +280,27 @@ export default function MyKitchenSheet({ onClose }) {
             candidates={allIngredients || []}
             exclude={existingDetailNames}
             placeholder="Add ingredient..."
-            inputClassName="prefs-add-input"
+            inputClassName={ls.addInput}
           />
           <button className="btn primary" onClick={() => detailAddText.trim() && handleAddIngredient(detailAddText)}>+</button>
         </div>
-        {renamed && <div className="prefs-renamed-hint">"{renamed.from}" added as "{renamed.to}"</div>}
+        {renamed && <div className={ls.renamedHint}>"{renamed.from}" added as "{renamed.to}"</div>}
         {detailIngredients === null ? (
-          <div className="prefs-section-hint">Loading...</div>
+          <div className={ls.sectionHint}>Loading...</div>
         ) : detailIngredients.length === 0 ? (
-          <div className="prefs-section-hint">No ingredients yet</div>
+          <div className={ls.sectionHint}>No ingredients yet</div>
         ) : (
-          <div className="prefs-list">
+          <div className={ls.list}>
             {detailIngredients.map(ing => (
-              <div key={ing.id} className="prefs-ingredient-item">
+              <div key={ing.id} className={ls.ingredientItem}>
                 <span>{ing.name}</span>
-                <button className="prefs-remove" onClick={() => handleRemoveIngredient(ing.id)}>{'\u00D7'}</button>
+                <button className={ls.remove} onClick={() => handleRemoveIngredient(ing.id)}>{'\u00D7'}</button>
               </div>
             ))}
           </div>
         )}
         <button
-          className="prefs-logout"
+          className={ls.logout}
           style={{ marginTop: 24 }}
           onClick={() => handleRemoveRecipe(detailRecipe.id)}
         >
@@ -327,10 +328,10 @@ export default function MyKitchenSheet({ onClose }) {
 
       {activeTab === 'meals' && (
         <div className="kitchen-tab-content">
-          <div className="prefs-section-hint">What your family eats. We'll use these to build your grocery list.</div>
-          <form onSubmit={handleAddRecipe} className="prefs-add-row" style={{ marginBottom: 12 }}>
+          <div className={ls.sectionHint}>What your family eats. We'll use these to build your grocery list.</div>
+          <form onSubmit={handleAddRecipe} className={ls.addRow} style={{ marginBottom: 12 }}>
             <input
-              className={`prefs-add-input${mealDupe ? ' prefs-dupe' : ''}`}
+              className={`${ls.addInput}${mealDupe ? ` ${ls.dupe}` : ''}`}
               type="text"
               placeholder="Add a meal..."
               value={addRecipeText}
@@ -342,15 +343,15 @@ export default function MyKitchenSheet({ onClose }) {
             />
             <button className="btn primary" type="submit" disabled={mealDupe}>+</button>
           </form>
-          {mealDupe && <div className="prefs-dupe-msg">Already exists</div>}
+          {mealDupe && <div className={ls.dupeMsg}>Already exists</div>}
           {recipes === null ? (
-            <div className="prefs-section-hint">Loading...</div>
+            <div className={ls.sectionHint}>Loading...</div>
           ) : (
-            <div className="prefs-list">
+            <div className={ls.list}>
               {meals.map(r => (
-                <div key={r.id} className="prefs-list-item" style={{ cursor: 'pointer' }} onClick={() => setDetailRecipe(r)}>
-                  <span className="prefs-list-name">{r.name}</span>
-                  <span className="prefs-list-meta">{'\u203A'}</span>
+                <div key={r.id} className={ls.listItem} style={{ cursor: 'pointer' }} onClick={() => setDetailRecipe(r)}>
+                  <span className={ls.listName}>{r.name}</span>
+                  <span className={ls.listMeta}>{'\u203A'}</span>
                 </div>
               ))}
             </div>
@@ -360,10 +361,10 @@ export default function MyKitchenSheet({ onClose }) {
 
       {activeTab === 'sides' && (
         <div className="kitchen-tab-content">
-          <div className="prefs-section-hint">Your usual accompaniments.</div>
-          <form onSubmit={handleAddSide} className="prefs-add-row" style={{ marginBottom: 12 }}>
+          <div className={ls.sectionHint}>Your usual accompaniments.</div>
+          <form onSubmit={handleAddSide} className={ls.addRow} style={{ marginBottom: 12 }}>
             <input
-              className={`prefs-add-input${sideDupe ? ' prefs-dupe' : ''}`}
+              className={`${ls.addInput}${sideDupe ? ` ${ls.dupe}` : ''}`}
               type="text"
               placeholder="Add a side..."
               value={addSideText}
@@ -375,15 +376,15 @@ export default function MyKitchenSheet({ onClose }) {
             />
             <button className="btn primary" type="submit" disabled={sideDupe}>+</button>
           </form>
-          {sideDupe && <div className="prefs-dupe-msg">Already exists</div>}
+          {sideDupe && <div className={ls.dupeMsg}>Already exists</div>}
           {recipes === null ? (
-            <div className="prefs-section-hint">Loading...</div>
+            <div className={ls.sectionHint}>Loading...</div>
           ) : (
-            <div className="prefs-list">
+            <div className={ls.list}>
               {sides.map(r => (
-                <div key={r.id} className="prefs-list-item" style={{ cursor: 'pointer' }} onClick={() => setDetailRecipe(r)}>
-                  <span className="prefs-list-name">{r.name}</span>
-                  <span className="prefs-list-meta">{'\u203A'}</span>
+                <div key={r.id} className={ls.listItem} style={{ cursor: 'pointer' }} onClick={() => setDetailRecipe(r)}>
+                  <span className={ls.listName}>{r.name}</span>
+                  <span className={ls.listMeta}>{'\u203A'}</span>
                 </div>
               ))}
             </div>
@@ -393,7 +394,7 @@ export default function MyKitchenSheet({ onClose }) {
 
       {activeTab === 'staples' && (
         <div className="kitchen-tab-content">
-          <div className="prefs-section-hint">
+          <div className={ls.sectionHint}>
             Your go-to items.{' '}
             <button className="staple-info-btn" onClick={() => setShowStapleInfo(v => !v)}>
               {'\u24D8'}
@@ -406,7 +407,7 @@ export default function MyKitchenSheet({ onClose }) {
               <span style={{ marginTop: 4, display: 'inline-block' }}>These are just defaults. You can always add or skip items when building your list.</span>
             </div>
           )}
-          <div className="prefs-add-row" style={{ marginBottom: 12 }}>
+          <div className={ls.addRow} style={{ marginBottom: 12 }}>
             <AutocompleteInput
               value={addStapleText}
               onChange={setAddStapleText}
@@ -414,7 +415,7 @@ export default function MyKitchenSheet({ onClose }) {
               candidates={allIngredients || []}
               exclude={existingStapleNames}
               placeholder="Add a staple..."
-              inputClassName="prefs-add-input"
+              inputClassName={ls.addInput}
             />
             <button className="btn primary" onClick={() => addStapleText.trim() && handleAddStaple(addStapleText)}>+</button>
           </div>
@@ -429,17 +430,17 @@ export default function MyKitchenSheet({ onClose }) {
             </div>
           )}
           {regulars === null && pantry === null ? (
-            <div className="prefs-section-hint">Loading...</div>
+            <div className={ls.sectionHint}>Loading...</div>
           ) : staples.length === 0 ? (
-            <div className="prefs-section-hint">No staples yet</div>
+            <div className={ls.sectionHint}>No staples yet</div>
           ) : (
-            <div className="prefs-list">
+            <div className={ls.list}>
               {Object.keys(stapleGroups).sort().map(group => (
                 <div key={group}>
-                  <div className="prefs-list-group">{group}</div>
+                  <div className={ls.listGroup}>{group}</div>
                   {stapleGroups[group].map(s => (
-                    <div key={`${s.type}-${s.id}`} className="prefs-list-item">
-                      <span className="prefs-list-name">{s.name}</span>
+                    <div key={`${s.type}-${s.id}`} className={ls.listItem}>
+                      <span className={ls.listName}>{s.name}</span>
                       <button
                         className="recat-btn"
                         title="Change category"
@@ -459,7 +460,7 @@ export default function MyKitchenSheet({ onClose }) {
                           Keep on hand
                         </button>
                       </div>
-                      <button className="prefs-remove" onClick={() => {
+                      <button className={ls.remove} onClick={() => {
                         if (s.type === 'regular') handleRemoveRegular(s.id)
                         else handleRemovePantry(s.id)
                       }}>{'\u00D7'}</button>
@@ -473,13 +474,13 @@ export default function MyKitchenSheet({ onClose }) {
       )}
       {activeTab === 'ratings' && (
         <div className="kitchen-tab-content">
-          <div className="prefs-section-hint">Products you've purchased. Rate them after you've tried them.</div>
+          <div className={ls.sectionHint}>Products you've purchased. Rate them after you've tried them.</div>
           {purchases === null ? (
-            <div className="prefs-section-hint">Loading...</div>
+            <div className={ls.sectionHint}>Loading...</div>
           ) : purchases.length === 0 ? (
-            <div className="prefs-section-hint">No purchase history yet. Upload a receipt after a shopping trip.</div>
+            <div className={ls.sectionHint}>No purchase history yet. Upload a receipt after a shopping trip.</div>
           ) : (
-            <div className="prefs-list">
+            <div className={ls.list}>
               {(() => {
                 const byWeek = {}
                 for (const p of purchases) {
@@ -489,15 +490,15 @@ export default function MyKitchenSheet({ onClose }) {
                 }
                 return Object.entries(byWeek).map(([week, items]) => (
                   <div key={week}>
-                    <div className="prefs-list-group">{week}</div>
+                    <div className={ls.listGroup}>{week}</div>
                     {items.map((p, i) => {
                       const desc = p.receipt_item || p.product_name || p.name
                       const brand = p.product_brand || p.brand || ''
                       const price = p.receipt_price ?? p.product_price
                       return (
-                        <div key={`${p.product_key || p.name}-${i}`} className="prefs-list-item history-item">
+                        <div key={`${p.product_key || p.name}-${i}`} className={`${ls.listItem} history-item`}>
                           <div className="history-item-info">
-                            <span className="prefs-list-name">{desc}</span>
+                            <span className={ls.listName}>{desc}</span>
                             {desc !== p.name && <div className="history-item-detail">{p.name}</div>}
                             <div className="history-item-meta">
                               {brand && <span>{brand}</span>}

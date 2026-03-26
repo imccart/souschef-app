@@ -1,6 +1,7 @@
 import { useState, useEffect } from 'react'
 import { api } from '../api/client'
 import Sheet from './Sheet'
+import ls from '../shared/lists.module.css'
 
 function AccordionSection({ title, count, children, defaultOpen = false }) {
   const [open, setOpen] = useState(defaultOpen)
@@ -153,9 +154,9 @@ export default function PreferencesSheet({ onClose }) {
         <AccordionSection title="About You">
           <div className="prefs-account-field">
             <label className="prefs-field-label">Name</label>
-            <div className="prefs-add-row">
+            <div className={ls.addRow}>
               <input
-                className="prefs-add-input"
+                className={ls.addInput}
                 type="text"
                 placeholder="Your name"
                 value={displayName}
@@ -169,7 +170,7 @@ export default function PreferencesSheet({ onClose }) {
             <label className="prefs-field-label">Email</label>
             <div className="prefs-field-value">{userEmail}</div>
           </div>
-          <button className="prefs-logout" onClick={async () => {
+          <button className={ls.logout} onClick={async () => {
             await api.logout()
             localStorage.removeItem('souschef_onboarded')
             localStorage.removeItem('souschef_welcomed')
@@ -183,7 +184,7 @@ export default function PreferencesSheet({ onClose }) {
         <AccordionSection title="Online Ordering">
           <div className="prefs-integration-block">
             {krogerConnected === null ? (
-              <div className="prefs-list-meta">Checking connection...</div>
+              <div className={ls.listMeta}>Checking connection...</div>
             ) : krogerConnected ? (
               <>
                 <div className="prefs-integration-connected">
@@ -194,7 +195,7 @@ export default function PreferencesSheet({ onClose }) {
                 <div className="prefs-kroger-store">
                   {krogerLocationId ? (
                     <div className="prefs-kroger-selected">
-                      <span className="prefs-list-meta">
+                      <span className={ls.listMeta}>
                         Store: {krogerLocationName || `#${krogerLocationId}`}
                       </span>
                       <button className="prefs-disconnect" onClick={() => { setKrogerLocationId(''); setKrogerLocationName(''); setStoreResults(null) }}>
@@ -203,10 +204,10 @@ export default function PreferencesSheet({ onClose }) {
                     </div>
                   ) : (
                     <>
-                      <div className="prefs-section-hint" style={{ marginTop: 8 }}>Select your Kroger store</div>
-                      <form onSubmit={handleSearchStores} className="prefs-add-row">
+                      <div className={ls.sectionHint} style={{ marginTop: 8 }}>Select your Kroger store</div>
+                      <form onSubmit={handleSearchStores} className={ls.addRow}>
                         <input
-                          className="prefs-add-input"
+                          className={ls.addInput}
                           type="text"
                           placeholder="Zip code..."
                           value={storeZip}
@@ -219,15 +220,15 @@ export default function PreferencesSheet({ onClose }) {
                         </button>
                       </form>
                       {storeResults && storeResults.length === 0 && (
-                        <div className="prefs-section-hint">No stores found near that zip.</div>
+                        <div className={ls.sectionHint}>No stores found near that zip.</div>
                       )}
                       {storeResults && storeResults.length > 0 && (
-                        <div className="prefs-list prefs-store-results">
+                        <div className={`${ls.list} prefs-store-results`}>
                           {storeResults.map(loc => (
-                            <div key={loc.location_id} className="prefs-list-item prefs-store-result" onClick={() => handleSelectStore(loc)}>
+                            <div key={loc.location_id} className={`${ls.listItem} prefs-store-result`} onClick={() => handleSelectStore(loc)}>
                               <div>
-                                <div className="prefs-list-name">{loc.name}</div>
-                                <div className="prefs-list-meta">{loc.address}</div>
+                                <div className={ls.listName}>{loc.name}</div>
+                                <div className={ls.listMeta}>{loc.address}</div>
                               </div>
                             </div>
                           ))}
@@ -265,7 +266,7 @@ export default function PreferencesSheet({ onClose }) {
               </>
             )}
           </div>
-          <div className="prefs-section-hint">More integrations coming soon.</div>
+          <div className={ls.sectionHint}>More integrations coming soon.</div>
         </AccordionSection>
 
         {/* Price Tracking */}
@@ -303,24 +304,24 @@ export default function PreferencesSheet({ onClose }) {
 
         {/* Behind the Label */}
         <AccordionSection title="Behind the Label">
-          <div className="prefs-list">
-            <div className="prefs-list-item">
-              <span className="prefs-list-name">NOVA processing scores</span>
-              <span className="prefs-list-meta">On</span>
+          <div className={ls.list}>
+            <div className={ls.listItem}>
+              <span className={ls.listName}>NOVA processing scores</span>
+              <span className={ls.listMeta}>On</span>
             </div>
             <div className="prefs-btl-info">
               Classifies foods by processing level (1 = unprocessed, 4 = ultra-processed). Data from <a href="https://world.openfoodfacts.org" target="_blank" rel="noopener noreferrer">Open Food Facts</a>.
             </div>
-            <div className="prefs-list-item">
-              <span className="prefs-list-name">Nutri-Score</span>
-              <span className="prefs-list-meta">On</span>
+            <div className={ls.listItem}>
+              <span className={ls.listName}>Nutri-Score</span>
+              <span className={ls.listMeta}>On</span>
             </div>
             <div className="prefs-btl-info">
               Rates overall nutritional quality from A (best) to E. Data from <a href="https://world.openfoodfacts.org" target="_blank" rel="noopener noreferrer">Open Food Facts</a>.
             </div>
-            <div className="prefs-list-item">
-              <span className="prefs-list-name">Brand ownership</span>
-              <span className="prefs-list-meta">On</span>
+            <div className={ls.listItem}>
+              <span className={ls.listName}>Brand ownership</span>
+              <span className={ls.listMeta}>On</span>
             </div>
             <div className="prefs-btl-info">
               Shows the parent company behind each brand, so you know who you're buying from.
@@ -331,23 +332,23 @@ export default function PreferencesSheet({ onClose }) {
         {/* Household & Sharing */}
         <AccordionSection title="Household" count={members?.length || 0}>
           {members && members.length > 0 && (
-            <div className="prefs-list">
+            <div className={ls.list}>
               {members.map(m => (
-                <div key={m.user_id} className="prefs-list-item">
-                  <span className="prefs-list-name">
+                <div key={m.user_id} className={ls.listItem}>
+                  <span className={ls.listName}>
                     {m.display_name}{m.is_you ? ' (you)' : ''}
                   </span>
-                  <span className="prefs-list-meta">{m.role}</span>
+                  <span className={ls.listMeta}>{m.role}</span>
                 </div>
               ))}
             </div>
           )}
-          <div className="prefs-section-hint">
+          <div className={ls.sectionHint}>
             Invite someone to share meals and grocery lists.
           </div>
-          <form onSubmit={handleHouseholdInvite} className="prefs-add-row">
+          <form onSubmit={handleHouseholdInvite} className={ls.addRow}>
             <input
-              className="prefs-add-input"
+              className={ls.addInput}
               type="email"
               placeholder="Their email..."
               value={householdEmail}
@@ -364,12 +365,12 @@ export default function PreferencesSheet({ onClose }) {
 
         {/* Invite a Friend */}
         <AccordionSection title="Invite a Friend">
-          <div className="prefs-section-hint">
+          <div className={ls.sectionHint}>
             Know someone who'd like souschef? Give them their own account.
           </div>
-          <form onSubmit={handleBetaInvite} className="prefs-add-row">
+          <form onSubmit={handleBetaInvite} className={ls.addRow}>
             <input
-              className="prefs-add-input"
+              className={ls.addInput}
               type="email"
               placeholder="Their email..."
               value={betaEmail}

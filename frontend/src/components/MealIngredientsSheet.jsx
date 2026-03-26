@@ -2,6 +2,7 @@ import { useState, useEffect } from 'react'
 import { api } from '../api/client'
 import Sheet from './Sheet'
 import AutocompleteInput from './AutocompleteInput'
+import ls from '../shared/lists.module.css'
 
 function IngredientSection({ title, recipeId, allIngredients }) {
   const [ingredients, setIngredients] = useState(null)
@@ -54,14 +55,14 @@ function IngredientSection({ title, recipeId, allIngredients }) {
               {ingredients.map(ing => (
                 <div key={ing.id} className="meal-ing-item">
                   <span>{ing.name}</span>
-                  <button className="prefs-remove" onClick={() => handleRemove(ing.id)}>{'\u00D7'}</button>
+                  <button className={ls.remove} onClick={() => handleRemove(ing.id)}>{'\u00D7'}</button>
                 </div>
               ))}
             </div>
           ) : (
             <div className="meal-ing-empty">No ingredients yet</div>
           )}
-          <div className="prefs-add-row">
+          <div className={ls.addRow}>
             <AutocompleteInput
               value={addText}
               onChange={setAddText}
@@ -69,11 +70,11 @@ function IngredientSection({ title, recipeId, allIngredients }) {
               candidates={allIngredients || []}
               exclude={existingNames}
               placeholder="Add ingredient..."
-              inputClassName="prefs-add-input"
+              inputClassName={ls.addInput}
             />
             <button className="btn primary" onClick={() => addText.trim() && handleAdd(addText)}>+</button>
           </div>
-          {renamed && <div className="prefs-renamed-hint">"{renamed.from}" added as "{renamed.to}"</div>}
+          {renamed && <div className={ls.renamedHint}>"{renamed.from}" added as "{renamed.to}"</div>}
         </>
       )}
     </div>
