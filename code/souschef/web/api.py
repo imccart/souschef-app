@@ -771,9 +771,14 @@ def _ensure_active_trip(conn, mw, user_id: str):
         # Refresh meal-sourced items (meals may have changed) but preserve extras and checked state
         _refresh_trip_meal_items(conn, trip["id"], mw, user_id)
 
-    # Prune items checked/removed more than 3 days ago
+    # Prune checked/removed items older than 3 days.
+    # Only prune non-meal items (extras, regulars). Meal-sourced items are
+    # managed by _refresh_trip_meal_items which preserves checked state and
+    # cleans up when meals leave the plan. Pruning meal items causes them to
+    # be re-added as active on the next refresh.
     conn.execute(
         text("""DELETE FROM trip_items WHERE trip_id = :tid
+           AND source != 'meal'
            AND (checked = 1 OR have_it = 1 OR removed = 1)
            AND COALESCE(checked_at, have_it_at, removed_at)::timestamptz < NOW() - INTERVAL '3 days'"""),
         {"tid": trip["id"]},
