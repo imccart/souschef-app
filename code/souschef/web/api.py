@@ -2436,48 +2436,39 @@ async def dismiss_extra(body: dict, request: Request):
 
 @router.get("/purchases")
 async def get_purchases(request: Request):
-    """Get purchase history — confirmed receipt matches with ratings, grouped by date."""
-    from souschef.kroger import get_product_ratings, _make_product_key
-
+    """Get purchase history from permanent tables (survives trip item pruning)."""
     user_id = request.state.user_id
     conn = _conn()
 
-    # Get all confirmed purchases across all trips for this user
+    # Pull from product_preferences (every product the user has interacted with)
+    # joined with product_ratings for thumbs up/down
     rows = conn.execute(
-        text("""SELECT ti.name, ti.receipt_item, ti.receipt_price, ti.receipt_upc,
-               ti.product_upc, ti.product_name, ti.product_brand, ti.product_size,
-               ti.product_price, ti.product_image, ti.receipt_status, ti.checked_at,
-               ti.submitted_at
-           FROM trip_items ti
-           JOIN grocery_trips gt ON gt.id = ti.trip_id
-           WHERE gt.user_id = :uid
-           AND ti.receipt_status IN ('matched', 'substituted')
-           ORDER BY COALESCE(ti.checked_at, ti.submitted_at) DESC NULLS LAST, ti.name"""),
+        text("""SELECT pp.search_term, pp.upc, pp.product_description, pp.size,
+               pp.times_picked, pp.last_picked, pp.source, pp.rating,
+               pp.brand, pp.product_key
+           FROM product_preferences pp
+           WHERE pp.user_id = :uid
+           ORDER BY pp.last_picked DESC NULLS LAST, pp.product_description"""),
         {"uid": user_id},
     ).fetchall()
 
     purchases = []
     for r in rows:
-        upc = r["receipt_upc"] or r["product_upc"] or ""
-        brand = r["product_brand"] or ""
-        desc = r["receipt_item"] or r["product_name"] or ""
-        pk = _make_product_key(upc, brand, desc)
-        ratings = get_product_ratings(conn, upc, user_id, product_key=pk)
         purchases.append({
-            "name": r["name"],
-            "receipt_item": r["receipt_item"],
-            "receipt_price": r["receipt_price"],
-            "product_name": r["product_name"],
-            "product_brand": r["product_brand"],
-            "product_size": r["product_size"],
-            "product_price": r["product_price"],
-            "product_image": r["product_image"],
-            "receipt_status": r["receipt_status"],
-            "product_key": pk,
-            "upc": upc,
-            "brand": brand,
-            "rating": ratings["your_rating"],
-            "date": r["checked_at"] or r["submitted_at"] or "",
+            "name": r["search_term"],
+            "receipt_item": r["product_description"],
+            "receipt_price": None,
+            "product_name": r["product_description"],
+            "product_brand": r["brand"],
+            "product_size": r["size"],
+            "product_price": None,
+            "product_image": "",
+            "receipt_status": r["source"],
+            "product_key": r["product_key"],
+            "upc": r["upc"],
+            "brand": r["brand"],
+            "rating": r["rating"],
+            "date": r["last_picked"] or "",
         })
 
     return {"purchases": purchases}
