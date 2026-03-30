@@ -54,6 +54,11 @@ export default function AutocompleteInput({
     setShowSuggestions(false)
     setSelectedIndex(-1)
     inputRef.current?.blur()
+    // Swallow the click event that follows pointerdown — it would land on
+    // whatever element is now under the finger after the dropdown disappears.
+    const swallow = (e) => { e.stopPropagation(); e.preventDefault() }
+    document.addEventListener('click', swallow, { capture: true, once: true })
+    setTimeout(() => document.removeEventListener('click', swallow, { capture: true }), 100)
   }
 
   const handleKeyDown = (e) => {

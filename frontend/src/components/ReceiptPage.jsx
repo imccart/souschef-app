@@ -1,4 +1,4 @@
-import { useState, useEffect } from 'react'
+import { useState, useEffect, useRef } from 'react'
 import { api } from '../api/client'
 import FeedbackFab from './FeedbackFab'
 import CameraCapture from './CameraCapture'
@@ -85,7 +85,7 @@ export default function ReceiptPage() {
       if (!res.ok) throw new Error(`${res.status} ${res.statusText}`)
       const result = await res.json()
       setUploadResult(result)
-      if (result.ok) loadReceipt()
+      if (result.ok) { uploadJustFinished.current = true; loadReceipt() }
     } catch (err) {
       setUploadResult({ ok: false, error: err.message })
     }
@@ -159,6 +159,16 @@ export default function ReceiptPage() {
       }
     } catch { /* ignore */ }
   }
+
+  // Auto-expand first unconfirmed match after upload
+  const uploadJustFinished = useRef(false)
+  useEffect(() => {
+    if (uploadJustFinished.current && receipt) {
+      const firstUnconfirmed = receipt.matched.find(i => !i.checked)
+      if (firstUnconfirmed) setExpandedItem(`match-${firstUnconfirmed.name}`)
+      uploadJustFinished.current = false
+    }
+  }, [receipt])
 
   if (loadError) return <><div className="loading">Something went wrong loading receipts. Try refreshing.</div><FeedbackFab page="receipt" /></>
   if (!receipt) return <><div className="loading">Checking the tab...</div><FeedbackFab page="receipt" /></>
@@ -269,6 +279,9 @@ export default function ReceiptPage() {
       {unmatchedMatches.length > 0 && (
         <div className={styles.receiptSection}>
           <div className={styles.receiptSectionLabel}>Matched ({unmatchedMatches.length})</div>
+          {unmatchedMatches.length > 0 && (
+            <div className={styles.receiptHint}>Tap each item to confirm or reject the match.</div>
+          )}
           {unmatchedMatches.map(item => {
             const key = `match-${item.name}`
             const isExpanded = expandedItem === key

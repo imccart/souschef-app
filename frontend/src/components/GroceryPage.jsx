@@ -663,7 +663,7 @@ export default function GroceryPage({ sidebar = false }) {
               {recently_checked.map(r => (
                 <div key={r.name} className={styles.recentlyCheckedItem}>
                   <span>{r.name}</span>
-                  <span className={styles.recentlyCheckedType}>{r.type === 'bought' ? 'Bought' : r.type === 'removed' ? 'Removed' : 'Have it'}</span>
+                  <span className={styles.recentlyCheckedType}>{r.type === 'bought' ? 'Bought' : r.type === 'removed' ? 'Removed' : r.type === 'ordered' ? 'Ordered' : 'Have it'}</span>
                   <button className={styles.recentlyCheckedUndo} onClick={() => handleUndoRecent(r.name)}>Undo</button>
                 </div>
               ))}

@@ -908,6 +908,14 @@ async def get_grocery(request: Request):
         if r["ordered"]:
             ordered_names.append(r["name"].lower())
         try:
+            submitted = r["submitted_at"]
+            if submitted and not r["checked"]:
+                t = _parse_ts(submitted)
+                if t and t > cutoff:
+                    recently_checked.append({"name": r["name"], "type": "ordered"})
+        except (KeyError, Exception):
+            pass
+        try:
             if r["have_it"]:
                 have_it_names.append(r["name"].lower())
                 t = _parse_ts(r["have_it_at"] if "have_it_at" in r.keys() else None)
