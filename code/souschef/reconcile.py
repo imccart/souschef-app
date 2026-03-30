@@ -54,11 +54,25 @@ def _load_image_for_api(image_path: str) -> tuple[str, str]:
     return base64.standard_b64encode(raw).decode("utf-8"), media_type
 
 
+_skip_patterns = re.compile(
+    r"(?i)(savings|your\s+sav|total\s+sav|"
+    r"^sc\s|tax\b|balance\s*due|"
+    r"visa|mastercard|debit|credit|"
+    r"change\b|payment|tender|cash\b|"
+    r"subtotal|total\b|"
+    r"ebt\b|wic\b|snap\b|"
+    r"^\d{4}\s*\*+|"
+    r"you\s+saved|member\s+sav|"
+    r"rewards?\b|points?\b|"
+    r"store\s*#|cashier|register)",
+)
+
+
 def parse_receipt_image(image_path: str, grocery_names: list[str] | None = None) -> list[dict]:
     """Parse a receipt image using Claude Vision (two-step pipeline).
 
     Step 1: Pure OCR — extract raw text lines and prices from the image.
-    Step 2: Text-only decode + match — decode abbreviations and match to grocery list.
+    Step 2: Match raw lines against grocery list (no decoding).
 
     Returns list of {item, raw, qty, price, grocery_match?}.
     """
@@ -85,11 +99,15 @@ def parse_receipt_image(image_path: str, grocery_names: list[str] | None = None)
                     "text": (
                         "Extract every PURCHASED ITEM from this grocery receipt. Copy the product name "
                         "EXACTLY as printed — do NOT decode abbreviations, do NOT guess what words mean.\n\n"
-                        "ITEM lines have: abbreviated product name, then a price (like 3.67), "
-                        "then usually a tax letter (B, T, or F).\n\n"
-                        "SKIP all non-item lines: savings/coupons (SC lines, SAVINGS, PLUS), "
-                        "negative prices, quantity/weight lines (@ or lb), "
-                        "TAX/TOTAL/BALANCE, payment lines, store header/footer.\n\n"
+                        "ITEM lines have: an abbreviated product name followed by a price.\n\n"
+                        "SKIP all non-item lines:\n"
+                        "- Savings, coupons, discounts (SC lines, SAVINGS, PLUS, negative amounts)\n"
+                        "- Quantity/weight sub-lines (lines with @ or lb)\n"
+                        "- Tax lines (REGULAR TAX, FOOD TAX, TAX, etc.)\n"
+                        "- Totals (SUBTOTAL, TOTAL, BALANCE DUE, etc.)\n"
+                        "- Payment lines (VISA, DEBIT, CASH, PAYMENT, CHANGE, TENDER, EBT, etc.)\n"
+                        "- Store header/footer, cashier info, date/time, barcodes\n\n"
+                        "If in doubt whether a line is a product or store metadata, SKIP IT.\n\n"
                         "Return ONLY a JSON array (no markdown). Each object:\n"
                         '{"raw": "EXACT text as printed", "price": 3.67}'
                     ),
@@ -104,17 +122,10 @@ def parse_receipt_image(image_path: str, grocery_names: list[str] | None = None)
         return []
 
     # Filter out non-item lines that OCR may have included
-    _skip_patterns = re.compile(
-        r"(?i)(savings|your\s+sav|total\s+sav|"
-        r"^sc\s|^tax\b|balance\s*due|"
-        r"visa|debit|credit|change\s*due|"
-        r"subtotal|total\b)",
-    )
     filtered = []
     for item in ocr_items:
         raw = item.get("raw", "")
         price = item.get("price")
-        # Skip negative prices (discounts/refunds)
         if isinstance(price, (int, float)) and price < 0:
             print(f"[receipt]   SKIP (negative): {raw!r}", flush=True)
             continue
@@ -131,78 +142,69 @@ def parse_receipt_image(image_path: str, grocery_names: list[str] | None = None)
     for item in ocr_items:
         print(f"[receipt]   raw={item.get('raw', '?')!r}  price={item.get('price', '?')}", flush=True)
 
-    # ── Step 2: Decode abbreviations + match to grocery list (text-only) ──
+    # ── Step 2: Match raw lines against grocery list (no decoding) ──
+    if not grocery_names:
+        # No grocery list — return raw OCR items without matching
+        return [
+            {"item": item.get("raw", ""), "raw": item.get("raw", ""),
+             "price": item.get("price"), "qty": 1}
+            for item in ocr_items
+        ]
+
     raw_lines = [item.get("raw", "") for item in ocr_items]
-
-    if grocery_names:
-        decode_prompt = (
-            "I have raw text lines from a grocery receipt and my shopping list. "
-            "For each receipt line:\n"
-            "1. Decode the abbreviation into the full product name\n"
-            "2. Decide if it matches something on my grocery list\n\n"
-            "MATCHING RULE: A match means the receipt product IS the grocery list item. "
-            "If I wrote this on my shopping list, would I grab this exact product to fulfill it? "
-            "The product must be the same CATEGORY of food, not just share a word.\n\n"
-            "Most receipt items will NOT match anything on the list — that is expected. "
-            "Set grocery_match to null for anything you're not confident about. "
-            "A wrong match is much worse than a missed match.\n\n"
-            f"Receipt lines: {json.dumps(raw_lines)}\n"
-            f"Grocery list: {json.dumps(grocery_names)}\n\n"
-            "Return ONLY valid JSON (no markdown):\n"
-            '{"items": [{"raw": "exact receipt text", "decoded": "full product name", '
-            '"grocery_match": "grocery list item or null"}]}'
-        )
-    else:
-        decode_prompt = (
-            "Decode these grocery receipt abbreviations into full product names.\n\n"
-            f"Receipt lines: {json.dumps(raw_lines)}\n\n"
-            "Return ONLY a JSON array (no markdown). Each object:\n"
-            '{"raw": "exact receipt text", "decoded": "full product name"}'
-        )
-
-    decode_response = client.messages.create(
-        model="claude-sonnet-4-20250514",
-        max_tokens=2048,
-        messages=[{"role": "user", "content": decode_prompt}],
-    )
-
-    decoded = _extract_json(decode_response.content[0].text)
-
-    # Build price lookup from OCR step
     price_by_raw = {item.get("raw", ""): item.get("price") for item in ocr_items}
 
-    if grocery_names and isinstance(decoded, dict):
-        items = []
-        for d in decoded.get("items", []):
-            raw = d.get("raw", "")
-            entry = {
-                "item": d.get("decoded", raw),
-                "raw": raw,
-                "price": price_by_raw.get(raw, d.get("price")),
-                "qty": 1,
-            }
-            match = d.get("grocery_match")
-            if match and match != "null" and match.lower() != "null":
-                entry["grocery_match"] = match
-                print(f"[receipt]   matched: {raw!r} → {d.get('decoded', '?')!r} → {match!r}", flush=True)
-            else:
-                print(f"[receipt]   extra: {raw!r} → {d.get('decoded', '?')!r}", flush=True)
-            items.append(entry)
-        return items
+    match_prompt = (
+        "I have raw text lines from a grocery receipt and my shopping list. "
+        "Tell me which receipt lines match something on my shopping list.\n\n"
+        "Do NOT try to decode abbreviations — just look for recognizable words "
+        "in the raw text that correspond to a grocery list item. "
+        "For example, 'PB LG CANOLA OIL' clearly contains 'CANOLA OIL' "
+        "and would match 'canola oil' on the list.\n\n"
+        "MATCHING RULE: A match means the receipt product IS the grocery list item. "
+        "The product must be the same CATEGORY of food, not just share a word. "
+        "Most receipt lines will NOT match — that is expected and correct.\n\n"
+        "A wrong match is MUCH worse than a missed match. "
+        "Only include matches you are confident about.\n\n"
+        f"Receipt lines: {json.dumps(raw_lines)}\n"
+        f"Grocery list: {json.dumps(grocery_names)}\n\n"
+        "Return ONLY valid JSON (no markdown). Include ONLY matched items:\n"
+        '[{"raw": "exact receipt text", "grocery_match": "exact grocery list item"}]'
+    )
 
-    if isinstance(decoded, list):
-        items = []
-        for d in decoded:
-            raw = d.get("raw", "")
-            items.append({
-                "item": d.get("decoded", raw),
-                "raw": raw,
-                "price": price_by_raw.get(raw, d.get("price")),
-                "qty": 1,
-            })
-        return items
+    match_response = client.messages.create(
+        model="claude-sonnet-4-20250514",
+        max_tokens=2048,
+        messages=[{"role": "user", "content": match_prompt}],
+    )
 
-    return []
+    matches = _extract_json(match_response.content[0].text)
+    if not isinstance(matches, list):
+        matches = []
+
+    # Build results — only matched items
+    items = []
+    for m in matches:
+        raw = m.get("raw", "")
+        grocery = m.get("grocery_match", "")
+        if not grocery or grocery.lower() == "null":
+            continue
+        # Verify the grocery_match is actually on the list (prevent hallucinated list items)
+        grocery_lower = grocery.lower()
+        if not any(g.lower() == grocery_lower for g in grocery_names):
+            print(f"[receipt]   SKIP (not on list): {raw!r} → {grocery!r}", flush=True)
+            continue
+        items.append({
+            "item": grocery,  # Use grocery list name for display (clean, readable)
+            "raw": raw,
+            "price": price_by_raw.get(raw),
+            "qty": 1,
+            "grocery_match": grocery,
+        })
+        print(f"[receipt]   matched: {raw!r} → {grocery!r}", flush=True)
+
+    print(f"[receipt] {len(items)} matched out of {len(ocr_items)} OCR lines", flush=True)
+    return items
 
 
 def parse_receipt_text(text: str) -> list[dict]:
