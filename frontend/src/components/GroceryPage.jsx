@@ -28,6 +28,8 @@ function SwipeableItem({ children, onSwipeRight, className }) {
     startY.current = e.touches[0].clientY
     locked.current = null
     setTransitioning(false)
+    // Stop propagation so useSwipeNav (on <main>) doesn't compete
+    e.stopPropagation()
   }, [])
 
   const onTouchMove = useCallback((e) => {
