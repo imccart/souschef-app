@@ -21,6 +21,7 @@ function SwipeableItem({ children, onSwipeRight, className }) {
   const startX = useRef(null)
   const startY = useRef(null)
   const locked = useRef(null)
+  const lastDx = useRef(0)
   const swipeRef = useRef(onSwipeRight)
   swipeRef.current = onSwipeRight
   const [offsetX, setOffsetX] = useState(0)
@@ -34,6 +35,7 @@ function SwipeableItem({ children, onSwipeRight, className }) {
       startX.current = e.touches[0].clientX
       startY.current = e.touches[0].clientY
       locked.current = null
+      lastDx.current = 0
       setTransitioning(false)
       e.stopPropagation()
     }
@@ -51,15 +53,16 @@ function SwipeableItem({ children, onSwipeRight, className }) {
 
       e.preventDefault()
       e.stopPropagation()
-      setOffsetX(Math.max(0, dx))
+      lastDx.current = Math.max(0, dx)
+      setOffsetX(lastDx.current)
     }
 
     const handleEnd = (e) => {
       if (startX.current === null) return
-      const dx = e.changedTouches[0].clientX - startX.current
       startX.current = null
       startY.current = null
 
+      const dx = lastDx.current
       if (locked.current === 'horizontal') {
         e.stopPropagation()
       }
@@ -80,13 +83,25 @@ function SwipeableItem({ children, onSwipeRight, className }) {
       }
     }
 
+    const handleCancel = () => {
+      startX.current = null
+      startY.current = null
+      locked.current = null
+      lastDx.current = 0
+      setTransitioning(true)
+      setOffsetX(0)
+      setTimeout(() => setTransitioning(false), 150)
+    }
+
     el.addEventListener('touchstart', handleStart, { passive: false })
     el.addEventListener('touchmove', handleMove, { passive: false })
     el.addEventListener('touchend', handleEnd, { passive: false })
+    el.addEventListener('touchcancel', handleCancel)
     return () => {
       el.removeEventListener('touchstart', handleStart)
       el.removeEventListener('touchmove', handleMove)
       el.removeEventListener('touchend', handleEnd)
+      el.removeEventListener('touchcancel', handleCancel)
     }
   }, [])
 
