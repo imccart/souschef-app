@@ -35,7 +35,7 @@ if DATABASE_URL.startswith("postgres://"):
 
 engine = create_engine(
     DATABASE_URL, echo=False, pool_pre_ping=True,
-    pool_size=10, max_overflow=5, pool_timeout=30,
+    pool_size=20, max_overflow=10, pool_timeout=30,
 )
 
 metadata = MetaData()
