@@ -822,9 +822,9 @@ def _refresh_trip_meal_items(conn, trip_id: int, mw, user_id: str) -> None:
     ).fetchall()
     existing_map = {r["name"].lower(): r for r in existing}
 
-    # Remove meal items no longer needed (but preserve items with receipt data or removed flag)
+    # Remove meal items no longer needed (preserve items with receipt data only)
     for name_lower, row in existing_map.items():
-        if name_lower not in fresh_meal_items and not row["receipt_status"] and not row["removed"]:
+        if name_lower not in fresh_meal_items and not row["receipt_status"]:
             conn.execute(
                 text("DELETE FROM trip_items WHERE id = :id"),
                 {"id": row["id"]},
@@ -969,7 +969,8 @@ async def add_grocery_item(body: dict, request: Request):
              checked = 0, checked_at = NULL,
              have_it = 0, have_it_at = NULL,
              removed = 0, removed_at = NULL,
-             shopping_group = :group"""),
+             shopping_group = :group,
+             source = 'extra', for_meals = '', meal_count = 0"""),
         {"trip_id": trip["id"], "name": name, "group": group},
     )
     conn.commit()
