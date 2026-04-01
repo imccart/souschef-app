@@ -14,6 +14,11 @@ export default function useSwipeNav(pages, currentPage, setPage) {
   const idx = pages.indexOf(currentPage)
 
   const onTouchStart = useCallback((e) => {
+    // Don't compete with swipeable elements (Walk the Aisles, grocery items)
+    if (e.target.closest('[data-swipeable]')) {
+      startX.current = null
+      return
+    }
     startX.current = e.touches[0].clientX
     startY.current = e.touches[0].clientY
     locked.current = null

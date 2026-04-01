@@ -114,7 +114,7 @@ function SwipeableItem({ children, onSwipeRight, className }) {
     : undefined
 
   return (
-    <div ref={elRef} className={className} style={style}>
+    <div ref={elRef} className={className} style={style} data-swipeable>
       {children}
     </div>
   )
