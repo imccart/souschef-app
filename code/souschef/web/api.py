@@ -2788,11 +2788,11 @@ async def get_recipe_ingredients(recipe_id: int, request: Request):
 
     # Verify recipe belongs to this user
     own = conn.execute(
-        text("SELECT id FROM recipes WHERE id = :id AND user_id = :user_id"),
+        text("SELECT id, notes FROM recipes WHERE id = :id AND user_id = :user_id"),
         {"id": recipe_id, "user_id": user_id},
     ).fetchone()
     if not own:
-        return {"ingredients": []}
+        return {"ingredients": [], "cooking_notes": ""}
 
     rows = conn.execute(
         text("""SELECT ri.id, i.name, i.aisle
@@ -2802,7 +2802,26 @@ async def get_recipe_ingredients(recipe_id: int, request: Request):
            ORDER BY i.name"""),
         {"recipe_id": recipe_id},
     ).fetchall()
-    return {"ingredients": [{"id": r["id"], "name": r["name"], "aisle": r["aisle"]} for r in rows]}
+    try:
+        cooking_notes = own["notes"] or ""
+    except Exception:
+        cooking_notes = ""
+    return {"ingredients": [{"id": r["id"], "name": r["name"], "aisle": r["aisle"]} for r in rows],
+            "cooking_notes": cooking_notes}
+
+
+@router.post("/recipes/{recipe_id}/notes")
+async def update_recipe_notes(recipe_id: int, body: dict, request: Request):
+    """Save cooking notes for a recipe."""
+    conn = _conn()
+    user_id = request.state.user_id
+    notes = body.get("notes", "")
+    conn.execute(
+        text("UPDATE recipes SET notes = :notes WHERE id = :id AND user_id = :user_id"),
+        {"notes": notes, "id": recipe_id, "user_id": user_id},
+    )
+    conn.commit()
+    return {"ok": True}
 
 
 @router.post("/recipes/{recipe_id}/ingredients")

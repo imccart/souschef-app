@@ -38,6 +38,8 @@ export default function PlanPage({ showHeader = true, onLoad, onNavigate }) {
   const [ingredientsMeal, setIngredientsMeal] = useState(null)
   const [erasing, setErasing] = useState(false)
   const [noteText, setNoteText] = useState('')
+  const [cookingNotes, setCookingNotes] = useState('')
+  const [showCookingNotes, setShowCookingNotes] = useState(false)
 
   // Touch drag refs
   const touchDragFrom = useRef(null)
@@ -163,6 +165,13 @@ export default function PlanPage({ showHeader = true, onLoad, onNavigate }) {
       setActionDate(date)
       const day = data?.days?.find(d => d.date === date)
       setNoteText(day?.meal?.notes || '')
+      setShowCookingNotes(false)
+      setCookingNotes('')
+      if (day?.meal?.recipe_id) {
+        api.getRecipeIngredients(day.meal.recipe_id)
+          .then(r => setCookingNotes(r.cooking_notes || ''))
+          .catch(() => {})
+      }
     }
   }
 
@@ -423,6 +432,32 @@ export default function PlanPage({ showHeader = true, onLoad, onNavigate }) {
                   <div className="sheet-opt-desc">View or edit what goes into this meal</div>
                 </div>
               </button>
+              {!actionIsFreeform && (
+                <button className="sheet-option" onClick={() => setShowCookingNotes(!showCookingNotes)}>
+                  <div className="sheet-opt-icon">{'\u{1F4DD}'}</div>
+                  <div>
+                    <div className="sheet-opt-title">Cooking notes</div>
+                    <div className="sheet-opt-desc">{cookingNotes ? 'View or edit cooking tips' : 'Add tips for how to cook this'}</div>
+                  </div>
+                </button>
+              )}
+              {showCookingNotes && (
+                <div className="sheet-note">
+                  <textarea
+                    className="note-input"
+                    placeholder="e.g., Cook sausage first, then add beans and broth..."
+                    value={cookingNotes}
+                    rows={3}
+                    onChange={(e) => setCookingNotes(e.target.value)}
+                    onBlur={() => {
+                      if (actionMeal.recipe_id) {
+                        api.updateRecipeNotes(actionMeal.recipe_id, cookingNotes).catch(() => {})
+                      }
+                    }}
+                    style={{ resize: 'vertical', fontFamily: 'inherit' }}
+                  />
+                </div>
+              )}
               <button className="sheet-option" onClick={() => handleFreeform(actionDate, 'Nothing Planned')}>
                 <div className="sheet-opt-icon">{'\u{1F44B}'}</div>
                 <div>

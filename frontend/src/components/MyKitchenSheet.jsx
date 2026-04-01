@@ -45,6 +45,7 @@ export default function MyKitchenSheet({ onClose }) {
   const [detailIngredients, setDetailIngredients] = useState(null)
   const [detailAddText, setDetailAddText] = useState('')
   const [renamed, setRenamed] = useState(null)
+  const [cookingNotes, setCookingNotes] = useState('')
 
   useEffect(() => {
     api.getRecipes().then(data => setRecipes(data.recipes)).catch(() => setRecipes([]))
@@ -60,8 +61,12 @@ export default function MyKitchenSheet({ onClose }) {
       setDetailIngredients(null)
       setDetailAddText('')
       setRenamed(null)
+      setCookingNotes('')
       api.getRecipeIngredients(detailRecipe.id)
-        .then(data => setDetailIngredients(data.ingredients))
+        .then(data => {
+          setDetailIngredients(data.ingredients)
+          setCookingNotes(data.cooking_notes || '')
+        })
         .catch(() => setDetailIngredients([]))
     }
   }, [detailRecipe])
@@ -300,6 +305,20 @@ export default function MyKitchenSheet({ onClose }) {
             ))}
           </div>
         )}
+        <div style={{ marginTop: 20 }}>
+          <div className={ls.sectionHint} style={{ marginBottom: 6 }}>Cooking notes</div>
+          <textarea
+            className="note-input"
+            placeholder="e.g., Cook sausage first, then add beans and broth..."
+            value={cookingNotes}
+            rows={3}
+            onChange={(e) => setCookingNotes(e.target.value)}
+            onBlur={() => {
+              api.updateRecipeNotes(detailRecipe.id, cookingNotes).catch(() => {})
+            }}
+            style={{ resize: 'vertical', fontFamily: 'inherit', width: '100%', boxSizing: 'border-box' }}
+          />
+        </div>
         <button
           className={ls.logout}
           style={{ marginTop: 24 }}

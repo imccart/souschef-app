@@ -158,6 +158,10 @@ export const api = {
     body: JSON.stringify({ name }),
   }),
   removeRecipeIngredient: (recipeId, riId) => request(`/recipes/${recipeId}/ingredients/${riId}`, { method: 'DELETE' }),
+  updateRecipeNotes: (id, notes) => request(`/recipes/${id}/notes`, {
+    method: 'POST',
+    body: JSON.stringify({ notes }),
+  }),
 
   // Pantry
   getPantry: () => request('/pantry'),
