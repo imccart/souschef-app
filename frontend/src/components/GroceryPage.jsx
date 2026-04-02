@@ -1,5 +1,4 @@
 import { useState, useEffect, useRef, useCallback } from 'react'
-import { createPortal } from 'react-dom'
 import { api } from '../api/client'
 import AutocompleteInput from './AutocompleteInput'
 import BentSpoonIcon from './BentSpoonIcon'
@@ -18,105 +17,60 @@ const GROUP_ORDER = [
 const SWIPE_THRESHOLD = 50
 
 function SwipeableItem({ children, onSwipeRight, className }) {
-  const elRef = useRef(null)
   const startX = useRef(null)
   const startY = useRef(null)
   const locked = useRef(null)
-  const lastDx = useRef(0)
-  const swipeRef = useRef(onSwipeRight)
-  swipeRef.current = onSwipeRight
   const [offsetX, setOffsetX] = useState(0)
   const [transitioning, setTransitioning] = useState(false)
 
-  useEffect(() => {
-    const el = elRef.current
-    if (!el) return
-
-    const handleStart = (e) => {
-      startX.current = e.touches[0].clientX
-      startY.current = e.touches[0].clientY
-      locked.current = null
-      lastDx.current = 0
-      setTransitioning(false)
-      e.stopPropagation()
-    }
-
-    const handleMove = (e) => {
-      if (startX.current === null) return
-      const dx = e.touches[0].clientX - startX.current
-      const dy = e.touches[0].clientY - startY.current
-
-      if (locked.current === null && (Math.abs(dx) > 8 || Math.abs(dy) > 8)) {
-        locked.current = Math.abs(dx) > Math.abs(dy) ? 'horizontal' : 'vertical'
-      }
-
-      if (locked.current !== 'horizontal') return
-
-      e.preventDefault()
-      e.stopPropagation()
-      lastDx.current = Math.max(0, dx)
-      setOffsetX(lastDx.current)
-    }
-
-    const handleEnd = (e) => {
-      if (startX.current === null) return
-      startX.current = null
-      startY.current = null
-
-      const dx = lastDx.current
-      if (locked.current === 'horizontal') {
-        e.stopPropagation()
-      }
-      locked.current = null
-
-      if (dx > SWIPE_THRESHOLD) {
-        setTransitioning(true)
-        setOffsetX(300)
-        setTimeout(() => {
-          swipeRef.current()
-          setOffsetX(0)
-          setTransitioning(false)
-        }, 200)
-      } else {
-        setTransitioning(true)
-        setOffsetX(0)
-        setTimeout(() => setTransitioning(false), 150)
-      }
-    }
-
-    const handleCancel = () => {
-      const dx = lastDx.current
-      startX.current = null
-      startY.current = null
-      locked.current = null
-      lastDx.current = 0
-
-      if (dx > SWIPE_THRESHOLD) {
-        setTransitioning(true)
-        setOffsetX(300)
-        setTimeout(() => {
-          swipeRef.current()
-          setOffsetX(0)
-          setTransitioning(false)
-        }, 200)
-      } else {
-        setTransitioning(true)
-        setOffsetX(0)
-        setTimeout(() => setTransitioning(false), 150)
-      }
-    }
-
-    el.addEventListener('touchstart', handleStart, { passive: false })
-    el.addEventListener('touchmove', handleMove, { passive: false })
-    el.addEventListener('touchend', handleEnd, { passive: false })
-    el.addEventListener('touchcancel', handleCancel)
-    return () => {
-      el.removeEventListener('touchstart', handleStart)
-      el.removeEventListener('touchmove', handleMove)
-      el.removeEventListener('touchend', handleEnd)
-      el.removeEventListener('touchcancel', handleCancel)
-    }
+  const onTouchStart = useCallback((e) => {
+    startX.current = e.touches[0].clientX
+    startY.current = e.touches[0].clientY
+    locked.current = null
+    setTransitioning(false)
+    e.stopPropagation()
   }, [])
+
+  const onTouchMove = useCallback((e) => {
+    if (startX.current === null) return
+    const dx = e.touches[0].clientX - startX.current
+    const dy = e.touches[0].clientY - startY.current
+
+    if (locked.current === null && (Math.abs(dx) > 8 || Math.abs(dy) > 8)) {
+      locked.current = Math.abs(dx) > Math.abs(dy) ? 'horizontal' : 'vertical'
+    }
+
+    if (locked.current !== 'horizontal') return
+
+    e.stopPropagation()
+    setOffsetX(Math.max(0, dx))
+  }, [])
+
+  const onTouchEnd = useCallback((e) => {
+    if (startX.current === null) return
+    const dx = e.changedTouches[0].clientX - startX.current
+    startX.current = null
+    startY.current = null
+
+    if (locked.current === 'horizontal') {
+      e.stopPropagation()
+    }
+    locked.current = null
+
+    if (dx > SWIPE_THRESHOLD) {
+      setTransitioning(true)
+      setOffsetX(300)
+      setTimeout(() => {
+        onSwipeRight()
+        setOffsetX(0)
+        setTransitioning(false)
+      }, 200)
+    } else {
+      setTransitioning(true)
+      setOffsetX(0)
+      setTimeout(() => setTransitioning(false), 150)
+    }
+  }, [onSwipeRight])
 
   const style = offsetX !== 0 || transitioning
     ? {
@@ -127,7 +81,13 @@ function SwipeableItem({ children, onSwipeRight, className }) {
     : undefined
 
   return (
-    <div ref={elRef} className={className} style={style} data-swipeable>
+    <div
+      className={className}
+      onTouchStart={onTouchStart}
+      onTouchMove={onTouchMove}
+      onTouchEnd={onTouchEnd}
+      style={style}
+    >
       {children}
     </div>
   )
@@ -299,7 +259,7 @@ export default function GroceryPage({ sidebar = false }) {
       })
     }
 
-    return createPortal(
+    return (
       <div className={styles.shoppingMode}>
         <div className={styles.shoppingHeader}>
           <div className={styles.shoppingCount}>
@@ -369,8 +329,7 @@ export default function GroceryPage({ sidebar = false }) {
             </div>
           )}
         </div>
-      </div>,
-      document.body
+      </div>
     )
   }
 
