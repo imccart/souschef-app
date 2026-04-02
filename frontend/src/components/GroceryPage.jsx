@@ -1,4 +1,5 @@
 import { useState, useEffect, useRef, useCallback } from 'react'
+import { createPortal } from 'react-dom'
 import { api } from '../api/client'
 import AutocompleteInput from './AutocompleteInput'
 import BentSpoonIcon from './BentSpoonIcon'
@@ -248,7 +249,7 @@ export default function GroceryPage({ sidebar = false }) {
       })
     }
 
-    return (
+    return createPortal(
       <div className={styles.shoppingMode}>
         <div className={styles.shoppingHeader}>
           <div className={styles.shoppingCount}>
@@ -318,7 +319,8 @@ export default function GroceryPage({ sidebar = false }) {
             </div>
           )}
         </div>
-      </div>
+      </div>,
+      document.body
     )
   }
 
