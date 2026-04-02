@@ -234,6 +234,7 @@ export default function GroceryPage({ sidebar = false }) {
     const apiCall = { bought: api.toggleGroceryItem, have_it: api.haveItGroceryItem }
     try {
       const result = await apiCall[action](name)
+      setGrocery(result)
       if (result.suggest_staple) {
         setStapleSuggestion(result.suggest_staple)
       }
