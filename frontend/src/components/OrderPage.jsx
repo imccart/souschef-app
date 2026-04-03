@@ -111,6 +111,7 @@ export default function OrderPage() {
   const [communityValue, setCommunityValue] = useState('')
   const [communityConfirm, setCommunityConfirm] = useState(false)
   const [noStore, setNoStore] = useState(false)
+  const [loadError, setLoadError] = useState(false)
 
   const [sharedAccountName, setSharedAccountName] = useState(null)
 
@@ -131,10 +132,11 @@ export default function OrderPage() {
   useEffect(() => {
     api.getOrder().then(data => {
       setOrder(data)
+      setLoadError(false)
       if (data.pending.length > 0 && !activeItem) {
         setActiveItem(data.pending[0].name)
       }
-    }).catch(() => setOrder({ pending: [], selected: [], buy_elsewhere: [], total_price: 0, total_items: 0 }))
+    }).catch(() => setLoadError(true))
   }, [])
 
   const doSearch = (term) => {
@@ -285,6 +287,19 @@ export default function OrderPage() {
     }
     setSubmitting(false)
   }
+
+  if (loadError) return (
+    <>
+      <div className="page-header">
+        <h2 className="screen-heading">Order</h2>
+      </div>
+      <div className="empty-state">
+        <div className="icon">{'\u{1F6D2}'}</div>
+        <p>Couldn't reach the kitchen. Check your connection and try again.</p>
+      </div>
+      <FeedbackFab page="order" />
+    </>
+  )
 
   if (!order) return <><div className="loading">Prepping...</div><FeedbackFab page="order" /></>
 
