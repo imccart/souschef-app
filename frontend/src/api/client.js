@@ -195,6 +195,8 @@ export const api = {
   // Auth
   getMe: () => request('/auth/me'),
   login: (email) => request('/auth/login', { method: 'POST', body: JSON.stringify({ email }) }),
+  googleClientId: () => request('/auth/google-client-id'),
+  googleAuth: (credential) => request('/auth/google', { method: 'POST', body: JSON.stringify({ credential }) }),
   logout: () => request('/auth/logout', { method: 'POST' }),
 
   // Account

@@ -1,4 +1,4 @@
-import { useState, useEffect } from 'react'
+import { useState, useEffect, useRef } from 'react'
 import { api } from '../api/client'
 import ladleImg from '../assets/ladle.png'
 import styles from './LoginPage.module.css'
@@ -9,6 +9,7 @@ export default function LoginPage() {
   const [sent, setSent] = useState(false)
   const [waitlist, setWaitlist] = useState(false)
   const [error, setError] = useState(null)
+  const googleBtnRef = useRef(null)
 
   // Check for expired magic link and clean up the URL
   const [expired] = useState(() => {
@@ -19,6 +20,50 @@ export default function LoginPage() {
     }
     return false
   })
+
+  // Initialize Google Sign-In button
+  useEffect(() => {
+    let cancelled = false
+    async function initGoogle() {
+      try {
+        const { client_id } = await api.googleClientId()
+        if (cancelled || !client_id || !googleBtnRef.current) return
+        // Wait for GIS script to load
+        const waitForGoogle = () => new Promise((resolve) => {
+          if (window.google?.accounts?.id) return resolve()
+          const check = setInterval(() => {
+            if (window.google?.accounts?.id) { clearInterval(check); resolve() }
+          }, 100)
+        })
+        await waitForGoogle()
+        if (cancelled) return
+        window.google.accounts.id.initialize({
+          client_id,
+          callback: async (response) => {
+            setError(null)
+            try {
+              const result = await api.googleAuth(response.credential)
+              if (result.waitlist) {
+                setWaitlist(true)
+              } else if (result.ok) {
+                window.location.reload()
+              }
+            } catch {
+              setError('Google sign-in failed')
+            }
+          },
+        })
+        window.google.accounts.id.renderButton(googleBtnRef.current, {
+          theme: 'outline',
+          size: 'large',
+          width: 280,
+          text: 'signin_with',
+        })
+      } catch { /* Google auth unavailable — magic link still works */ }
+    }
+    initGoogle()
+    return () => { cancelled = true }
+  }, [])
 
   const handleSubmit = async (e) => {
     e.preventDefault()
@@ -84,6 +129,12 @@ export default function LoginPage() {
             )}
             {error && <div className={styles.error}>{error}</div>}
 
+            <div ref={googleBtnRef} className={styles.googleBtn} />
+
+            <div className={styles.divider}>
+              <span>or</span>
+            </div>
+
             <form onSubmit={handleSubmit} className={styles.form}>
               <input
                 className={styles.input}
@@ -91,7 +142,6 @@ export default function LoginPage() {
                 placeholder="you@example.com"
                 value={email}
                 onChange={(e) => setEmail(e.target.value)}
-                autoFocus
                 required
               />
               <button

@@ -44,6 +44,29 @@
   line-height: 1.5;
 }
 
+.googleBtn {
+  display: flex;
+  justify-content: center;
+  min-height: 44px;
+}
+
+.divider {
+  display: flex;
+  align-items: center;
+  gap: 16px;
+  margin: 20px 0;
+  color: var(--text-muted);
+  font-size: 13px;
+}
+
+.divider::before,
+.divider::after {
+  content: '';
+  flex: 1;
+  height: 1px;
+  background: var(--tan);
+}
+
 .form {
   display: flex;
   flex-direction: column;

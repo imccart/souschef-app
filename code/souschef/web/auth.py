@@ -25,6 +25,8 @@ PUBLIC_PATHS = {
     "/health",
     "/api/auth/login",
     "/api/auth/verify",
+    "/api/auth/google",
+    "/api/auth/google-client-id",
     "/api/auth/me",
     "/api/kroger/callback",
 }

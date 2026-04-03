@@ -278,6 +278,55 @@ async def auth_login(body: dict):
     return {"ok": True, "sent": True}
 
 
+@app.get("/api/auth/google-client-id")
+async def google_client_id():
+    """Return the Google OAuth client ID for the frontend."""
+    client_id = os.environ.get("GOOGLE_CLIENT_ID", "")
+    return {"client_id": client_id}
+
+
+@app.post("/api/auth/google")
+async def auth_google(body: dict):
+    """Verify a Google ID token and create a session."""
+    from google.oauth2 import id_token
+    from google.auth.transport import requests as google_requests
+
+    credential = body.get("credential")
+    if not credential:
+        return JSONResponse({"error": "Missing credential"}, status_code=400)
+
+    client_id = os.environ.get("GOOGLE_CLIENT_ID")
+    if not client_id:
+        return JSONResponse({"error": "Google auth not configured"}, status_code=500)
+
+    try:
+        idinfo = id_token.verify_oauth2_token(credential, google_requests.Request(), client_id)
+    except ValueError:
+        return JSONResponse({"error": "Invalid token"}, status_code=401)
+
+    email = idinfo.get("email", "").lower()
+    if not idinfo.get("email_verified") or not email:
+        return JSONResponse({"error": "Email not verified"}, status_code=401)
+
+    conn = get_request_connection()
+    if not is_email_allowed(conn, email):
+        conn.execute(
+            text("INSERT INTO waitlist (email) VALUES (:email) ON CONFLICT DO NOTHING"),
+            {"email": email},
+        )
+        conn.commit()
+        return {"ok": False, "waitlist": True}
+
+    user_id = find_or_create_user(conn, email)
+    _claim_default_data(conn, user_id)
+    ensure_household(conn, user_id)
+    session_id = create_session(conn, user_id)
+
+    response = JSONResponse({"ok": True})
+    set_session_cookie(response, session_id)
+    return response
+
+
 @app.get("/api/auth/verify")
 async def auth_verify(token: str):
     """Verify a magic link token, create session, redirect to app."""
