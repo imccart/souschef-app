@@ -779,7 +779,7 @@ export default function OrderPage() {
                     ))}
                     <div className={styles.comparisonDisclaimer}>
                       Prices are estimates and may change. Not all items could be compared.
-                      Consider changing your pickup store in the Kroger app when you finalize your cart.
+                      To save, change your store in the Kroger app at checkout.
                     </div>
                   </>
                 )}
