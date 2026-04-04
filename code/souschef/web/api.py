@@ -1763,9 +1763,10 @@ async def select_product(body: dict, request: Request):
         threading.Thread(target=_bg_nearby_prices, args=(upc, user_id), daemon=True).start()
 
         # Also backfill missing prices for other selected items at home store
-        def _bg_backfill_prices(bg_trip_id, bg_location, bg_user_id):
+        def _bg_backfill_prices(bg_trip_id, bg_location):
             from souschef.database import get_connection
-            from souschef.pricing import _poll_single_product
+            from souschef.kroger import BASE_URL, _headers
+            import requests as _requests
             import time as _time
             try:
                 with get_connection() as bg_conn:
@@ -1775,22 +1776,40 @@ async def select_product(body: dict, request: Request):
                             AND submitted_at IS NULL AND removed = 0"""),
                         {"tid": bg_trip_id},
                     ).fetchall()
+                    if not missing:
+                        return
+                    headers = _headers()
                     for row in missing:
-                        try:
-                            price_data = _poll_single_product(row["product_upc"], bg_location)
-                            if price_data:
-                                bg_conn.execute(
-                                    text("UPDATE trip_items SET product_price = :price WHERE id = :id"),
-                                    {"price": price_data["price"], "id": row["id"]},
+                        for attempt in range(3):
+                            try:
+                                resp = _requests.get(
+                                    f"{BASE_URL}/products",
+                                    params={"filter.term": row["product_upc"],
+                                            "filter.locationId": bg_location, "filter.limit": 1},
+                                    headers=headers, timeout=10,
                                 )
-                            _time.sleep(0.5)
-                        except Exception:
-                            pass
+                                if resp.status_code == 429:
+                                    _time.sleep(1.0 * (attempt + 1))
+                                    continue
+                                if resp.status_code == 200:
+                                    items = resp.json().get("data", [])
+                                    if items:
+                                        sub = items[0].get("items", [{}])[0] if items[0].get("items") else {}
+                                        price = sub.get("price", {}).get("regular")
+                                        if price is not None:
+                                            bg_conn.execute(
+                                                text("UPDATE trip_items SET product_price = :price WHERE id = :id"),
+                                                {"price": price, "id": row["id"]},
+                                            )
+                                    break
+                            except Exception:
+                                pass
+                            _time.sleep(0.5 * (attempt + 1))
                     bg_conn.commit()
             except Exception:
                 pass
 
-        threading.Thread(target=_bg_backfill_prices, args=(trip["id"], sel_location, user_id), daemon=True).start()
+        threading.Thread(target=_bg_backfill_prices, args=(trip["id"], sel_location), daemon=True).start()
 
     return await get_order(request)
 

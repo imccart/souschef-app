@@ -139,6 +139,11 @@ export default function OrderPage() {
         setActiveItem(data.pending[0].name)
       }
     }).catch(() => setLoadError(true))
+    // Periodic refresh to pick up background price updates
+    const interval = setInterval(() => {
+      api.getOrder().then(data => setOrder(data)).catch(() => {})
+    }, 10000)
+    return () => clearInterval(interval)
   }, [])
 
   const doSearch = (term) => {
