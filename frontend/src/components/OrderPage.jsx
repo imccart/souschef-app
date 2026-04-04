@@ -48,7 +48,7 @@ function ParentCoBadge({ brand, parentCompany, violations, onTapUnknown }) {
     <div className={styles.parentCoWrap}>
       <div
         className={`${styles.parentCo}${unknown ? ` ${styles.unknown}` : ''}${hasDetails ? ` ${styles.expandable}` : ''}`}
-        onClick={unknown ? (e) => { e.stopPropagation(); onTapUnknown(brand) } : hasDetails ? (e) => { e.stopPropagation(); setExpanded(!expanded) } : undefined}
+        onClick={unknown ? (e) => { e.stopPropagation(); e.preventDefault(); onTapUnknown(brand) } : hasDetails ? (e) => { e.stopPropagation(); e.preventDefault(); setExpanded(!expanded) } : undefined}
       >
         Parent Co.: {parentCompany}{unknown && ' \u00B7 ?'}
         {hasDetails && <span className={styles.parentCoChevron}>{expanded ? '\u25B4' : '\u25BE'}</span>}
