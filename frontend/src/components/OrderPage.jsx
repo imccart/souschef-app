@@ -726,9 +726,12 @@ export default function OrderPage() {
         {pickedCount > 0 ? (
           <>
             <div className={styles.orderSummaryListLabel}>Selected so far</div>
-            {order.selected.map((item, idx) => (
+            {(() => {
+              const nameCounts = {}
+              order.selected.forEach(i => { nameCounts[i.name] = (nameCounts[i.name] || 0) + 1 })
+              return order.selected.map((item, idx) => (
               <div key={item.product?.upc || `sel-${idx}`} className={styles.orderSummaryRow}>
-                <span className={styles.orderSummaryItemName}>{item.product?.name || item.name}</span>
+                <span className={styles.orderSummaryItemName}>{nameCounts[item.name] > 1 ? (item.product?.name || item.name) : item.name}</span>
                 <span className={styles.orderSummaryItemPrice}>
                   {item.product?.price ? (
                     (item.product.quantity || 1) > 1
@@ -737,7 +740,7 @@ export default function OrderPage() {
                   ) : ''}
                 </span>
               </div>
-            ))}
+            ))})()}
             {activeItem && order.pending.some(p => p.name === activeItem) && (
               <div className={`${styles.orderSummaryRow} ${styles.selecting}`}>
                 <span className={styles.orderSummaryItemName}>{activeItem}</span>

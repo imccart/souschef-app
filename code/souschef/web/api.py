@@ -1448,45 +1448,8 @@ async def search_order_products(item_name: str, request: Request, fulfillment: s
     # is for dedup (e.g., "apple juice" and "orange juice" → "juice"), not for search.
     search_term = item_name.strip().lower()
 
-    # Get preferences first
+    # Get preferences first (enrichment happens after search updates product_scores)
     prefs = get_preferred_products(conn, user_id, item_name, limit=3)
-    # Enrich preferences with cached scores/prices
-    pref_upcs = [p.upc for p in prefs]
-    pref_scores = {}
-    if pref_upcs:
-        ph = ", ".join(f":pu{i}" for i in range(len(pref_upcs)))
-        ps = {f"pu{i}": u for i, u in enumerate(pref_upcs)}
-        pref_score_rows = conn.execute(
-            text(f"SELECT upc, nova_group, nutriscore, price, promo_price FROM product_scores WHERE upc IN ({ph})"),
-            ps,
-        ).fetchall()
-        pref_scores = {r["upc"]: dict(r) for r in pref_score_rows}
-
-    from souschef.brands import get_parent_company
-    from souschef.violations import get_company_violations
-
-    pref_list = []
-    for p in prefs:
-        sc = pref_scores.get(p.upc, {})
-        parent = get_parent_company(p.brand, conn) if p.brand else "We're not sure"
-        violation_key = p.brand.strip() if parent == "Same as brand" else parent
-        violations = get_company_violations(conn, violation_key) if violation_key not in ("We're not sure",) else None
-        pref_item = {
-            "upc": p.upc,
-            "name": p.description,
-            "brand": p.brand,
-            "size": p.size,
-            "rating": p.rating,
-            "image": f"https://www.kroger.com/product/images/medium/front/{p.upc}",
-            "price": sc.get("price"),
-            "promo_price": sc.get("promo_price"),
-            "nova": sc.get("nova_group"),
-            "nutriscore": sc.get("nutriscore", ""),
-            "parent_company": parent,
-        }
-        if violations:
-            pref_item["violations"] = violations
-        pref_list.append(pref_item)
 
     # Search Kroger
     try:
@@ -1578,6 +1541,45 @@ async def search_order_products(item_name: str, request: Request, fulfillment: s
     from souschef.brands import get_parent_company
     from souschef.kroger import get_product_ratings
     from souschef.violations import get_company_violations
+
+    # Enrich preferences with freshly-updated product_scores
+    pref_upcs = [p.upc for p in prefs]
+    pref_scores = {}
+    if pref_upcs:
+        ph = ", ".join(f":pu{i}" for i in range(len(pref_upcs)))
+        ps = {f"pu{i}": u for i, u in enumerate(pref_upcs)}
+        pref_score_rows = conn.execute(
+            text(f"SELECT upc, nova_group, nutriscore, price, promo_price FROM product_scores WHERE upc IN ({ph})"),
+            ps,
+        ).fetchall()
+        pref_scores = {r["upc"]: dict(r) for r in pref_score_rows}
+
+    # Also update preference brand from search results if available
+    search_brands = {p.upc: p.brand for p in products if p.upc and p.brand}
+
+    pref_list = []
+    for p in prefs:
+        sc = pref_scores.get(p.upc, {})
+        brand = search_brands.get(p.upc, p.brand)
+        parent = get_parent_company(brand, conn) if brand else "We're not sure"
+        violation_key = brand.strip() if parent == "Same as brand" else parent
+        violations = get_company_violations(conn, violation_key) if violation_key not in ("We're not sure",) else None
+        pref_item = {
+            "upc": p.upc,
+            "name": p.description,
+            "brand": brand,
+            "size": p.size,
+            "rating": p.rating,
+            "image": f"https://www.kroger.com/product/images/medium/front/{p.upc}",
+            "price": sc.get("price"),
+            "promo_price": sc.get("promo_price"),
+            "nova": sc.get("nova_group"),
+            "nutriscore": sc.get("nutriscore", ""),
+            "parent_company": parent,
+        }
+        if violations:
+            pref_item["violations"] = violations
+        pref_list.append(pref_item)
 
     # Look up user ratings for search result products
     product_ratings = {}
