@@ -114,9 +114,6 @@ export default function OrderPage() {
   const [loadError, setLoadError] = useState(false)
   const [comparisons, setComparisons] = useState(null)
   const [showComparison, setShowComparison] = useState(false)
-  const [originalStore, setOriginalStore] = useState(() => {
-    try { return JSON.parse(localStorage.getItem('souschef_original_store')) } catch { return null }
-  })
 
   const [sharedAccountName, setSharedAccountName] = useState(null)
 
@@ -435,18 +432,6 @@ export default function OrderPage() {
       )}
       {submitResult?.ok && (
         <span className={styles.pickingRowSent}>Sent {'\u2713'}</span>
-      )}
-      {submitResult?.ok && originalStore && (
-        <button
-          className={styles.comparisonSwitch}
-          style={{ marginTop: 6 }}
-          onClick={async () => {
-            await api.setKrogerLocation(originalStore.location_id)
-            localStorage.removeItem('souschef_original_store')
-            setOriginalStore(null)
-            setStoreInfo({ ...storeInfo, location_id: originalStore.location_id, name: originalStore.name })
-          }}
-        >Switch back to {originalStore.name} {'\u2192'}</button>
       )}
     </div>
   )
@@ -790,21 +775,11 @@ export default function OrderPage() {
                             {' '}(comparing {c.items_compared} of {c.items_total} items)
                           </span>
                         </div>
-                        {c.savings > 0 && (
-                          <button
-                            className={styles.comparisonSwitch}
-                            onClick={async () => {
-                              if (storeInfo) localStorage.setItem('souschef_original_store', JSON.stringify({ location_id: storeInfo.location_id, name: storeInfo.name }))
-                              await api.setKrogerLocation(c.location_id)
-                              window.location.reload()
-                            }}
-                          >Switch to {c.name.replace(/^Kroger\s*/i, '')} {'\u2192'}</button>
-                        )}
                       </div>
                     ))}
                     <div className={styles.comparisonDisclaimer}>
                       Prices are estimates and may change. Not all items could be compared.
-                      Switching stores changes your default Kroger location.
+                      Consider changing your pickup store in the Kroger app when you finalize your cart.
                     </div>
                   </>
                 )}
@@ -841,21 +816,7 @@ export default function OrderPage() {
                   </div>
                 )}
                 {submitResult?.ok ? (
-                  <>
-                    <div className="submit-success">Sent to {storeName} {'\u2713'}</div>
-                    {originalStore && (
-                      <button
-                        className={styles.comparisonSwitch}
-                        style={{ marginTop: 8, width: '100%' }}
-                        onClick={async () => {
-                          await api.setKrogerLocation(originalStore.location_id)
-                          localStorage.removeItem('souschef_original_store')
-                          setOriginalStore(null)
-                          setStoreInfo({ ...storeInfo, location_id: originalStore.location_id, name: originalStore.name })
-                        }}
-                      >Switch back to {originalStore.name} {'\u2192'}</button>
-                    )}
-                  </>
+                  <div className="submit-success">Sent to {storeName} {'\u2713'}</div>
                 ) : (
                   <button
                     className={styles.orderFinalizeBtn}
@@ -1023,15 +984,6 @@ export default function OrderPage() {
                       {' '}(comparing {c.items_compared} of {c.items_total} items)
                     </span>
                   </div>
-                  {c.savings > 0 && (
-                    <button
-                      className={styles.comparisonSwitch}
-                      onClick={async () => {
-                        await api.setKrogerLocation(c.location_id)
-                        window.location.reload()
-                      }}
-                    >Switch to {c.name.replace(/^Kroger\s*/i, '')} {'\u2192'}</button>
-                  )}
                 </div>
               ))}
               <div className={styles.comparisonDisclaimer}>
