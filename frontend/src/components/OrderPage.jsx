@@ -585,48 +585,54 @@ export default function OrderPage() {
             <div className={styles.orderSection}>
               <div className={styles.orderSectionLabel}>Prior selections</div>
               {products.preferences.map(pref => (
-                <button
-                  key={pref.upc}
-                  className={`${styles.productCard} ${styles.preference}`}
-                  onClick={() => handleSelect({
-                    upc: pref.upc, name: pref.name,
-                    brand: pref.brand, size: pref.size,
-                    price: pref.promo_price || pref.price || null,
-                    image: pref.image || '',
-                  })}
-                >
-                  {pref.image && (
-                    <div className={styles.productImage}>
-                      <img src={pref.image} alt="" loading="lazy" />
+                <div key={pref.upc} className={`${styles.productCard} ${styles.preference}`} style={{ position: 'relative' }}>
+                  <button
+                    className={styles.prefDismiss}
+                    onClick={(e) => { e.stopPropagation(); api.deletePreference(pref.upc).then(() => doSearch(searchTerm)).catch(() => {}) }}
+                    title="Remove prior selection"
+                  >{'\u00D7'}</button>
+                  <button
+                    className={styles.prefSelectBtn}
+                    onClick={() => handleSelect({
+                      upc: pref.upc, name: pref.name,
+                      brand: pref.brand, size: pref.size,
+                      price: pref.promo_price || pref.price || null,
+                      image: pref.image || '',
+                    })}
+                  >
+                    {pref.image && (
+                      <div className={styles.productImage}>
+                        <img src={pref.image} alt="" loading="lazy" />
+                      </div>
+                    )}
+                    <div className={styles.productInfo}>
+                      <div className={styles.productName}>
+                        {pref.name}
+                        {pref.rating === 1 && <span className={styles.prefStar}> {'\u{1F44D}'}</span>}
+                        {pref.rating === -1 && <span className={styles.prefDown}> {'\u{1F44E}'}</span>}
+                      </div>
+                      <div className={styles.productMeta}>
+                        {pref.brand && <span>{pref.brand}</span>}
+                        {pref.size && <span> {'\u00B7'} {pref.size}</span>}
+                        {(pref.price || pref.promo_price) && (
+                          <>
+                            <span> {'\u00B7'} </span>
+                            {pref.promo_price ? (
+                              <>
+                                <span className={styles.pricePromo}>{formatPrice(pref.promo_price)}</span>
+                                <span className={styles.priceOriginal}> {formatPrice(pref.price)}</span>
+                              </>
+                            ) : (
+                              <span className={styles.price}>{formatPrice(pref.price)}</span>
+                            )}
+                          </>
+                        )}
+                      </div>
+                      <ProductInsights nova={pref.nova} nutriscore={pref.nutriscore} />
+                      <ParentCoBadge brand={pref.brand} parentCompany={pref.parent_company} violations={pref.violations} onTapUnknown={(b) => setCommunityBrand(b || 'Unknown')} />
                     </div>
-                  )}
-                  <div className={styles.productInfo}>
-                    <div className={styles.productName}>
-                      {pref.name}
-                      {pref.rating === 1 && <span className={styles.prefStar}> {'\u{1F44D}'}</span>}
-                      {pref.rating === -1 && <span className={styles.prefDown}> {'\u{1F44E}'}</span>}
-                    </div>
-                    <div className={styles.productMeta}>
-                      {pref.brand && <span>{pref.brand}</span>}
-                      {pref.size && <span> {'\u00B7'} {pref.size}</span>}
-                      {(pref.price || pref.promo_price) && (
-                        <>
-                          <span> {'\u00B7'} </span>
-                          {pref.promo_price ? (
-                            <>
-                              <span className={styles.pricePromo}>{formatPrice(pref.promo_price)}</span>
-                              <span className={styles.priceOriginal}> {formatPrice(pref.price)}</span>
-                            </>
-                          ) : (
-                            <span className={styles.price}>{formatPrice(pref.price)}</span>
-                          )}
-                        </>
-                      )}
-                    </div>
-                    <ProductInsights nova={pref.nova} nutriscore={pref.nutriscore} />
-                    <ParentCoBadge brand={pref.brand} parentCompany={pref.parent_company} violations={pref.violations} onTapUnknown={(b) => setCommunityBrand(b || 'Unknown')} />
-                  </div>
-                </button>
+                  </button>
+                </div>
               ))}
             </div>
           )}

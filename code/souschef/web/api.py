@@ -1818,6 +1818,19 @@ async def deselect_product(item_name: str, request: Request):
     return await get_order(request)
 
 
+@router.delete("/order/preference/{upc}")
+async def delete_preference(upc: str, request: Request):
+    """Remove a product preference (prior selection) by UPC."""
+    user_id = request.state.user_id
+    conn = _conn()
+    conn.execute(
+        text("DELETE FROM product_preferences WHERE user_id = :uid AND upc = :upc"),
+        {"uid": user_id, "upc": upc},
+    )
+    conn.commit()
+    return {"ok": True}
+
+
 @router.get("/order/price-comparison")
 async def price_comparison(request: Request):
     """Compare current order prices across nearby Kroger stores."""

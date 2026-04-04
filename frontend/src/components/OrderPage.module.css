@@ -409,6 +409,39 @@
   margin-bottom: 6px;
 }
 
+.prefDismiss {
+  position: absolute;
+  top: 4px;
+  right: 4px;
+  background: none;
+  border: none;
+  cursor: pointer;
+  font-size: 16px;
+  color: var(--text-muted);
+  padding: 2px 6px;
+  line-height: 1;
+  border-radius: 4px;
+  z-index: 1;
+}
+.prefDismiss:hover {
+  background: rgba(0,0,0,0.06);
+  color: var(--dark);
+}
+
+.prefSelectBtn {
+  display: flex;
+  flex-direction: row;
+  align-items: center;
+  gap: 10px;
+  background: none;
+  border: none;
+  cursor: pointer;
+  text-align: left;
+  font-family: inherit;
+  width: 100%;
+  padding: 0;
+}
+
 .productCard.preference .productImage {
   width: 48px;
   height: 48px;
