@@ -238,7 +238,11 @@ export default function OrderPage() {
 
   const handleAnythingElseNo = () => {
     setShowAnythingElse(false)
-    if (order) advanceToNext(order)
+    // Use functional state access to get the latest order
+    setOrder(current => {
+      if (current) advanceToNext(current)
+      return current
+    })
   }
 
   const handleBuyElsewhere = async () => {
