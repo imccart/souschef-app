@@ -624,7 +624,7 @@ export default function OrderPage() {
                       )}
                     </div>
                     <ProductInsights nova={pref.nova} nutriscore={pref.nutriscore} />
-                    <ParentCoBadge brand={pref.brand} parentCompany={pref.parent_company} violations={pref.violations} onTapUnknown={(b) => setCommunityBrand(b)} />
+                    <ParentCoBadge brand={pref.brand} parentCompany={pref.parent_company} violations={pref.violations} onTapUnknown={(b) => setCommunityBrand(b || 'Unknown')} />
                   </div>
                 </button>
               ))}
@@ -680,7 +680,7 @@ export default function OrderPage() {
                       {!p.in_stock && <div className={styles.outOfStockLabel}>Unavailable</div>}
                     </div>
                     <ProductInsights nova={p.nova} nutriscore={p.nutriscore} />
-                    <ParentCoBadge brand={p.brand} parentCompany={p.parent_company} violations={p.violations} onTapUnknown={(b) => setCommunityBrand(b)} />
+                    <ParentCoBadge brand={p.brand} parentCompany={p.parent_company} violations={p.violations} onTapUnknown={(b) => setCommunityBrand(b || 'Unknown')} />
                     {p.rating === 1 && <span className={styles.prefStar}>{'\u{1F44D}'}</span>}
                     {p.rating === -1 && <span className={styles.prefDown}>{'\u{1F44E}'}</span>}
                   </button>
