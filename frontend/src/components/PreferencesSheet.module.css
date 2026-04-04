@@ -231,3 +231,40 @@
   margin-bottom: 8px;
   font-style: italic;
 }
+
+.prefsSignOut {
+  display: block;
+  width: 100%;
+  padding: 14px;
+  margin-top: 8px;
+  background: none;
+  border: 1px solid var(--tan);
+  border-radius: 10px;
+  font-family: 'DM Sans', sans-serif;
+  font-size: 14px;
+  color: var(--text-muted);
+  cursor: pointer;
+  transition: color 0.15s, border-color 0.15s;
+}
+.prefsSignOut:hover {
+  color: var(--dark);
+  border-color: var(--brown);
+}
+
+.prefsTermsLinks {
+  display: flex;
+  justify-content: center;
+  gap: 8px;
+  margin-top: 16px;
+  font-size: 13px;
+}
+.prefsTermsLinks a {
+  color: var(--text-muted);
+  text-decoration: none;
+}
+.prefsTermsLinks a:hover {
+  color: var(--accent);
+}
+.prefsDot {
+  color: var(--text-muted);
+}

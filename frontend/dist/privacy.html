@@ -1,0 +1,145 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Privacy Policy — Souschef</title>
+  <link href="https://fonts.googleapis.com/css2?family=DM+Sans:wght@300;400;500;600&display=swap" rel="stylesheet">
+  <style>
+    * { margin: 0; padding: 0; box-sizing: border-box; }
+    body { font-family: 'DM Sans', sans-serif; background: #FAF7F2; color: #2C2420; padding: 40px 24px 80px; line-height: 1.7; }
+    .container { max-width: 640px; margin: 0 auto; }
+    h1 { font-size: 28px; font-weight: 600; margin-bottom: 4px; }
+    .effective { font-size: 13px; color: #8B6F5E; margin-bottom: 32px; }
+    h2 { font-size: 18px; font-weight: 600; margin: 28px 0 8px; }
+    h3 { font-size: 15px; font-weight: 600; margin: 16px 0 4px; }
+    p, li { font-size: 15px; color: #2C2420; margin-bottom: 12px; }
+    ul { padding-left: 20px; margin-bottom: 12px; }
+    a { color: #D4623A; }
+    table { width: 100%; border-collapse: collapse; margin: 12px 0; font-size: 14px; }
+    th, td { text-align: left; padding: 8px 12px; border-bottom: 1px solid #E8DDD0; }
+    th { font-weight: 600; font-size: 13px; color: #8B6F5E; text-transform: uppercase; letter-spacing: 0.04em; }
+    .footer { margin-top: 40px; font-size: 13px; color: #8B6F5E; font-style: italic; }
+  </style>
+</head>
+<body>
+  <div class="container">
+    <h1>Privacy Policy</h1>
+    <p class="effective">Effective date: April 4, 2026</p>
+    <p>This policy explains what data Souschef collects, why, and what happens with it. The short version: we collect what we need to make the app work, we don't sell your data, and we don't run ads.</p>
+
+    <h2>Who We Are</h2>
+    <p>Souschef is made by Aletheia LLC, based in Tucker, Georgia. You can reach us at <a href="mailto:support@aletheia-apps.com">support@aletheia-apps.com</a>.</p>
+
+    <h2>What We Collect</h2>
+
+    <h3>Account information</h3>
+    <ul>
+      <li><strong>Email address</strong> — required for authentication (magic link or Google Sign-In)</li>
+      <li><strong>Display name</strong> — optional, shown to household members</li>
+    </ul>
+
+    <h3>App data you create</h3>
+    <ul>
+      <li>Meal plans and recipes</li>
+      <li>Grocery lists</li>
+      <li>Product ratings (thumbs up/down)</li>
+      <li>Notes on meals and grocery items</li>
+      <li>Purchase history from receipt scanning</li>
+    </ul>
+
+    <h3>Kroger integration</h3>
+    <ul>
+      <li><strong>OAuth tokens</strong> — encrypted and stored so we can search products and place orders on your behalf. We never see your Kroger password.</li>
+    </ul>
+
+    <h3>Receipt images</h3>
+    <ul>
+      <li>When you scan a receipt, the image is sent to Anthropic's Claude API for text extraction. We use it to match items to your grocery list, then discard it. We don't store receipt images long-term.</li>
+    </ul>
+
+    <h3>Price data (opt-in)</h3>
+    <ul>
+      <li>If you enable price tracking, we log product prices from your searches and receipts to show you trends over time.</li>
+      <li>If you also opt in to anonymous price sharing, we contribute your price data (product and price only, no identity) to a community dataset that helps all users see better price information.</li>
+    </ul>
+
+    <h2>What We Don't Collect</h2>
+    <ul>
+      <li>No tracking cookies — we use a single session cookie for authentication</li>
+      <li>No analytics or tracking scripts</li>
+      <li>No advertising identifiers</li>
+      <li>No location data</li>
+    </ul>
+
+    <h2>How We Use Your Data</h2>
+    <p>Your data is used to make Souschef work for you:</p>
+    <ul>
+      <li>Generating meal plans and grocery lists</li>
+      <li>Searching and ordering products through Kroger</li>
+      <li>Parsing receipts to match purchases</li>
+      <li>Showing you product ratings and price history</li>
+      <li>Improving suggestions based on your preferences</li>
+    </ul>
+
+    <h2>Third-Party Services</h2>
+    <p>We use these services to run the app:</p>
+    <table>
+      <tr><th>Service</th><th>Purpose</th><th>Data shared</th></tr>
+      <tr><td><strong>Kroger API</strong></td><td>Product search and ordering</td><td>Search queries, cart contents (via your Kroger account)</td></tr>
+      <tr><td><strong>Google Sign-In</strong></td><td>Authentication</td><td>Email address only</td></tr>
+      <tr><td><strong>Resend</strong></td><td>Magic link emails</td><td>Your email address</td></tr>
+      <tr><td><strong>Anthropic Claude</strong></td><td>Receipt parsing</td><td>Receipt images for OCR (not stored by Anthropic)</td></tr>
+      <tr><td><strong>Open Food Facts</strong></td><td>Nutrition scores</td><td>Product lookups (public database)</td></tr>
+      <tr><td><strong>Railway</strong></td><td>Hosting</td><td>All app data (hosted infrastructure)</td></tr>
+    </table>
+    <p>None of these services receive your data for advertising purposes.</p>
+
+    <h2>We Don't Sell Your Data</h2>
+    <p>Period. We don't sell, rent, or trade your personal information to anyone. We don't run ads. Our business model is a subscription fee — you're the customer, not the product.</p>
+
+    <h2>Household Sharing</h2>
+    <p>If you're invited to a household, you share meal plans, grocery lists, and related data with the household owner and other members. The household owner's account holds the shared data. If you leave a household, your access to that shared data ends.</p>
+
+    <h2>Data Security</h2>
+    <p>We take reasonable steps to protect your data:</p>
+    <ul>
+      <li>Kroger tokens are encrypted at rest</li>
+      <li>Authentication uses short-lived magic links (15 minutes) or Google's OAuth</li>
+      <li>Database access is restricted and connection-pooled</li>
+      <li>API endpoints are rate-limited</li>
+    </ul>
+    <p>No system is perfectly secure. We do our best.</p>
+
+    <h2>Data Retention</h2>
+    <ul>
+      <li><strong>Account data</strong> — kept as long as your account exists</li>
+      <li><strong>Meal plans</strong> — kept indefinitely (your recipe history)</li>
+      <li><strong>Grocery items</strong> — checked-off items pruned after 3 days</li>
+      <li><strong>Receipt images</strong> — not stored after processing</li>
+      <li><strong>Price data</strong> — raw data retained up to 90 days; community aggregates kept longer</li>
+    </ul>
+
+    <h2>Your Rights</h2>
+    <p>You can:</p>
+    <ul>
+      <li><strong>Access your data</strong> — everything you've entered is visible in the app</li>
+      <li><strong>Delete your account</strong> — email <a href="mailto:support@aletheia-apps.com">support@aletheia-apps.com</a> and we'll delete your account and data within 30 days</li>
+      <li><strong>Disconnect Kroger</strong> — revoke access from the Account page at any time</li>
+      <li><strong>Opt out of price sharing</strong> — toggle off in Account settings</li>
+    </ul>
+    <p>If you're in a jurisdiction with specific data rights (like GDPR or CCPA), email us and we'll work with you.</p>
+
+    <h2>Children</h2>
+    <p>Souschef is designed for adults managing their household. We don't knowingly collect data from children under 13.</p>
+
+    <h2>Changes to This Policy</h2>
+    <p>If we make meaningful changes, we'll notify you in the app. We won't quietly start collecting new data or sharing it with new parties.</p>
+
+    <h2>Contact</h2>
+    <p>Questions or concerns about your data? Email <a href="mailto:support@aletheia-apps.com">support@aletheia-apps.com</a>.</p>
+
+    <p class="footer">Aletheia LLC — Tucker, Georgia</p>
+  </div>
+</body>
+</html>

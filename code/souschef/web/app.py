@@ -146,6 +146,22 @@ for _fname in _ROOT_STATIC:
             return FileResponse(path)
 
 
+# Serve legal pages (must be before SPA catch-all)
+@app.get("/app/terms", include_in_schema=False)
+async def serve_terms():
+    f = _FRONTEND_DIST / "terms.html"
+    if f.exists():
+        return FileResponse(str(f), media_type="text/html")
+    return JSONResponse({"error": "Not found"}, status_code=404)
+
+@app.get("/app/privacy", include_in_schema=False)
+async def serve_privacy():
+    f = _FRONTEND_DIST / "privacy.html"
+    if f.exists():
+        return FileResponse(str(f), media_type="text/html")
+    return JSONResponse({"error": "Not found"}, status_code=404)
+
+
 # ── Health Check ──────────────────────────────────────────
 
 @app.get("/health")

@@ -151,8 +151,8 @@ export default function PreferencesSheet({ onClose }) {
     <Sheet onClose={onClose} className={styles.prefsSheet}>
         <div className="sheet-title">Account</div>
 
-        {/* About You */}
-        <AccordionSection title="About You">
+        {/* You and Your Household */}
+        <AccordionSection title="You and Your Household" count={members?.length || 0}>
           <div className={styles.prefsAccountField}>
             <label className={styles.prefsFieldLabel}>Name</label>
             <div className={ls.addRow}>
@@ -171,18 +171,40 @@ export default function PreferencesSheet({ onClose }) {
             <label className={styles.prefsFieldLabel}>Email</label>
             <div className={styles.prefsFieldValue}>{userEmail}</div>
           </div>
-          <button className={ls.logout} onClick={async () => {
-            await api.logout()
-            localStorage.removeItem('souschef_onboarded')
-            localStorage.removeItem('souschef_welcomed')
-            window.location.reload()
-          }}>
-            Sign out
-          </button>
+          {members && members.length > 0 && (
+            <div className={ls.list} style={{ marginTop: 12 }}>
+              {members.map(m => (
+                <div key={m.user_id} className={ls.listItem}>
+                  <span className={ls.listName}>
+                    {m.display_name}{m.is_you ? ' (you)' : ''}
+                  </span>
+                  <span className={ls.listMeta}>{m.role}</span>
+                </div>
+              ))}
+            </div>
+          )}
+          <div className={ls.sectionHint}>
+            Invite someone to share meals and grocery lists.
+          </div>
+          <form onSubmit={handleHouseholdInvite} className={ls.addRow}>
+            <input
+              className={ls.addInput}
+              type="email"
+              placeholder="Their email..."
+              value={householdEmail}
+              onChange={(e) => setHouseholdEmail(e.target.value)}
+            />
+            <button className="btn primary" type="submit">Invite</button>
+          </form>
+          {inviteStatus && (
+            <div className={`${styles.prefsInviteStatus} ${inviteStatus.type === 'success' ? styles.success : styles.error}`}>
+              {inviteStatus.msg}
+            </div>
+          )}
         </AccordionSection>
 
-        {/* Online Ordering */}
-        <AccordionSection title="Online Ordering">
+        {/* Online Store Integrations */}
+        <AccordionSection title="Online Store Integrations">
           <div className={styles.prefsIntegrationBlock}>
             {krogerConnected === null ? (
               <div className={ls.listMeta}>Checking connection...</div>
@@ -330,40 +352,6 @@ export default function PreferencesSheet({ onClose }) {
           </div>
         </AccordionSection>
 
-        {/* Household & Sharing */}
-        <AccordionSection title="Household" count={members?.length || 0}>
-          {members && members.length > 0 && (
-            <div className={ls.list}>
-              {members.map(m => (
-                <div key={m.user_id} className={ls.listItem}>
-                  <span className={ls.listName}>
-                    {m.display_name}{m.is_you ? ' (you)' : ''}
-                  </span>
-                  <span className={ls.listMeta}>{m.role}</span>
-                </div>
-              ))}
-            </div>
-          )}
-          <div className={ls.sectionHint}>
-            Invite someone to share meals and grocery lists.
-          </div>
-          <form onSubmit={handleHouseholdInvite} className={ls.addRow}>
-            <input
-              className={ls.addInput}
-              type="email"
-              placeholder="Their email..."
-              value={householdEmail}
-              onChange={(e) => setHouseholdEmail(e.target.value)}
-            />
-            <button className="btn primary" type="submit">Invite</button>
-          </form>
-          {inviteStatus && (
-            <div className={`${styles.prefsInviteStatus} ${inviteStatus.type === 'success' ? styles.success : styles.error}`}>
-              {inviteStatus.msg}
-            </div>
-          )}
-        </AccordionSection>
-
         {/* Invite a Friend */}
         <AccordionSection title="Invite a Friend">
           <div className={ls.sectionHint}>
@@ -385,6 +373,23 @@ export default function PreferencesSheet({ onClose }) {
             </div>
           )}
         </AccordionSection>
+
+        {/* Sign Out */}
+        <button className={styles.prefsSignOut} onClick={async () => {
+          await api.logout()
+          localStorage.removeItem('souschef_onboarded')
+          localStorage.removeItem('souschef_welcomed')
+          window.location.reload()
+        }}>
+          Sign out
+        </button>
+
+        {/* Terms */}
+        <div className={styles.prefsTermsLinks}>
+          <a href="/app/terms" target="_blank" rel="noopener noreferrer">Terms of Service</a>
+          <span className={styles.prefsDot}>{'\u00B7'}</span>
+          <a href="/app/privacy" target="_blank" rel="noopener noreferrer">Privacy Policy</a>
+        </div>
 
         {/* About */}
         <div className={styles.prefsAbout}>
