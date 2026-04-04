@@ -1762,6 +1762,36 @@ async def select_product(body: dict, request: Request):
 
         threading.Thread(target=_bg_nearby_prices, args=(upc, user_id), daemon=True).start()
 
+        # Also backfill missing prices for other selected items at home store
+        def _bg_backfill_prices(bg_trip_id, bg_location, bg_user_id):
+            from souschef.database import get_connection
+            from souschef.pricing import _poll_single_product
+            import time as _time
+            try:
+                with get_connection() as bg_conn:
+                    missing = bg_conn.execute(
+                        text("""SELECT id, product_upc FROM trip_items
+                            WHERE trip_id = :tid AND product_upc != '' AND product_price IS NULL
+                            AND submitted_at IS NULL AND removed = 0"""),
+                        {"tid": bg_trip_id},
+                    ).fetchall()
+                    for row in missing:
+                        try:
+                            price_data = _poll_single_product(row["product_upc"], bg_location)
+                            if price_data:
+                                bg_conn.execute(
+                                    text("UPDATE trip_items SET product_price = :price WHERE id = :id"),
+                                    {"price": price_data["price"], "id": row["id"]},
+                                )
+                            _time.sleep(0.5)
+                        except Exception:
+                            pass
+                    bg_conn.commit()
+            except Exception:
+                pass
+
+        threading.Thread(target=_bg_backfill_prices, args=(trip["id"], sel_location, user_id), daemon=True).start()
+
     return await get_order(request)
 
 

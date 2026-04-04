@@ -742,6 +742,8 @@ export default function OrderPage() {
                         <div className={c.savings > 0 ? styles.comparisonSavings : styles.comparisonMore}>
                           {c.savings > 0
                             ? `Save $${c.savings.toFixed(2)}`
+                            : c.savings === 0
+                            ? 'Same price'
                             : `$${Math.abs(c.savings).toFixed(2)} more`}
                           <span className={styles.comparisonDetail}>
                             {' '}(comparing {c.items_compared} of {c.items_total} items)
