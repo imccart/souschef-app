@@ -194,6 +194,7 @@ export default function OnboardingFlow({ onComplete, householdInfo }) {
     const params = new URLSearchParams(window.location.search)
     if (params.get('kroger') === 'connected') {
       setKrogerConnected(true)
+      setStep(4)
       window.history.replaceState({}, '', window.location.pathname)
     }
   }, [])
