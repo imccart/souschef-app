@@ -1125,7 +1125,9 @@ def _seed_library_if_missing(conn: DictConnection) -> None:
             conn.commit()
             print("[db] Library recipes seeded successfully", flush=True)
         except Exception as e:
+            import traceback
             print(f"[db] _seed_library_if_missing failed: {e}", flush=True)
+            traceback.print_exc()
             try:
                 conn.raw.rollback()
             except Exception:
