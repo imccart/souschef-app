@@ -1113,19 +1113,21 @@ def _seed_library_if_missing(conn: DictConnection) -> None:
     row = conn.execute(text(
         "SELECT COUNT(*) AS n FROM recipes WHERE user_id = '__library__'"
     )).fetchone()
+    print(f"[db] Library recipes count: {row['n']}", flush=True)
     if row["n"] > 0:
         return
     data_dir = str(Path(__file__).resolve().parents[2] / "data")
     common_file = Path(data_dir) / "seed_recipes_common.yaml"
+    print(f"[db] Library seed file: {common_file} exists={common_file.exists()}", flush=True)
     if common_file.exists():
         try:
             _seed_recipes(conn, common_file, user_id="__library__")
             conn.commit()
+            print("[db] Library recipes seeded successfully", flush=True)
         except Exception as e:
             print(f"[db] _seed_library_if_missing failed: {e}", flush=True)
-            # Don't crash the app — library recipes are nice-to-have
             try:
-                conn.rollback()
+                conn.raw.rollback()
             except Exception:
                 pass
 
