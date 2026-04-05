@@ -15,7 +15,7 @@ export default function Nav({ page, setPage, kitchenOpen, onToggleKitchen, prefs
   return (
     <nav className="top-nav">
       <a href="#" className="logo" onClick={(e) => { e.preventDefault(); setPage('plan') }}>
-        sous<em>chef</em>
+        meal<em>runner</em>
       </a>
       <div className="nav-right">
         <div className="nav-links">

@@ -420,7 +420,7 @@ export default function PreferencesSheet({ onClose }) {
 
         {/* About */}
         <div className={styles.prefsAbout}>
-          <div className={styles.brandName}>sous<em style={{ color: 'var(--accent)', fontStyle: 'italic' }}>chef</em></div>
+          <div className={styles.brandName}>meal<em style={{ color: 'var(--accent)', fontStyle: 'italic' }}>runner</em></div>
           <div style={{ marginTop: '4px' }}>by Aletheia</div>
           <div className={styles.prefsVersion}>v0.1.0</div>
         </div>

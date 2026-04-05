@@ -89,7 +89,7 @@ export default function LoginPage() {
     <div className={styles.login}>
       <div className={styles.card}>
         <img className={styles.ladle} src={ladleImg} alt="" />
-        <div className={styles.wordmark}>sous<em>chef</em></div>
+        <div className={styles.wordmark}>meal<em>runner</em></div>
 
         {waitlist ? (
           <div className={styles.sent}>

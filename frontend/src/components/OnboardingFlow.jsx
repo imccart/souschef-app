@@ -54,7 +54,7 @@ export function WelcomeScreen({ onStart }) {
           <img className={ladleClass} src={ladleImg} alt="" />
           {phase >= 2 && phase < 4 && <div className={styles.welcomeDrip} ref={dripRef} />}
         </div>
-        <div className={`${styles.welcomeWordmark}${phase >= 4 ? ` ${styles.reveal}` : ''}`}>sous<em>chef</em></div>
+        <div className={`${styles.welcomeWordmark}${phase >= 4 ? ` ${styles.reveal}` : ''}`}>meal<em>runner</em></div>
         <div className={`${styles.welcomeTagline}${phase >= 4 ? ` ${styles.reveal}` : ''}`}>
           because someone has to plan dinner<br />and get groceries
         </div>
@@ -347,7 +347,7 @@ export default function OnboardingFlow({ onComplete, householdInfo }) {
         {/* Step 0: Welcome */}
         {step === 0 && (
           <div className={styles.step}>
-            <div className={styles.logo}>sous<em>chef</em></div>
+            <div className={styles.logo}>meal<em>runner</em></div>
             {isHousehold ? (
               <>
                 <div className={styles.welcomeText}>
@@ -636,7 +636,7 @@ export default function OnboardingFlow({ onComplete, householdInfo }) {
             <div className={styles.tourMockup}>
               {/* Header bar */}
               <div className={styles.mockHeader}>
-                <div className={styles.mockLogo}>sous<em>chef</em></div>
+                <div className={styles.mockLogo}>meal<em>runner</em></div>
                 <div className={styles.mockIcons}>
                   <div className={`${styles.mockIcon}${TOUR_STOPS[tourStep]?.region === 'kitchen' ? ` ${styles.mockHighlight}` : ''}`}>
                     <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round">
