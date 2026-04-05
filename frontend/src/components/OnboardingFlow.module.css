@@ -665,6 +665,105 @@
 }
 .skip:hover { color: var(--brown); }
 
+/* Who Are You step */
+.nameRow {
+  display: flex;
+  gap: 10px;
+  margin-bottom: 10px;
+}
+.nameRow .input { flex: 1; }
+.inputHint {
+  font-size: 12px;
+  color: var(--text-muted);
+  white-space: nowrap;
+}
+.inviteSent {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  font-size: 13px;
+  color: var(--dark);
+  padding: 6px 0;
+}
+.inviteRemove {
+  background: none;
+  border: none;
+  color: var(--text-muted);
+  cursor: pointer;
+  font-size: 16px;
+  padding: 0 4px;
+}
+.inviteRemove:hover { color: var(--accent); }
+.tosRow {
+  margin-top: 20px;
+  padding-top: 16px;
+  border-top: 1px solid var(--tan);
+}
+.tosLabel {
+  display: flex;
+  align-items: flex-start;
+  gap: 8px;
+  font-size: 13px;
+  color: var(--brown);
+  cursor: pointer;
+  line-height: 1.4;
+}
+.tosLabel input[type="checkbox"] {
+  margin-top: 2px;
+  flex-shrink: 0;
+}
+.tosLabel a {
+  color: var(--accent);
+  text-decoration: underline;
+}
+
+/* Store Integration step */
+.storeHowItWorks {
+  margin-bottom: 16px;
+  padding: 12px;
+  background: var(--warm-white);
+  border-radius: 8px;
+}
+.storeAccordion {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+.storeProvider {
+  border: 1px solid var(--tan);
+  border-radius: 8px;
+  overflow: hidden;
+}
+.storeProviderHeader {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  padding: 12px 16px;
+  font-family: 'DM Sans', sans-serif;
+  font-size: 14px;
+  font-weight: 600;
+  cursor: pointer;
+  background: var(--warm-white);
+}
+.storeProviderHeader::-webkit-details-marker { display: none; }
+.storeProvider[open] .storeProviderHeader {
+  border-bottom: 1px solid var(--tan);
+}
+.storeProviderBadge {
+  font-size: 12px;
+  font-weight: 500;
+  color: #2e7d32;
+}
+.storeComingSoon {
+  font-size: 11px;
+  font-weight: 400;
+  color: var(--text-muted);
+  font-style: italic;
+}
+.storeProviderBody {
+  padding: 12px 16px;
+}
+
 /* Clippy guide */
 .clippyContainer {
   position: fixed;

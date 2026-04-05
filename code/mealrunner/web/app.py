@@ -378,7 +378,7 @@ async def auth_me(request: Request):
         return JSONResponse({"error": "Session expired"}, status_code=401)
 
     user = conn.execute(
-        text("SELECT id, email, display_name FROM users WHERE id = :id"),
+        text("SELECT id, email, display_name, first_name, last_name, tos_accepted_at, tos_version FROM users WHERE id = :id"),
         {"id": user_id},
     ).fetchone()
 
@@ -389,8 +389,12 @@ async def auth_me(request: Request):
         text("SELECT value FROM settings WHERE user_id = :uid AND key = 'home_zip'"),
         {"uid": user_id},
     ).fetchone()
-    return {"id": user["id"], "email": user["email"], "display_name": user["display_name"],
-            "home_zip": home_zip_row["value"] if home_zip_row else ""}
+    return {
+        "id": user["id"], "email": user["email"], "display_name": user["display_name"],
+        "first_name": user["first_name"], "last_name": user["last_name"],
+        "tos_accepted_at": user["tos_accepted_at"], "tos_version": user["tos_version"],
+        "home_zip": home_zip_row["value"] if home_zip_row else "",
+    }
 
 
 @app.post("/api/auth/logout")

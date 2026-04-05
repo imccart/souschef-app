@@ -48,6 +48,10 @@ users = Table(
     Column("id", Text, primary_key=True),
     Column("email", Text, unique=True, nullable=False),
     Column("display_name", Text, nullable=False, server_default=text("''")),
+    Column("first_name", Text, nullable=False, server_default=text("''")),
+    Column("last_name", Text, nullable=False, server_default=text("''")),
+    Column("tos_accepted_at", Text),
+    Column("tos_version", Text, nullable=False, server_default=text("''")),
     Column("created_at", Text, nullable=False, server_default=text("CURRENT_TIMESTAMP")),
     Column("last_login", Text),
 )

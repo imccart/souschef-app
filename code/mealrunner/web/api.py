@@ -4091,12 +4091,24 @@ async def decline_invite(request: Request):
 
 @router.post("/account/update")
 async def update_account(body: dict, request: Request):
-    """Update current user's profile (display_name)."""
+    """Update current user's profile (first_name, last_name, display_name)."""
     real_user_id = getattr(request.state, 'real_user_id', request.state.user_id)
     conn = _conn()
 
+    first_name = body.get("first_name")
+    last_name = body.get("last_name")
     display_name = body.get("display_name")
-    if display_name is not None:
+
+    # If first/last provided, auto-generate display_name
+    if first_name is not None or last_name is not None:
+        fn = (first_name or "").strip()
+        ln = (last_name or "").strip()
+        conn.execute(
+            text("UPDATE users SET first_name = :fn, last_name = :ln, display_name = :dn WHERE id = :id"),
+            {"fn": fn, "ln": ln, "dn": f"{fn} {ln}".strip(), "id": real_user_id},
+        )
+        conn.commit()
+    elif display_name is not None:
         display_name = display_name.strip() or None
         conn.execute(
             text("UPDATE users SET display_name = :name WHERE id = :id"),
@@ -4105,10 +4117,25 @@ async def update_account(body: dict, request: Request):
         conn.commit()
 
     user = conn.execute(
-        text("SELECT id, email, display_name FROM users WHERE id = :id"),
+        text("SELECT id, email, display_name, first_name, last_name FROM users WHERE id = :id"),
         {"id": real_user_id},
     ).fetchone()
-    return {"ok": True, "email": user["email"], "display_name": user["display_name"]}
+    return {"ok": True, "email": user["email"], "display_name": user["display_name"],
+            "first_name": user["first_name"], "last_name": user["last_name"]}
+
+
+@router.post("/account/accept-tos")
+async def accept_tos(body: dict, request: Request):
+    """Record TOS acceptance with version and timestamp."""
+    real_user_id = getattr(request.state, 'real_user_id', request.state.user_id)
+    conn = _conn()
+    version = body.get("version", "1.0")
+    conn.execute(
+        text("UPDATE users SET tos_accepted_at = CURRENT_TIMESTAMP, tos_version = :v WHERE id = :id"),
+        {"v": version, "id": real_user_id},
+    )
+    conn.commit()
+    return {"ok": True}
 
 
 # ── Price Tracking Settings ───────────────────────────────

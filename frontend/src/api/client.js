@@ -249,6 +249,10 @@ export const api = {
     method: 'POST',
     body: JSON.stringify(data),
   }),
+  acceptTos: (version = '1.0') => request('/account/accept-tos', {
+    method: 'POST',
+    body: JSON.stringify({ version }),
+  }),
 
   // Onboarding
   getOnboardingStatus: () => request('/onboarding/status'),

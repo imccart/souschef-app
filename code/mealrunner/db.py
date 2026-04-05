@@ -119,6 +119,10 @@ def _run_column_migrations(conn: DictConnection) -> None:
         ("pantry", "last_bought_at", "TEXT"),
         ("recipes", "notes", "TEXT"),
         ("brand_ownership", "category", "TEXT NOT NULL DEFAULT ''"),
+        ("users", "first_name", "TEXT NOT NULL DEFAULT ''"),
+        ("users", "last_name", "TEXT NOT NULL DEFAULT ''"),
+        ("users", "tos_accepted_at", "TEXT"),
+        ("users", "tos_version", "TEXT NOT NULL DEFAULT ''"),
     ]
 
     for table_name, col_name, col_def in migrations:

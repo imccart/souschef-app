@@ -153,8 +153,13 @@ export default function OnboardingFlow({ onComplete, householdInfo }) {
   const [selectedRegulars, setSelectedRegulars] = useState(new Set())
   const [regularInput, setRegularInput] = useState('')
 
-  // Step 0: Welcome — personal info
+  // Step 0: Who Are You
+  const [firstName, setFirstName] = useState('')
+  const [lastName, setLastName] = useState('')
   const [homeZip, setHomeZip] = useState('')
+  const [tosAccepted, setTosAccepted] = useState(false)
+  const [inviteEmail, setInviteEmail] = useState('')
+  const [sentInvites, setSentInvites] = useState([])
 
   // Step 4: Store
   const [krogerConnected, setKrogerConnected] = useState(false)
@@ -197,7 +202,20 @@ export default function OnboardingFlow({ onComplete, householdInfo }) {
     setSaving(true)
     try {
       if (step === 0) {
-        // Welcome — nothing to save
+        // Who Are You — save name, zip, TOS
+        if (firstName.trim() || lastName.trim()) {
+          await api.updateAccount({ first_name: firstName.trim(), last_name: lastName.trim() })
+        }
+        if (homeZip.trim()) {
+          await api.saveHomeZip(homeZip.trim())
+        }
+        if (tosAccepted) {
+          await api.acceptTos('1.0')
+        }
+        // Send any pending invites
+        for (const email of sentInvites) {
+          try { await api.inviteToHousehold(email) } catch { /* ignore dupes */ }
+        }
       } else if (step === 1) {
         // Save meals + sides
         if (showTimeSurvey && !timeBaseline) {
@@ -217,10 +235,7 @@ export default function OnboardingFlow({ onComplete, householdInfo }) {
         // Save regulars
         await api.saveOnboardingRegulars([...selectedRegulars])
       } else if (step === 4) {
-        // Store — save zip + location
-        if (homeZip.trim()) {
-          await api.saveHomeZip(homeZip.trim())
-        }
+        // Store — save location
         if (selectedLocation) {
           await api.setKrogerLocation(selectedLocation, storeZip.trim())
         }
@@ -247,6 +262,14 @@ export default function OnboardingFlow({ onComplete, householdInfo }) {
           setSelectedStaples(new Set(data.staples.map(s => s.name)))
         })
       }
+    }
+
+    // Auto-search stores when entering step 4 if zip is set
+    if (nextStep === 4 && homeZip.trim() && !storeResults) {
+      setStoreZip(homeZip.trim())
+      api.searchKrogerLocations(homeZip.trim()).then(data => {
+        setStoreResults(data.locations || [])
+      }).catch(() => {})
     }
 
     setStep(nextStep)
@@ -345,26 +368,87 @@ export default function OnboardingFlow({ onComplete, householdInfo }) {
           ))}
         </div>
 
-        {/* Step 0: Welcome */}
+        {/* Step 0: Who Are You */}
         {step === 0 && (
-          <div className={styles.step} style={{ textAlign: 'center' }}>
-            <div className={styles.logo}>meal<em>runner</em></div>
+          <div className={styles.step}>
+            <div className={styles.logo} style={{ textAlign: 'center' }}>meal<em>runner</em></div>
             {isHousehold ? (
-              <>
-                <div className={styles.welcomeText}>
-                  Welcome! {householdInfo.ownerName} has already set up your household's meals, staples, and regulars — so we'll skip ahead to connecting your store and showing you around.
-                </div>
-                <div className={styles.welcomeTime}>This will only take a minute.</div>
-              </>
+              <div className={styles.welcomeText} style={{ textAlign: 'center' }}>
+                {householdInfo.ownerName} invited you to share their kitchen. Tell us a little about yourself.
+              </div>
             ) : (
+              <div className={styles.welcomeText} style={{ textAlign: 'center' }}>
+                Let's get you set up. It takes about 5 minutes.
+              </div>
+            )}
+
+            <div className={styles.stepTitle} style={{ marginTop: 16 }}>About you</div>
+            <div className={styles.nameRow}>
+              <input
+                className={styles.input}
+                type="text"
+                placeholder="First name"
+                value={firstName}
+                onChange={(e) => setFirstName(e.target.value)}
+              />
+              <input
+                className={styles.input}
+                type="text"
+                placeholder="Last name"
+                value={lastName}
+                onChange={(e) => setLastName(e.target.value)}
+              />
+            </div>
+            <div className={styles.inputRow}>
+              <input
+                className={styles.input}
+                type="text"
+                inputMode="numeric"
+                placeholder="Zip code"
+                value={homeZip}
+                onChange={(e) => setHomeZip(e.target.value)}
+                maxLength={5}
+                style={{ maxWidth: 120 }}
+              />
+              <span className={styles.inputHint}>Used to find nearby stores</span>
+            </div>
+
+            {!isHousehold && (
               <>
-                <div className={styles.welcomeText}>
-                  Your kitchen and meal assistant. We help you plan dinners, build grocery lists, and order from your favorite store — so you spend less time thinking about what's for dinner.
+                <div className={styles.stepTitle} style={{ marginTop: 20 }}>Invite your household</div>
+                <div className={styles.stepDesc}>
+                  Share your kitchen with a partner or family member. They'll see your meals and grocery list. You can always do this later from your account settings.
                 </div>
-                <div className={styles.welcomeTime}>It takes about 5 minutes to set up.</div>
+                <form onSubmit={(e) => {
+                  e.preventDefault()
+                  const email = inviteEmail.trim()
+                  if (!email || sentInvites.includes(email)) return
+                  setSentInvites(prev => [...prev, email])
+                  setInviteEmail('')
+                }} className={styles.inputRow}>
+                  <input className={styles.input} type="email" placeholder="Email address"
+                    value={inviteEmail} onChange={(e) => setInviteEmail(e.target.value)} />
+                  <button className="btn primary" type="submit">Invite</button>
+                </form>
+                {sentInvites.map(email => (
+                  <div key={email} className={styles.inviteSent}>
+                    {'\u2713'} {email}
+                    <button className={styles.inviteRemove} onClick={() => setSentInvites(prev => prev.filter(e => e !== email))}>{'\u00d7'}</button>
+                  </div>
+                ))}
               </>
             )}
-            <button className={`${styles.obBtn} ${styles.primary}`} onClick={goNext}>Let's get started</button>
+
+            <div className={styles.tosRow}>
+              <label className={styles.tosLabel}>
+                <input
+                  type="checkbox"
+                  checked={tosAccepted}
+                  onChange={(e) => setTosAccepted(e.target.checked)}
+                />
+                I agree to the <a href="/app/terms" target="_blank" rel="noopener">Terms of Service</a> and <a href="/app/privacy" target="_blank" rel="noopener">Privacy Policy</a>
+              </label>
+            </div>
           </div>
         )}
 
@@ -531,7 +615,7 @@ export default function OnboardingFlow({ onComplete, householdInfo }) {
           <div className={styles.step}>
             <div className={styles.stepTitle}>What's always in your cart?</div>
             <div className={styles.stepDesc}>
-              Things you buy almost every trip. These go on your list automatically.
+              Staples you buy almost every trip. These go on your list automatically.
             </div>
 
             <div className={styles.checklist}>
@@ -581,66 +665,95 @@ export default function OnboardingFlow({ onComplete, householdInfo }) {
           </div>
         )}
 
-        {/* Step 4: Store Setup */}
+        {/* Step 4: Store Integration */}
         {step === 4 && (
           <div className={styles.step}>
-            <div className={styles.stepTitle}>Where do you order groceries?</div>
+            <div className={styles.stepTitle}>Connect your grocery store</div>
             <div className={styles.stepDesc}>
-              Connect your store to send your grocery list straight to your cart. You can skip this and set it up later.
+              Link your store account to send your grocery list straight to your online cart. All of this can be changed later in your account settings.
             </div>
 
-            <div className={styles.inputRow} style={{ justifyContent: 'center', marginBottom: 8 }}>
-              <input
-                className={styles.input}
-                type="text"
-                inputMode="numeric"
-                placeholder="Your home zip code"
-                value={homeZip}
-                onChange={(e) => setHomeZip(e.target.value)}
-                maxLength={5}
-                style={{ maxWidth: 160, textAlign: 'center' }}
-              />
-            </div>
-            <div className={styles.stepHint} style={{ marginBottom: 16 }}>Used to find nearby stores and compare prices.</div>
-
-            {krogerConnected ? (
-              <div className={styles.storeConnected}>
-                <div className={styles.storeCheck}>{'\u2713'}</div>
-                <div>Kroger connected!</div>
-                {!selectedLocation && (
-                  <>
-                    <form onSubmit={handleSearchStores} className={styles.inputRow} style={{ marginTop: 12 }}>
-                      <input className={styles.input} type="text" placeholder="Zip code..."
-                        value={storeZip} onChange={(e) => setStoreZip(e.target.value)} />
-                      <button className="btn primary" type="submit">Find stores</button>
-                    </form>
-                    {storeResults && (
-                      <div className={styles.storeList}>
-                        {storeResults.length === 0 ? (
-                          <div className={styles.stepHint}>No stores found. Try a different zip code.</div>
-                        ) : storeResults.map(loc => (
-                          <button
-                            key={loc.locationId}
-                            className={styles.storeItem}
-                            onClick={() => setSelectedLocation(loc.locationId)}
-                          >
-                            <strong>{loc.name}</strong>
-                            <span>{loc.address?.addressLine1}, {loc.address?.city}</span>
-                          </button>
-                        ))}
-                      </div>
-                    )}
-                  </>
-                )}
-                {selectedLocation && (
-                  <div className={styles.stepHint}>Store selected! {'\u2713'}</div>
-                )}
+            <div className={styles.storeHowItWorks}>
+              <div className={styles.stepHint}>
+                We'll add items to your online cart as you shop on the Order page. For some stores, you'll need to open their app to finalize your order and handle any out-of-stock items.
               </div>
-            ) : (
-              <button className={`${styles.obBtn} ${styles.primary}`} onClick={handleConnectKroger} style={{ marginTop: 16 }}>
-                Connect Kroger
-              </button>
-            )}
+            </div>
+
+            <div className={styles.storeAccordion}>
+              <details className={styles.storeProvider} open>
+                <summary className={styles.storeProviderHeader}>
+                  <span>Kroger</span>
+                  {krogerConnected && <span className={styles.storeProviderBadge}>{'\u2713'} Connected</span>}
+                </summary>
+                <div className={styles.storeProviderBody}>
+                  {krogerConnected ? (
+                    <>
+                      {!selectedLocation && storeResults && storeResults.length > 0 && (
+                        <div className={styles.stepHint} style={{ marginBottom: 8 }}>Select your preferred store:</div>
+                      )}
+                      {!selectedLocation && (!storeResults || storeResults.length === 0) && (
+                        <form onSubmit={handleSearchStores} className={styles.inputRow} style={{ marginBottom: 8 }}>
+                          <input className={styles.input} type="text" placeholder="Zip code..."
+                            value={storeZip} onChange={(e) => setStoreZip(e.target.value)} />
+                          <button className="btn primary" type="submit">Find stores</button>
+                        </form>
+                      )}
+                    </>
+                  ) : (
+                    <>
+                      {storeResults && storeResults.length > 0 ? (
+                        <div className={styles.stepHint} style={{ marginBottom: 8 }}>
+                          We found {storeResults.length} Kroger store{storeResults.length !== 1 ? 's' : ''} near you. Connect your Kroger account, then select your preferred store.
+                        </div>
+                      ) : (
+                        <div className={styles.stepHint} style={{ marginBottom: 8 }}>
+                          Connect your Kroger account to add items to your online cart.
+                        </div>
+                      )}
+                      <button className={`${styles.obBtn} ${styles.primary}`} onClick={handleConnectKroger}>
+                        Connect Kroger Account
+                      </button>
+                    </>
+                  )}
+
+                  {storeResults && storeResults.length > 0 && !selectedLocation && (
+                    <div className={styles.storeList}>
+                      {storeResults.map(loc => (
+                        <button
+                          key={loc.locationId}
+                          className={styles.storeItem}
+                          onClick={() => setSelectedLocation(loc.locationId)}
+                        >
+                          <strong>{loc.name}</strong>
+                          <span>{loc.address?.addressLine1}, {loc.address?.city}</span>
+                        </button>
+                      ))}
+                    </div>
+                  )}
+                  {storeResults && storeResults.length === 0 && (
+                    <div className={styles.stepHint}>No stores found nearby. Try a different zip in your account settings later.</div>
+                  )}
+                  {selectedLocation && (
+                    <div className={styles.storeConnected}>
+                      <div className={styles.storeCheck}>{'\u2713'}</div>
+                      <div>Store selected!</div>
+                    </div>
+                  )}
+                </div>
+              </details>
+
+              <details className={styles.storeProvider}>
+                <summary className={styles.storeProviderHeader}>
+                  <span>More stores</span>
+                  <span className={styles.storeComingSoon}>Coming soon</span>
+                </summary>
+                <div className={styles.storeProviderBody}>
+                  <div className={styles.stepHint}>
+                    We're working on integrations with more grocery stores. Check back soon!
+                  </div>
+                </div>
+              </details>
+            </div>
           </div>
         )}
 
@@ -710,7 +823,7 @@ export default function OnboardingFlow({ onComplete, householdInfo }) {
         )}
 
         {/* Navigation buttons */}
-        {step > 0 && (
+        {true && (
           <div className={styles.btnRow}>
             {step !== 5 && step !== 0 && (
               <button className={styles.skip} onClick={skipStep}>Skip for now</button>
@@ -719,8 +832,13 @@ export default function OnboardingFlow({ onComplete, householdInfo }) {
               <button className={styles.skip} onClick={() => { setTourStep(TOUR_STOPS.length - 1) }}>Skip tour</button>
             )}
             <div className={styles.btnSpacer} />
-            {activeSteps.indexOf(step) > 1 && (
+            {activeSteps.indexOf(step) > 0 && (
               <button className={`${styles.obBtn} ${styles.secondary}`} onClick={goBack}>Back</button>
+            )}
+            {step === 0 && (
+              <button className={`${styles.obBtn} ${styles.primary}`} onClick={goNext} disabled={saving || !tosAccepted || !firstName.trim()}>
+                {saving ? '...' : 'Next'}
+              </button>
             )}
             {step !== 0 && step !== 5 && (
               <button className={`${styles.obBtn} ${styles.primary}`} onClick={goNext} disabled={saving}>
