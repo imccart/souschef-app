@@ -669,13 +669,7 @@ export default function OnboardingFlow({ onComplete, householdInfo }) {
           <div className={styles.step}>
             <div className={styles.stepTitle}>Connect your grocery store</div>
             <div className={styles.stepDesc}>
-              Link your store account to send your grocery list straight to your online cart. All of this can be changed later in your account settings.
-            </div>
-
-            <div className={styles.storeHowItWorks}>
-              <div className={styles.stepHint}>
-                We'll add items to your online cart as you shop on the Order page. For some stores, you'll need to open their app to finalize your order and handle any out-of-stock items.
-              </div>
+              Link your store account to send your grocery list straight to your online cart. We'll add items to your cart as you shop on the Order page. For some stores, you'll need to open their app to finalize your order and handle any out-of-stock items. All of this can be changed later in your account settings.
             </div>
 
             <div className={styles.storeAccordion}>
@@ -685,73 +679,59 @@ export default function OnboardingFlow({ onComplete, householdInfo }) {
                   {krogerConnected && <span className={styles.storeProviderBadge}>{'\u2713'} Connected</span>}
                 </summary>
                 <div className={styles.storeProviderBody}>
-                  {krogerConnected ? (
+                  {/* Phase 1: Connect account */}
+                  {!krogerConnected && (
+                    <div style={{ marginBottom: 12 }}>
+                      <button className={`${styles.obBtn} ${styles.primary}`} onClick={handleConnectKroger}>
+                        Connect your Kroger account
+                      </button>
+                    </div>
+                  )}
+
+                  {/* Phase 2: Select preferred store */}
+                  {krogerConnected && !selectedLocation && (
                     <>
-                      {!selectedLocation && storeResults && storeResults.length > 0 && (
-                        <div className={styles.stepHint} style={{ marginBottom: 8 }}>Select your preferred store:</div>
-                      )}
-                      {!selectedLocation && (!storeResults || storeResults.length === 0) && (
+                      <div className={styles.stepHint} style={{ marginBottom: 8 }}>Select your preferred store:</div>
+                      {(!storeResults || storeResults.length === 0) && (
                         <form onSubmit={handleSearchStores} className={styles.inputRow} style={{ marginBottom: 8 }}>
                           <input className={styles.input} type="text" placeholder="Zip code..."
                             value={storeZip} onChange={(e) => setStoreZip(e.target.value)} />
                           <button className="btn primary" type="submit">Find stores</button>
                         </form>
                       )}
-                    </>
-                  ) : (
-                    <>
-                      {storeResults && storeResults.length > 0 ? (
-                        <div className={styles.stepHint} style={{ marginBottom: 8 }}>
-                          We found {storeResults.length} Kroger store{storeResults.length !== 1 ? 's' : ''} near you. Connect your Kroger account, then select your preferred store.
-                        </div>
-                      ) : (
-                        <div className={styles.stepHint} style={{ marginBottom: 8 }}>
-                          Connect your Kroger account to add items to your online cart.
+                      {storeResults && storeResults.length > 0 && (
+                        <div className={styles.storeList}>
+                          {storeResults.map(loc => (
+                            <button
+                              key={loc.location_id}
+                              className={`${styles.storeItem}${selectedLocation === loc.location_id ? ` ${styles.storeItemSelected}` : ''}`}
+                              onClick={() => setSelectedLocation(loc.location_id)}
+                            >
+                              <strong>{loc.name.replace(/^Kroger\s*-?\s*/i, '')}</strong>
+                              <span>{loc.address}</span>
+                            </button>
+                          ))}
                         </div>
                       )}
-                      <button className={`${styles.obBtn} ${styles.primary}`} onClick={handleConnectKroger}>
-                        Connect Kroger Account
-                      </button>
+                      {storeResults && storeResults.length === 0 && (
+                        <div className={styles.stepHint}>No stores found nearby.</div>
+                      )}
                     </>
                   )}
 
-                  {storeResults && storeResults.length > 0 && !selectedLocation && (
-                    <div className={styles.storeList}>
-                      {storeResults.map(loc => (
-                        <button
-                          key={loc.locationId}
-                          className={styles.storeItem}
-                          onClick={() => setSelectedLocation(loc.locationId)}
-                        >
-                          <strong>{loc.name}</strong>
-                          <span>{loc.address?.addressLine1}, {loc.address?.city}</span>
-                        </button>
-                      ))}
-                    </div>
-                  )}
-                  {storeResults && storeResults.length === 0 && (
-                    <div className={styles.stepHint}>No stores found nearby. Try a different zip in your account settings later.</div>
-                  )}
+                  {/* Phase 3: Preferred store selected */}
                   {selectedLocation && (
                     <div className={styles.storeConnected}>
                       <div className={styles.storeCheck}>{'\u2713'}</div>
-                      <div>Store selected!</div>
+                      <div>{storeResults?.find(l => l.location_id === selectedLocation)?.name.replace(/^Kroger\s*-?\s*/i, '') || 'Store selected'}</div>
                     </div>
                   )}
                 </div>
               </details>
+            </div>
 
-              <details className={styles.storeProvider}>
-                <summary className={styles.storeProviderHeader}>
-                  <span>More stores</span>
-                  <span className={styles.storeComingSoon}>Coming soon</span>
-                </summary>
-                <div className={styles.storeProviderBody}>
-                  <div className={styles.stepHint}>
-                    We're working on integrations with more grocery stores. Check back soon!
-                  </div>
-                </div>
-              </details>
+            <div className={styles.stepHint} style={{ marginTop: 12, fontStyle: 'italic' }}>
+              More store integrations coming soon.
             </div>
           </div>
         )}
