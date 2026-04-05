@@ -196,10 +196,7 @@ export default function OnboardingFlow({ onComplete, householdInfo }) {
     setSaving(true)
     try {
       if (step === 0) {
-        // Welcome — save zip if provided
-        if (homeZip.trim()) {
-          await api.saveHomeZip(homeZip.trim())
-        }
+        // Welcome — nothing to save
       } else if (step === 1) {
         // Save meals + sides
         if (showTimeSurvey && !timeBaseline) {
@@ -219,7 +216,10 @@ export default function OnboardingFlow({ onComplete, householdInfo }) {
         // Save regulars
         await api.saveOnboardingRegulars([...selectedRegulars])
       } else if (step === 4) {
-        // Store — nothing to save (OAuth handles it)
+        // Store — save zip + location
+        if (homeZip.trim()) {
+          await api.saveHomeZip(homeZip.trim())
+        }
         if (selectedLocation) {
           await api.setKrogerLocation(selectedLocation, storeZip.trim())
         }
@@ -363,19 +363,6 @@ export default function OnboardingFlow({ onComplete, householdInfo }) {
                 <div className={styles.welcomeTime}>It takes about 5 minutes to set up.</div>
               </>
             )}
-            <div className={styles.inputRow} style={{ marginTop: 20, justifyContent: 'center' }}>
-              <input
-                className={styles.input}
-                type="text"
-                inputMode="numeric"
-                placeholder="Your zip code"
-                value={homeZip}
-                onChange={(e) => setHomeZip(e.target.value)}
-                maxLength={5}
-                style={{ maxWidth: 140, textAlign: 'center' }}
-              />
-            </div>
-            <div className={styles.stepHint} style={{ marginTop: 4 }}>Used to find nearby stores and compare prices.</div>
             <button className={`${styles.obBtn} ${styles.primary}`} onClick={goNext}>Let's get started</button>
           </div>
         )}
@@ -587,6 +574,20 @@ export default function OnboardingFlow({ onComplete, householdInfo }) {
             <div className={styles.stepDesc}>
               Connect your store to send your grocery list straight to your cart. You can skip this and set it up later.
             </div>
+
+            <div className={styles.inputRow} style={{ justifyContent: 'center', marginBottom: 8 }}>
+              <input
+                className={styles.input}
+                type="text"
+                inputMode="numeric"
+                placeholder="Your home zip code"
+                value={homeZip}
+                onChange={(e) => setHomeZip(e.target.value)}
+                maxLength={5}
+                style={{ maxWidth: 160, textAlign: 'center' }}
+              />
+            </div>
+            <div className={styles.stepHint} style={{ marginBottom: 16 }}>Used to find nearby stores and compare prices.</div>
 
             {krogerConnected ? (
               <div className={styles.storeConnected}>
