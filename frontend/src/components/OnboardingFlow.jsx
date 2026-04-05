@@ -147,6 +147,7 @@ export default function OnboardingFlow({ onComplete, householdInfo }) {
   // Step 2: Staples
   const [staplesData, setStaplesData] = useState(null)
   const [selectedStaples, setSelectedStaples] = useState(new Set())
+  const [stapleInput, setStapleInput] = useState('')
 
   // Step 3: Regulars
   const [selectedRegulars, setSelectedRegulars] = useState(new Set())
@@ -372,10 +373,7 @@ export default function OnboardingFlow({ onComplete, householdInfo }) {
           <div className={styles.step}>
             <div className={styles.stepTitle}>What does your family eat?</div>
             <div className={styles.stepDesc}>
-              Pick the meals your family makes regularly. We'll use these to build your grocery list. Don't overthink it — you can always add more later.
-            </div>
-            <div className={styles.stepHint}>
-              We keep it simple. "Tacos" means ground beef, tortillas, cheese, and salsa. We won't ask you to buy a tablespoon of cumin.
+              Add some meals your family makes regularly. We'll use these to build your grocery list. For a lot of meals, we have default ingredients. You can change these or add ingredients any time in the "My Kitchen" section later. We try to keep it simple here. "Tacos" means tortillas, cheese, maybe a meat, etc. We won't ask you to buy a tablespoon of cumin.
             </div>
 
             {!library ? (
@@ -467,7 +465,7 @@ export default function OnboardingFlow({ onComplete, householdInfo }) {
           <div className={styles.step}>
             <div className={styles.stepTitle}>What's already in your kitchen?</div>
             <div className={styles.stepDesc}>
-              Things you always have at home. We'll leave these off your grocery list.
+              Staples you always keep on hand, used for many different meals. Things like flour, olive oil, salt, etc. We'll leave these off your grocery list by default, but you can always add them when you're running low.
             </div>
 
             {!staplesData ? (
@@ -506,9 +504,25 @@ export default function OnboardingFlow({ onComplete, householdInfo }) {
                 ))}
               </div>
             )}
-            <div className={styles.stepHint} style={{ marginTop: 12 }}>
-              If you run out of something, you can always add it to your grocery list manually.
-            </div>
+            {/* Custom additions */}
+            {[...selectedStaples].filter(n => !staplesData?.some(s => s.name === n)).map(name => (
+              <div key={name} className={styles.checkItem} onClick={() => {
+                setSelectedStaples(prev => { const next = new Set(prev); next.delete(name); return next })
+              }}>
+                <div className="regular-check active">{'\u2713'}</div>
+                <span>{name}</span>
+              </div>
+            ))}
+            <form onSubmit={(e) => {
+              e.preventDefault()
+              if (!stapleInput.trim()) return
+              setSelectedStaples(prev => new Set(prev).add(stapleInput.trim().toLowerCase()))
+              setStapleInput('')
+            }} className={styles.inputRow}>
+              <input className={styles.input} type="text" placeholder="Add something else..."
+                value={stapleInput} onChange={(e) => setStapleInput(e.target.value)} />
+              <button className="btn primary" type="submit">+</button>
+            </form>
           </div>
         )}
 
