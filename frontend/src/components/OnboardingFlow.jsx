@@ -355,7 +355,7 @@ export default function OnboardingFlow({ onComplete, householdInfo }) {
   const handleConnectKroger = async () => {
     try {
       const data = await api.connectKroger()
-      if (data.auth_url) window.location.href = data.auth_url
+      if (data.url) window.location.href = data.url
     } catch { /* ignore */ }
   }
 
