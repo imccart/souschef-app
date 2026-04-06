@@ -161,7 +161,7 @@ function App() {
               </>
             )}
             <div className="two-col">
-              <div className="col-plan"><PlanPage showHeader={false} onLoad={handlePlanLoad} onNavigate={setPage} /></div>
+              <div className="col-plan" data-tour="plan-content"><PlanPage showHeader={false} onLoad={handlePlanLoad} onNavigate={setPage} /></div>
               <div className="col-grocery" data-tour="grocery-sidebar"><GroceryPage sidebar key={`grocery-${groceryVersion}`} /></div>
             </div>
           </>

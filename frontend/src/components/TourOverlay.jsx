@@ -5,79 +5,95 @@ function getStops() {
   const isWide = window.innerWidth >= 1024
   return [
     {
-      selector: isWide ? '[data-tour="plan"]' : '[data-tour="plan-tab"]',
+      selectors: isWide
+        ? ['[data-tour="plan"]', '[data-tour="plan-content"]']
+        : ['[data-tour="plan-tab"]'],
       label: 'Plan',
       desc: 'Your dinners for the week. ' + (isWide ? 'Click' : 'Tap') + ' a day to pick a meal.',
     },
     {
-      selector: isWide ? '[data-tour="grocery-sidebar"]' : '[data-tour="grocery-tab"]',
+      selectors: isWide
+        ? ['[data-tour="grocery-sidebar"]']
+        : ['[data-tour="grocery-tab"]'],
       label: 'Grocery',
-      desc: isWide
-        ? 'Always visible alongside your plan, organized by aisle.'
-        : 'Everything you need to buy, organized by aisle.',
+      desc: 'Key ingredients from your meals are added automatically. You can also add regulars, staples, or anything else at any time.',
     },
     {
-      selector: isWide ? '[data-tour="order"]' : '[data-tour="order-tab"]',
+      selectors: isWide ? ['[data-tour="order"]'] : ['[data-tour="order-tab"]'],
       label: 'Order',
       desc: 'Pick products from your store and send your cart.',
     },
     {
-      selector: isWide ? '[data-tour="receipt"]' : '[data-tour="receipt-tab"]',
+      selectors: isWide ? ['[data-tour="receipt"]'] : ['[data-tour="receipt-tab"]'],
       label: 'Receipt',
       desc: 'Upload your receipt to track what you bought.',
     },
     {
-      selector: '[data-tour="kitchen"]',
+      selectors: ['[data-tour="kitchen"]'],
       label: 'Kitchen',
       desc: 'Your meals, sides, staples, and product ratings.',
     },
     {
-      selector: '[data-tour="account"]',
+      selectors: ['[data-tour="account"]'],
       label: 'Account',
       desc: 'Store connections, household sharing, and settings.',
     },
     {
-      selector: '[data-tour="feedback"]',
+      selectors: ['[data-tour="feedback"]'],
       label: 'Talk to the Manager',
       desc: 'Send feedback, report bugs, or request features.',
     },
   ]
 }
 
+function getRect(el) {
+  const r = el.getBoundingClientRect()
+  return { top: r.top, left: r.left, width: r.width, height: r.height }
+}
+
+function cutoutPolygon(rects, pad = 6) {
+  // Build a clip-path that covers everything EXCEPT the highlighted rects
+  let path = '0% 0%, 0% 100%, 100% 100%, 100% 0%'
+  for (const r of rects) {
+    const l = r.left - pad, t = r.top - pad
+    const ri = r.left + r.width + pad, b = r.top + r.height + pad
+    path += `, ${l}px 0%, ${l}px ${t}px, ${ri}px ${t}px, ${ri}px ${b}px, ${l}px ${b}px, ${l}px 0%`
+  }
+  return `polygon(${path})`
+}
+
 export default function TourOverlay({ onComplete }) {
   const [step, setStep] = useState(0)
-  const [rect, setRect] = useState(null)
+  const [rects, setRects] = useState([])
   const [stops, setStops] = useState(getStops)
 
-  const updateRect = useCallback(() => {
+  const updateRects = useCallback(() => {
     const stop = stops[step]
     if (!stop) return
-    const el = document.querySelector(stop.selector)
-    if (el) {
-      const r = el.getBoundingClientRect()
-      setRect({ top: r.top, left: r.left, width: r.width, height: r.height })
-    } else {
-      setRect(null)
+    const found = []
+    for (const sel of stop.selectors) {
+      const el = document.querySelector(sel)
+      if (el) found.push(getRect(el))
     }
+    setRects(found)
   }, [step, stops])
 
   useEffect(() => {
-    // Recalculate stops on resize (desktop/mobile may change)
     const handleResize = () => {
       setStops(getStops())
-      updateRect()
+      updateRects()
     }
-    updateRect()
+    updateRects()
     window.addEventListener('resize', handleResize)
     return () => window.removeEventListener('resize', handleResize)
-  }, [updateRect])
+  }, [updateRects])
 
-  // Skip stops whose target element doesn't exist
+  // Skip stops whose target elements don't exist
   const advance = useCallback(() => {
     let next = step + 1
     while (next < stops.length) {
-      const el = document.querySelector(stops[next].selector)
-      if (el) break
+      const hasEl = stops[next].selectors.some(sel => document.querySelector(sel))
+      if (hasEl) break
       next++
     }
     if (next >= stops.length) {
@@ -90,49 +106,40 @@ export default function TourOverlay({ onComplete }) {
   const stop = stops[step]
   const isLast = step >= stops.length - 1
 
-  // Position callout below or above the target
+  // Position callout relative to the first rect
   const calloutStyle = {}
-  if (rect) {
+  if (rects.length > 0) {
+    const primary = rects[0]
     const pad = 12
-    const below = rect.top + rect.height + pad
-    const above = rect.top - pad
+    const below = primary.top + primary.height + pad
+    const above = primary.top - pad
     if (below + 140 < window.innerHeight) {
       calloutStyle.top = below
     } else {
       calloutStyle.bottom = window.innerHeight - above
     }
-    const centerX = rect.left + rect.width / 2
+    const centerX = primary.left + primary.width / 2
     calloutStyle.left = Math.max(16, Math.min(centerX - 140, window.innerWidth - 296))
   }
 
   return (
     <div className={styles.overlay}>
-      {rect && (
+      {rects.length > 0 && (
         <div
           className={styles.backdrop}
-          style={{
-            clipPath: `polygon(
-              0% 0%, 0% 100%, 100% 100%, 100% 0%,
-              ${rect.left - 6}px 0%,
-              ${rect.left - 6}px ${rect.top - 6}px,
-              ${rect.left + rect.width + 6}px ${rect.top - 6}px,
-              ${rect.left + rect.width + 6}px ${rect.top + rect.height + 6}px,
-              ${rect.left - 6}px ${rect.top + rect.height + 6}px,
-              ${rect.left - 6}px 0%
-            )`,
-          }}
+          style={{ clipPath: cutoutPolygon(rects) }}
           onClick={advance}
         />
       )}
 
-      {rect && (
-        <div className={styles.spotlight} style={{
-          top: rect.top - 6,
-          left: rect.left - 6,
-          width: rect.width + 12,
-          height: rect.height + 12,
+      {rects.map((r, i) => (
+        <div key={i} className={styles.spotlight} style={{
+          top: r.top - 6,
+          left: r.left - 6,
+          width: r.width + 12,
+          height: r.height + 12,
         }} />
-      )}
+      ))}
 
       {stop && (
         <div className={styles.callout} style={calloutStyle}>
