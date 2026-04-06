@@ -18,7 +18,7 @@ function AccordionSection({ title, count, children, defaultOpen = false }) {
   )
 }
 
-export default function PreferencesSheet({ onClose }) {
+export default function PreferencesSheet({ onClose, onStartTour }) {
   const [members, setMembers] = useState(null)
   const [householdEmail, setHouseholdEmail] = useState('')
   const [betaEmail, setBetaEmail] = useState('')
@@ -486,6 +486,13 @@ export default function PreferencesSheet({ onClose }) {
             </div>
           )}
         </AccordionSection>
+
+        {/* Take the Tour */}
+        {onStartTour && (
+          <button className={styles.prefsTourBtn} onClick={onStartTour}>
+            Take the tour
+          </button>
+        )}
 
         {/* Sign Out */}
         <button className={styles.prefsSignOut} onClick={async () => {

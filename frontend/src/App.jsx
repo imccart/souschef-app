@@ -12,6 +12,7 @@ import OnboardingFlow, { WelcomeScreen } from './components/OnboardingFlow'
 import LoginPage from './components/LoginPage'
 import HouseholdInvitePrompt from './components/HouseholdInvitePrompt'
 import { CrashTest } from './components/ErrorBoundary'
+import TourOverlay from './components/TourOverlay'
 
 function useIsWide(breakpoint = 1024) {
   const [wide, setWide] = useState(window.innerWidth >= breakpoint)
@@ -47,6 +48,7 @@ function App() {
   const [householdInfo, setHouseholdInfo] = useState(null) // { household_member, household_owner_name } or null
   const [inviteChecked, setInviteChecked] = useState(false)
   const isWide = useIsWide()
+  const [tourActive, setTourActive] = useState(false)
   const [mealData, setMealData] = useState(null)
   const [feedbackResponses, setFeedbackResponses] = useState([])
   const mobilePages = useMemo(() => ['plan', 'grocery', 'order', 'receipt'], [])
@@ -130,7 +132,7 @@ function App() {
   }
 
   if (!onboardingDone) {
-    return <OnboardingFlow onComplete={() => setOnboardingDone(true)} householdInfo={householdInfo} />
+    return <OnboardingFlow onComplete={() => { setOnboardingDone(true); setTourActive(true) }} householdInfo={householdInfo} />
   }
 
   return (
@@ -160,7 +162,7 @@ function App() {
             )}
             <div className="two-col">
               <div className="col-plan"><PlanPage showHeader={false} onLoad={handlePlanLoad} onNavigate={setPage} /></div>
-              <div className="col-grocery"><GroceryPage sidebar key={`grocery-${groceryVersion}`} /></div>
+              <div className="col-grocery" data-tour="grocery-sidebar"><GroceryPage sidebar key={`grocery-${groceryVersion}`} /></div>
             </div>
           </>
         ) : (
@@ -173,28 +175,29 @@ function App() {
         {page === 'receipt' && <ReceiptPage />}
       </main>
       <nav className="bottom-nav">
-        <div className={`nav-tab${page === 'plan' ? ' active' : ''}`} onClick={() => setPage('plan')}>
+        <div className={`nav-tab${page === 'plan' ? ' active' : ''}`} data-tour="plan-tab" onClick={() => setPage('plan')}>
           <div className="nav-tab-icon">{'\u{1F5D3}'}</div>
           <div className="nav-tab-label">Plan</div>
         </div>
         {!isWide && (
-          <div className={`nav-tab${page === 'grocery' ? ' active' : ''}`} onClick={() => setPage('grocery')}>
+          <div className={`nav-tab${page === 'grocery' ? ' active' : ''}`} data-tour="grocery-tab" onClick={() => setPage('grocery')}>
             <div className="nav-tab-icon">{'\u{1F6D2}'}</div>
             <div className="nav-tab-label">Grocery</div>
           </div>
         )}
-        <div className={`nav-tab${page === 'order' ? ' active' : ''}`} onClick={() => setPage('order')}>
+        <div className={`nav-tab${page === 'order' ? ' active' : ''}`} data-tour="order-tab" onClick={() => setPage('order')}>
           <div className="nav-tab-icon">{'\u{1F697}'}</div>
           <div className="nav-tab-label">Order</div>
         </div>
-        <div className={`nav-tab${page === 'receipt' ? ' active' : ''}`} onClick={() => setPage('receipt')}>
+        <div className={`nav-tab${page === 'receipt' ? ' active' : ''}`} data-tour="receipt-tab" onClick={() => setPage('receipt')}>
           <div className="nav-tab-icon">{'\u{1F9FE}'}</div>
           <div className="nav-tab-label">Receipt</div>
         </div>
       </nav>
 
       {showKitchen && <MyKitchenSheet onClose={() => setShowKitchen(false)} />}
-      {showPrefs && <PreferencesSheet onClose={() => setShowPrefs(false)} />}
+      {showPrefs && <PreferencesSheet onClose={() => setShowPrefs(false)} onStartTour={() => { setShowPrefs(false); setTourActive(true) }} />}
+      {tourActive && <TourOverlay onComplete={() => setTourActive(false)} />}
     </div>
   )
 }

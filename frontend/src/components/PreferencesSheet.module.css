@@ -263,6 +263,25 @@
   font-style: italic;
 }
 
+.prefsTourBtn {
+  display: block;
+  width: 100%;
+  padding: 14px;
+  margin-top: 8px;
+  background: none;
+  border: 1px solid var(--accent);
+  border-radius: 10px;
+  font-family: 'DM Sans', sans-serif;
+  font-size: 14px;
+  color: var(--accent);
+  cursor: pointer;
+  transition: background 0.15s, color 0.15s;
+}
+.prefsTourBtn:hover {
+  background: var(--accent);
+  color: white;
+}
+
 .prefsSignOut {
   display: block;
   width: 100%;

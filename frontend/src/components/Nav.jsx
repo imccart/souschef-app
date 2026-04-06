@@ -6,6 +6,7 @@ export default function Nav({ page, setPage, kitchenOpen, onToggleKitchen, prefs
     <a
       href="#"
       className={page === name ? 'active' : ''}
+      data-tour={name}
       onClick={(e) => { e.preventDefault(); setPage(name) }}
     >
       {label}
@@ -25,16 +26,20 @@ export default function Nav({ page, setPage, kitchenOpen, onToggleKitchen, prefs
           {link('receipt', 'Receipt')}
         </div>
         <div className="nav-icons">
-          <BentSpoonIcon
-            size={22}
-            active={kitchenOpen}
-            onClick={onToggleKitchen}
-          />
-          <ApronIcon
-            size={22}
-            active={prefsOpen}
-            onClick={onTogglePrefs}
-          />
+          <span data-tour="kitchen">
+            <BentSpoonIcon
+              size={22}
+              active={kitchenOpen}
+              onClick={onToggleKitchen}
+            />
+          </span>
+          <span data-tour="account">
+            <ApronIcon
+              size={22}
+              active={prefsOpen}
+              onClick={onTogglePrefs}
+            />
+          </span>
         </div>
       </div>
     </nav>

@@ -1,0 +1,108 @@
+.overlay {
+  position: fixed;
+  inset: 0;
+  z-index: 9999;
+  pointer-events: none;
+}
+
+.backdrop {
+  position: fixed;
+  inset: 0;
+  background: rgba(0, 0, 0, 0.45);
+  pointer-events: auto;
+  transition: clip-path 0.3s ease;
+}
+
+.spotlight {
+  position: fixed;
+  border-radius: 8px;
+  box-shadow: 0 0 0 3px var(--accent), 0 0 16px rgba(212, 98, 58, 0.3);
+  pointer-events: none;
+  transition: all 0.3s ease;
+}
+
+.callout {
+  position: fixed;
+  width: 280px;
+  background: white;
+  border-radius: 12px;
+  padding: 16px;
+  box-shadow: 0 8px 32px rgba(0, 0, 0, 0.15);
+  pointer-events: auto;
+  animation: calloutIn 0.25s ease forwards;
+  z-index: 10000;
+}
+
+@keyframes calloutIn {
+  from { opacity: 0; transform: translateY(6px); }
+  to { opacity: 1; transform: translateY(0); }
+}
+
+.calloutLabel {
+  font-family: 'Playfair Display', serif;
+  font-weight: 600;
+  font-size: 15px;
+  color: var(--accent);
+  margin-bottom: 4px;
+}
+
+.calloutDesc {
+  font-size: 13px;
+  color: var(--text-muted);
+  line-height: 1.5;
+  margin-bottom: 12px;
+}
+
+.calloutActions {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+}
+
+.skipBtn {
+  background: none;
+  border: none;
+  font-family: 'DM Sans', sans-serif;
+  font-size: 12px;
+  color: var(--text-muted);
+  cursor: pointer;
+  padding: 4px 0;
+}
+.skipBtn:hover {
+  color: var(--brown);
+}
+
+.nextBtn {
+  background: var(--accent);
+  color: white;
+  border: none;
+  border-radius: 8px;
+  padding: 8px 20px;
+  font-family: 'DM Sans', sans-serif;
+  font-size: 13px;
+  font-weight: 600;
+  cursor: pointer;
+  transition: background 0.15s;
+}
+.nextBtn:hover {
+  background: #C0562F;
+}
+
+.calloutDots {
+  display: flex;
+  justify-content: center;
+  gap: 6px;
+  margin-top: 10px;
+}
+
+.dot {
+  width: 6px;
+  height: 6px;
+  border-radius: 50%;
+  background: var(--tan);
+  transition: background 0.2s;
+}
+
+.dotActive {
+  background: var(--accent);
+}

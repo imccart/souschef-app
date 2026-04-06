@@ -9,7 +9,7 @@ export default function FeedbackFab({ page }) {
 
   return (
     <>
-      <button className="feedback-fab" onClick={() => { setShow(true); setSent(false); setText('') }}>
+      <button className="feedback-fab" data-tour="feedback" onClick={() => { setShow(true); setSent(false); setText('') }}>
         Talk to the manager
       </button>
 
