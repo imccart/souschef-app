@@ -300,8 +300,15 @@ export default function OnboardingFlow({ onComplete, householdInfo }) {
     if (step > 0) setStep(getPrevStep(step))
   }
 
-  const skipStep = () => {
+  const skipStep = async () => {
     setSaving(false)
+    // If on last step, skip finishes onboarding
+    if (step === activeSteps[activeSteps.length - 1]) {
+      try { await api.completeOnboarding() } catch {}
+      localStorage.setItem('mealrunner_onboarded', 'true')
+      onComplete()
+      return
+    }
     const nextStep = getNextStep(step)
     if (!isHousehold && step === 1) {
       // Load staples for next step
