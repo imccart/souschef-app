@@ -114,6 +114,8 @@ export default function OrderPage() {
   const [loadError, setLoadError] = useState(false)
   const [comparisons, setComparisons] = useState(null)
   const [showComparison, setShowComparison] = useState(false)
+  const [showSendSheet, setShowSendSheet] = useState(false)
+  const [showCompareSheet, setShowCompareSheet] = useState(false)
 
   const [sharedAccountName, setSharedAccountName] = useState(null)
 
@@ -206,13 +208,23 @@ export default function OrderPage() {
       setActiveItem(null)
       return
     }
-    // Pick the first pending item, or stay on current if still pending
+    // Stay on current if still pending (e.g., after "anything else? yes")
     const currentStillPending = pending.find(p => p.name === activeItem)
-    if (currentStillPending) {
-      // Current item is still pending (e.g., after "anything else? yes") — keep it
-      return
+    if (currentStillPending) return
+
+    // Advance to the next pending item AFTER the current position in the full list
+    const allNames = [...updatedOrder.pending.map(p => p.name), ...updatedOrder.selected.map(s => s.name)]
+    const curIdx = allNames.indexOf(activeItem)
+    // Look forward from current position for the next pending name
+    const pendingSet = new Set(pending.map(p => p.name))
+    for (let i = curIdx + 1; i < allNames.length; i++) {
+      if (pendingSet.has(allNames[i])) {
+        setActiveItem(allNames[i])
+        return
+      }
     }
-    setActiveItem(pending[0].name)
+    // Nothing pending after current position — done state
+    setActiveItem(null)
   }
 
   const handleSelect = (product) => {
@@ -282,6 +294,26 @@ export default function OrderPage() {
     const idx = allNames.indexOf(activeItem)
     if (idx > 0) setActiveItem(allNames[idx - 1])
     else if (allNames.length > 0) setActiveItem(allNames[allNames.length - 1])
+  }
+
+  const handleNext = () => {
+    if (!activeItem || !order) return
+    const allNames = [...order.pending.map(p => p.name), ...order.selected.map(s => s.name)]
+    const idx = allNames.indexOf(activeItem)
+    if (idx < allNames.length - 1) setActiveItem(allNames[idx + 1])
+    else setActiveItem(null) // reached the end → done state
+  }
+
+  const handleKeepShopping = () => {
+    if (!order) return
+    const pending = order.pending
+    if (pending.length > 0) {
+      setActiveItem(pending[0].name)
+    } else {
+      // All picked — wrap to first item
+      const allNames = [...order.pending.map(p => p.name), ...order.selected.map(s => s.name)]
+      if (allNames.length > 0) setActiveItem(allNames[0])
+    }
   }
 
   const handleDeselect = async (itemName) => {
@@ -415,7 +447,7 @@ export default function OrderPage() {
         <span className={styles.pickingRowProgress}>[{pickedCount}/{totalCount}]</span>
         <span className={styles.pickingRowExpand}>{'\u25BE'}</span>
       </div>
-      <button className={styles.pickingRowNav} onClick={handleBuyElsewhere} title="Buy elsewhere">{'\u2192'}</button>
+      <button className={styles.pickingRowNav} onClick={handleNext} title="Next item">{'\u2192'}</button>
     </div>
   ) : (
     <div className={`${styles.pickingRow} ${styles.done}`}>
@@ -519,12 +551,6 @@ export default function OrderPage() {
                 <div className={styles.orderItemNote}>{activeItemData.notes}</div>
               )}
             </div>
-            <div className={styles.orderItemActions}>
-              <button className={styles.orderGroceryBtn} onClick={() => handleGroceryAction('bought')}>Bought</button>
-              <button className={styles.orderGroceryBtn} onClick={() => handleGroceryAction('have_it')}>Have it</button>
-              <button className={`${styles.orderGroceryBtn} ${styles.elsewhere}`} onClick={handleBuyElsewhere}>Elsewhere</button>
-              <button className={styles.orderRemoveX} onClick={() => handleGroceryAction('remove')} title="Remove from list">{'\u00D7'}</button>
-            </div>
           </div>
           <form className={styles.orderSearchForm} onSubmit={e => {
             e.preventDefault()
@@ -546,6 +572,31 @@ export default function OrderPage() {
               }} title="Reset search">{'\u21BA'}</button>
             )}
           </form>
+        </div>
+      )}
+
+      {!activeItem && totalCount > 0 && !submitResult?.ok && (
+        <div className={styles.orderEndState}>
+          <div className={styles.orderEndSummary}>
+            {pendingCount > 0
+              ? `${pickedCount} of ${totalCount} items selected`
+              : 'All items selected'}
+            {order.total_price > 0 && ` \u00B7 ${formatPrice(order.total_price)}`}
+          </div>
+          <button className={styles.orderEndBtn} onClick={handleKeepShopping}>
+            {pendingCount > 0 ? 'Keep shopping' : 'Review selections'}
+          </button>
+          <button className={`${styles.orderEndBtn} ${styles.orderEndPrimary}`} onClick={() => setShowSendSheet(true)}>
+            Send to {storeName} {'\u2192'}
+          </button>
+          {comparisons && comparisons.length > 0 && (
+            <button className={styles.orderEndBtn} onClick={() => setShowCompareSheet(true)}>
+              Compare nearby stores
+            </button>
+          )}
+          <div className={styles.orderEndDesktopHint}>
+            You can also send your order from the panel on the right.
+          </div>
         </div>
       )}
 
@@ -963,72 +1014,6 @@ export default function OrderPage() {
         </div>
       )}
 
-      {/* Mobile: price comparison */}
-      {!activeItem && comparisons && comparisons.length > 0 && (
-        <div className={styles.priceComparisonMobile}>
-          <button className={styles.comparisonToggle} onClick={() => setShowComparison(!showComparison)}>
-            Compare nearby stores {showComparison ? '\u25B4' : '\u25BE'}
-          </button>
-          {showComparison && (
-            <>
-              {comparisons.map(c => (
-                <div key={c.location_id} className={styles.comparisonRow}>
-                  <div className={styles.comparisonStore}>{c.name}</div>
-                  <div className={c.savings > 0 ? styles.comparisonSavings : styles.comparisonMore}>
-                    {c.savings > 0
-                      ? `Save $${c.savings.toFixed(2)}`
-                      : c.savings === 0
-                      ? 'Same price'
-                      : `$${Math.abs(c.savings).toFixed(2)} more`}
-                    <span className={styles.comparisonDetail}>
-                      {' '}(comparing {c.items_compared} of {c.items_total} items)
-                    </span>
-                  </div>
-                </div>
-              ))}
-              <div className={styles.comparisonDisclaimer}>
-                Prices are estimates and may change. Not all items could be compared.
-                Switching stores changes your default Kroger location.
-              </div>
-            </>
-          )}
-        </div>
-      )}
-
-      {/* Mobile: send footer — only when done picking */}
-      {!activeItem && pickedCount > 0 && !submitResult?.ok && (
-        <div className={`${styles.orderFooter} ${styles.orderMobileFooter}`}>
-          {krogerAccounts && krogerAccounts.length === 0 ? (
-            <div className={styles.submitHint}>Connect your account in Preferences, or ask a household member to share access</div>
-          ) : (
-            <>
-              {krogerAccounts && krogerAccounts.length > 1 && (
-                <div className={`${styles.accountPicker} ${styles.accountPickerMobile}`}>
-                  <select
-                    className={styles.accountPickerSelect}
-                    value={selectedAccount || ''}
-                    onChange={e => setSelectedAccount(e.target.value)}
-                  >
-                    {krogerAccounts.map(a => (
-                      <option key={a.user_id} value={a.user_id}>
-                        {a.display_name}{a.is_you ? ' (you)' : ''}
-                      </option>
-                    ))}
-                  </select>
-                </div>
-              )}
-              <button
-                className={styles.buildListBtn}
-                onClick={handleSubmit}
-                disabled={submitting}
-              >
-                {submitting ? 'Sending...' : `Send to ${storeName} ${'\u2192'}`}
-              </button>
-            </>
-          )}
-        </div>
-      )}
-
       {communityBrand && !communityConfirm && (
         <Sheet onClose={() => { setCommunityBrand(null); setCommunityValue('') }}>
           <div className="sheet-title">Who makes this?</div>
@@ -1060,6 +1045,76 @@ export default function OrderPage() {
       {communityConfirm && (
         <div className={styles.communityToast}>Yes, Chef!</div>
       )}
+      {showSendSheet && (
+        <Sheet onClose={() => setShowSendSheet(false)}>
+          <div className="sheet-title">Send to {storeName}</div>
+          {pickedCount > 0 && (
+            <div className="sheet-sub">{pickedCount} item{pickedCount !== 1 ? 's' : ''} selected {'\u00B7'} {formatPrice(order.total_price)} est.</div>
+          )}
+          <div className={styles.sendSheetContent}>
+            {krogerAccounts && krogerAccounts.length === 0 ? (
+              <div className={styles.submitHint}>Connect your account in Preferences, or ask a household member to share access</div>
+            ) : (
+              <>
+                {krogerAccounts && krogerAccounts.length > 1 && (
+                  <div className={styles.accountPicker}>
+                    <label className={styles.accountPickerLabel}>Submit as</label>
+                    <select
+                      className={styles.accountPickerSelect}
+                      value={selectedAccount || ''}
+                      onChange={e => setSelectedAccount(e.target.value)}
+                    >
+                      {krogerAccounts.map(a => (
+                        <option key={a.user_id} value={a.user_id}>
+                          {a.display_name}{a.is_you ? ' (you)' : ''}
+                        </option>
+                      ))}
+                    </select>
+                  </div>
+                )}
+                <button
+                  className={styles.buildListBtn}
+                  onClick={async () => {
+                    await handleSubmit()
+                    setShowSendSheet(false)
+                  }}
+                  disabled={submitting || pickedCount === 0}
+                >
+                  {submitting ? 'Sending...' : `Send to ${storeName} \u2192`}
+                </button>
+              </>
+            )}
+          </div>
+        </Sheet>
+      )}
+
+      {showCompareSheet && comparisons && (
+        <Sheet onClose={() => setShowCompareSheet(false)}>
+          <div className="sheet-title">Compare nearby stores</div>
+          <div className={styles.compareSheetContent}>
+            {comparisons.map(c => (
+              <div key={c.location_id} className={styles.comparisonRow}>
+                <div className={styles.comparisonStore}>{c.name}</div>
+                <div className={c.savings > 0 ? styles.comparisonSavings : styles.comparisonMore}>
+                  {c.savings > 0
+                    ? `Save $${c.savings.toFixed(2)}`
+                    : c.savings === 0
+                    ? 'Same price'
+                    : `$${Math.abs(c.savings).toFixed(2)} more`}
+                  <span className={styles.comparisonDetail}>
+                    {' '}(comparing {c.items_compared} of {c.items_total} items)
+                  </span>
+                </div>
+              </div>
+            ))}
+            <div className={styles.comparisonDisclaimer}>
+              Prices are estimates and may change. Not all items could be compared.
+              Switching stores changes your default Kroger location.
+            </div>
+          </div>
+        </Sheet>
+      )}
+
       <FeedbackFab page="order" />
     </>
   )

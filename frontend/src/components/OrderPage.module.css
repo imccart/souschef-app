@@ -817,6 +817,126 @@
 .orderMobileContent .orderItemTopRow { justify-content: flex-end; }
 .orderMobileContent .orderItemActions { margin-bottom: 4px; }
 
+.buildListBtn {
+  width: 100%;
+  background: var(--dark);
+  color: white;
+  border: none;
+  padding: 12px;
+  border-radius: 8px;
+  font-family: 'DM Sans', sans-serif;
+  font-size: 15px;
+  font-weight: 500;
+  cursor: pointer;
+}
+
+.buildListBtn:disabled {
+  opacity: 0.6;
+  cursor: not-allowed;
+}
+
+/* End-of-list state */
+.orderEndState {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 10px;
+  padding: 32px 16px;
+}
+
+.orderEndSummary {
+  font-size: 14px;
+  color: var(--text-muted);
+  margin-bottom: 8px;
+}
+
+.orderEndBtn {
+  width: 100%;
+  max-width: 280px;
+  padding: 12px;
+  border: 1.5px solid var(--tan);
+  border-radius: 8px;
+  background: none;
+  color: var(--dark);
+  font-family: 'DM Sans', sans-serif;
+  font-size: 14px;
+  font-weight: 500;
+  cursor: pointer;
+}
+
+.orderEndPrimary {
+  background: var(--dark);
+  color: white;
+  border-color: var(--dark);
+}
+
+.orderEndDesktopHint {
+  display: none;
+}
+
+@media (min-width: 1024px) {
+  .orderEndDesktopHint {
+    display: block;
+    font-size: 12px;
+    color: var(--text-muted);
+    margin-top: 4px;
+  }
+}
+
+/* Sheet content */
+.sendSheetContent {
+  padding: 16px 0;
+}
+
+.compareSheetContent {
+  padding: 8px 0;
+}
+
+.comparisonToggle {
+  background: none;
+  border: none;
+  cursor: pointer;
+  font-size: 13px;
+  color: var(--text-muted);
+  font-family: inherit;
+  padding: 8px 0;
+  width: 100%;
+  text-align: left;
+}
+
+.comparisonRow {
+  padding: 6px 0;
+}
+
+.comparisonStore {
+  font-size: 13px;
+  font-weight: 500;
+  color: var(--dark);
+}
+
+.comparisonSavings {
+  font-size: 13px;
+  color: #16a34a;
+}
+
+.comparisonMore {
+  font-size: 13px;
+  color: var(--text-muted);
+}
+
+.comparisonDetail {
+  font-size: 11px;
+  color: var(--text-muted);
+}
+
+.comparisonDisclaimer {
+  margin-top: 6px;
+  font-size: 11px;
+  font-style: italic;
+  color: var(--text-muted);
+  line-height: 1.4;
+}
+
 .priceComparisonMobile {
   padding: 8px 16px;
   border-top: 1px solid var(--warm-white);
