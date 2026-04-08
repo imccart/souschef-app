@@ -1,6 +1,7 @@
 import { useState, useEffect } from 'react'
 import { api } from '../api/client'
 import Sheet from './Sheet'
+import runnerRImg from '../assets/runner-r.png'
 import ls from '../shared/lists.module.css'
 import styles from './PreferencesSheet.module.css'
 
@@ -513,7 +514,7 @@ export default function PreferencesSheet({ onClose, onStartTour }) {
 
         {/* About */}
         <div className={styles.prefsAbout}>
-          <div className={styles.brandName}>meal<em style={{ color: 'var(--accent)', fontStyle: 'italic' }}>runner</em></div>
+          <div className={styles.brandName} style={{ display: 'flex', alignItems: 'baseline', justifyContent: 'center' }}>meal<img src={runnerRImg} alt="" style={{ width: 18, height: 19, objectFit: 'contain', position: 'relative', top: 3, margin: '0 -1px' }} /><em style={{ color: 'var(--accent)', fontStyle: 'italic' }}>unner</em></div>
           <div style={{ marginTop: '4px' }}>by Aletheia</div>
           <div className={styles.prefsVersion}>v0.1.0</div>
         </div>

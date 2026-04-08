@@ -14,14 +14,6 @@
   animation: fadeUp 0.5s ease forwards;
 }
 
-.ladle {
-  width: 56px;
-  height: 56px;
-  object-fit: contain;
-  margin-bottom: 12px;
-  filter: drop-shadow(0 2px 8px rgba(212, 98, 58, 0.2));
-}
-
 .wordmark {
   font-family: 'Playfair Display', serif;
   font-size: 28px;
@@ -29,6 +21,18 @@
   color: var(--dark);
   letter-spacing: -0.5px;
   margin-bottom: 24px;
+  display: flex;
+  align-items: baseline;
+  justify-content: center;
+}
+
+.runnerR {
+  width: 26px;
+  height: 28px;
+  object-fit: contain;
+  position: relative;
+  top: 4px;
+  margin: 0 -1px;
 }
 
 .wordmark em {

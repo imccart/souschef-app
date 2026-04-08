@@ -1,5 +1,6 @@
 import BentSpoonIcon from './BentSpoonIcon'
 import ApronIcon from './ApronIcon'
+import runnerRImg from '../assets/runner-r.png'
 
 export default function Nav({ page, setPage, kitchenOpen, onToggleKitchen, prefsOpen, onTogglePrefs, isWide }) {
   const link = (name, label) => (
@@ -16,7 +17,7 @@ export default function Nav({ page, setPage, kitchenOpen, onToggleKitchen, prefs
   return (
     <nav className="top-nav">
       <a href="#" className="logo" onClick={(e) => { e.preventDefault(); setPage('plan') }}>
-        meal<em>runner</em>
+        meal<img src={runnerRImg} alt="" className="nav-runner-r" /><em>unner</em>
       </a>
       <div className="nav-right">
         <div className="nav-links">

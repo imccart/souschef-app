@@ -1,6 +1,6 @@
 import { useState, useEffect, useRef } from 'react'
 import { api } from '../api/client'
-import ladleImg from '../assets/ladle.png'
+import runnerRImg from '../assets/runner-r.png'
 import styles from './LoginPage.module.css'
 
 export default function LoginPage() {
@@ -88,8 +88,7 @@ export default function LoginPage() {
   return (
     <div className={styles.login}>
       <div className={styles.card}>
-        <img className={styles.ladle} src={ladleImg} alt="" />
-        <div className={styles.wordmark}>meal<em>runner</em></div>
+        <div className={styles.wordmark}>meal<img className={styles.runnerR} src={runnerRImg} alt="" /><em>unner</em></div>
         <div className={styles.tagline}>From planning to pantry.</div>
 
         {waitlist ? (

@@ -1,67 +1,49 @@
 import { useState, useEffect, useRef, useCallback } from 'react'
 import { api } from '../api/client'
 import ClippyGuide from './ClippyGuide'
-import ladleImg from '../assets/ladle.png'
+import runnerRImg from '../assets/runner-r.png'
 import styles from './OnboardingFlow.module.css'
 
-// ── Pre-auth Welcome Screen (unchanged) ─────────────────
+// ── Pre-auth Welcome Screen ─────────────────────────────
 
 export function WelcomeScreen({ onStart }) {
   const [phase, setPhase] = useState(0)
-  const ladleRef = useRef(null)
-  const dripRef = useRef(null)
-  const [splatPos, setSplatPos] = useState({ x: 0, y: 0 })
-
-  const runAnimation = useCallback(() => {
-    setPhase(0)
-    const t0 = setTimeout(() => {
-      if (ladleRef.current) {
-        const ladleRect = ladleRef.current.getBoundingClientRect()
-        const impactX = ladleRect.left + ladleRect.width * 0.33
-        const impactY = ladleRect.top + ladleRect.height * 0.82 + 160
-        setSplatPos({ x: impactX, y: impactY })
-      }
-      setPhase(1)
-    }, 100)
-    const t1 = setTimeout(() => setPhase(2), 1100)
-    const t2 = setTimeout(() => setPhase(3), 1490)
-    const t3 = setTimeout(() => setPhase(4), 1960)
-    const t4 = setTimeout(() => setPhase(5), 2260)
-    return () => { clearTimeout(t0); clearTimeout(t1); clearTimeout(t2); clearTimeout(t3); clearTimeout(t4) }
-  }, [])
 
   useEffect(() => {
-    let cleanup
-    const start = () => { cleanup = runAnimation() }
-    if (document.fonts) { document.fonts.ready.then(start) } else { start() }
-    return () => { if (cleanup) cleanup() }
-  }, [runAnimation])
-
-  const ladleClass = `${styles.ladle}${phase >= 4 ? ` ${styles.upright}` : phase >= 1 ? ` ${styles.tilt}` : ''}`
+    // Phase 1: runner-R slides in from left
+    // Phase 2: R shrinks, "meal" + "unner" expand around it
+    // Phase 3: tagline fades in + brand group slides up
+    // Phase 4: button + footer
+    const timers = [
+      setTimeout(() => setPhase(1), 200),
+      setTimeout(() => setPhase(2), 1100),
+      setTimeout(() => setPhase(3), 1800),
+      setTimeout(() => setPhase(4), 2400),
+    ]
+    return () => timers.forEach(clearTimeout)
+  }, [])
 
   return (
     <div className={styles.welcome}>
-      {phase >= 3 && (
-        <>
-          <div className={`${styles.welcomeSplat} ${styles.main}`} style={{ left: splatPos.x - 9, top: splatPos.y - 4 }} />
-          <div className={`${styles.welcomeSplat} ${styles.a}`} style={{ left: splatPos.x - 18, top: splatPos.y - 3 }} />
-          <div className={`${styles.welcomeSplat} ${styles.b}`} style={{ left: splatPos.x - 30, top: splatPos.y + 2 }} />
-          <div className={`${styles.welcomeSplat} ${styles.c}`} style={{ left: splatPos.x - 14, top: splatPos.y + 6 }} />
-        </>
-      )}
       <div className={styles.welcomeContent}>
-        <div className={styles.welcomeLadleArea} ref={ladleRef}>
-          <img className={ladleClass} src={ladleImg} alt="" />
-          {phase >= 2 && phase < 4 && <div className={styles.welcomeDrip} ref={dripRef} />}
+        <div className={`${styles.brandGroup}${phase >= 3 ? ` ${styles.slideUp}` : ''}`}>
+          <div className={styles.wordmarkRow}>
+            <span className={`${styles.mealPart}${phase >= 2 ? ` ${styles.slideIn}` : ''}`}>meal</span>
+            <img
+              className={`${styles.runnerR}${phase >= 1 ? ` ${styles.runIn}` : ''}${phase >= 2 ? ` ${styles.shrink}` : ''}`}
+              src={runnerRImg}
+              alt=""
+            />
+            <span className={`${styles.unnerPart}${phase >= 2 ? ` ${styles.slideIn}` : ''}`}>unner</span>
+          </div>
+          <div className={`${styles.welcomeTagline}${phase >= 3 ? ` ${styles.reveal}` : ''}`}>
+            From planning to pantry.
+          </div>
         </div>
-        <div className={`${styles.welcomeWordmark}${phase >= 4 ? ` ${styles.reveal}` : ''}`}>meal<em>runner</em></div>
-        <div className={`${styles.welcomeTagline}${phase >= 4 ? ` ${styles.reveal}` : ''}`}>
-          From planning to pantry.
-        </div>
-        <button className={`${styles.welcomeBtn}${phase >= 5 ? ` ${styles.reveal}` : ''}`} onClick={onStart}>
+        <button className={`${styles.welcomeBtn}${phase >= 4 ? ` ${styles.reveal}` : ''}`} onClick={onStart}>
           Get started
         </button>
-        <div className={`${styles.welcomeFooter}${phase >= 5 ? ` ${styles.show}` : ''}`}>
+        <div className={`${styles.welcomeFooter}${phase >= 4 ? ` ${styles.show}` : ''}`}>
           an <a href="https://aletheia.fyi">aletheia</a> project
         </div>
       </div>
@@ -387,7 +369,7 @@ export default function OnboardingFlow({ onComplete, householdInfo }) {
         {/* Step 0: Who Are You */}
         {step === 0 && (
           <div className={styles.step}>
-            <div className={styles.logo} style={{ textAlign: 'center' }}>meal<em>runner</em></div>
+            <div className={styles.logo} style={{ textAlign: 'center', display: 'flex', alignItems: 'baseline', justifyContent: 'center' }}>meal<img src={runnerRImg} alt="" style={{ width: 28, height: 30, objectFit: 'contain', position: 'relative', top: 4, margin: '0 -1px' }} /><em>unner</em></div>
             {isHousehold ? (
               <div className={styles.welcomeText} style={{ textAlign: 'center' }}>
                 {householdInfo.ownerName} invited you to share their kitchen. Tell us a little about yourself.

@@ -53,9 +53,23 @@ nav.top-nav {
   text-decoration: none;
 }
 
+.logo {
+  display: flex;
+  align-items: baseline;
+}
+
 .logo em {
   color: var(--accent);
   font-style: italic;
+}
+
+.nav-runner-r {
+  width: 20px;
+  height: 21px;
+  object-fit: contain;
+  position: relative;
+  top: 3px;
+  margin: 0 -1px;
 }
 
 .logo .tagline {
