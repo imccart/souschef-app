@@ -77,6 +77,7 @@ class KrogerProduct:
     promo_price: float | None = None
     in_stock: bool = True
     curbside: bool = False
+    delivery: bool = False
     nova_group: int | None = None  # 1=unprocessed, 4=ultra-processed
     nutriscore: str = ""  # a-e
     categories: list[str] | None = None
@@ -221,6 +222,7 @@ def _parse_search_response(data: dict, fulfillment: str = "curbside") -> list[Kr
             promo_price=price_info.get("promo"),
             in_stock=in_stock,
             curbside=ff.get("curbside", False),
+            delivery=ff.get("delivery", False),
             categories=cats,
             image_url=_extract_image_url(item),
         ))
@@ -279,6 +281,7 @@ def search_products_fast(term: str, limit: int = 5, start: int = 1,
                 promo_price=price_info.get("promo"),
                 in_stock=in_stock,
                 curbside=ff.get("curbside", False),
+                delivery=ff.get("delivery", False),
                 image_url=_extract_image_url(item),
                 categories=cats_dedup,
             ))
@@ -302,6 +305,7 @@ def fill_prices(products: list[KrogerProduct], location_id: str | None = None) -
             p.promo_price = info["promo"]
         if info.get("curbside") is not None:
             p.curbside = info["curbside"]
+            p.delivery = info.get("delivery", False)
             p.in_stock = info["curbside"] or info.get("in_store", False)
 
 
@@ -334,6 +338,7 @@ def _get_product_prices(product_ids: list[str], location_id: str) -> dict[str, d
                             "regular": regular,
                             "promo": price_info.get("promo"),
                             "curbside": fulfillment.get("curbside", False),
+                            "delivery": fulfillment.get("delivery", False),
                             "in_store": fulfillment.get("inStore", False),
                         }
                 if resp.status_code == 429:
@@ -342,7 +347,7 @@ def _get_product_prices(product_ids: list[str], location_id: str) -> dict[str, d
             except Exception:
                 pass
             time.sleep(0.3 * (attempt + 1))
-        return {"regular": None, "promo": None, "curbside": None, "in_store": None}
+        return {"regular": None, "promo": None, "curbside": None, "delivery": None, "in_store": None}
 
     from concurrent.futures import ThreadPoolExecutor
     with ThreadPoolExecutor(max_workers=6) as pool:

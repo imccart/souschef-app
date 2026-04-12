@@ -35,6 +35,8 @@ def _poll_single_product(upc: str, location_id: str) -> dict | None:
             "price": regular,
             "promo_price": price_info.get("promo"),
             "in_stock": 1 if fulfillment.get("curbside") or fulfillment.get("inStore") else 0,
+            "curbside": fulfillment.get("curbside", False),
+            "delivery": fulfillment.get("delivery", False),
         }
     except Exception:
         return None
@@ -86,16 +88,18 @@ def poll_user_prices(conn: DictConnection, user_id: str) -> dict:
                 )
                 # Also update product_scores cache so search reads fresh prices
                 conn.execute(
-                    text("""INSERT INTO product_scores (upc, price, promo_price, in_stock, curbside, price_fetched_at)
-                       VALUES (:upc, :price, :promo, :stock, :curbside, CURRENT_TIMESTAMP)
+                    text("""INSERT INTO product_scores (upc, price, promo_price, in_stock, curbside, delivery, price_fetched_at)
+                       VALUES (:upc, :price, :promo, :stock, :curbside, :delivery, CURRENT_TIMESTAMP)
                        ON CONFLICT(upc) DO UPDATE SET
                          price = excluded.price, promo_price = excluded.promo_price,
                          in_stock = excluded.in_stock, curbside = excluded.curbside,
+                         delivery = excluded.delivery,
                          price_fetched_at = excluded.price_fetched_at"""),
                     {"upc": upc, "price": price_data["price"],
                      "promo": price_data.get("promo_price"),
                      "stock": price_data.get("in_stock"),
-                     "curbside": price_data.get("curbside", False)},
+                     "curbside": price_data.get("curbside", False),
+                     "delivery": price_data.get("delivery", False)},
                 )
                 polled += 1
             # Rate limit: sleep between calls to avoid Kroger 429

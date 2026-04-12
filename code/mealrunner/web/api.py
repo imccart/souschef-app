@@ -1527,18 +1527,18 @@ async def search_order_products(item_name: str, request: Request, fulfillment: s
     for p in products:
         conn.execute(
             text("""INSERT INTO product_scores
-               (upc, nova_group, nutriscore, score_fetched_at, price, promo_price, in_stock, curbside, price_fetched_at)
-               VALUES (:upc, :nova_group, :nutriscore, CURRENT_TIMESTAMP, :price, :promo_price, :in_stock, :curbside, CURRENT_TIMESTAMP)
+               (upc, nova_group, nutriscore, score_fetched_at, price, promo_price, in_stock, curbside, delivery, price_fetched_at)
+               VALUES (:upc, :nova_group, :nutriscore, CURRENT_TIMESTAMP, :price, :promo_price, :in_stock, :curbside, :delivery, CURRENT_TIMESTAMP)
                ON CONFLICT(upc) DO UPDATE SET
                nova_group=COALESCE(excluded.nova_group, product_scores.nova_group),
                nutriscore=CASE WHEN excluded.nova_group IS NOT NULL THEN excluded.nutriscore ELSE product_scores.nutriscore END,
                score_fetched_at=CASE WHEN excluded.nova_group IS NOT NULL THEN excluded.score_fetched_at ELSE product_scores.score_fetched_at END,
                price=excluded.price, promo_price=excluded.promo_price,
-               in_stock=excluded.in_stock, curbside=excluded.curbside,
+               in_stock=excluded.in_stock, curbside=excluded.curbside, delivery=excluded.delivery,
                price_fetched_at=excluded.price_fetched_at"""),
             {"upc": p.upc, "nova_group": p.nova_group, "nutriscore": p.nutriscore or "",
              "price": p.price, "promo_price": p.promo_price,
-             "in_stock": int(p.in_stock), "curbside": int(p.curbside)},
+             "in_stock": int(p.in_stock), "curbside": int(p.curbside), "delivery": int(p.delivery)},
         )
     conn.commit()
 
@@ -1556,7 +1556,7 @@ async def search_order_products(item_name: str, request: Request, fulfillment: s
         ph = ", ".join(f":pu{i}" for i in range(len(pref_upcs)))
         ps = {f"pu{i}": u for i, u in enumerate(pref_upcs)}
         pref_score_rows = conn.execute(
-            text(f"SELECT upc, nova_group, nutriscore, price, promo_price, in_stock FROM product_scores WHERE upc IN ({ph})"),
+            text(f"SELECT upc, nova_group, nutriscore, price, promo_price, in_stock, curbside, delivery FROM product_scores WHERE upc IN ({ph})"),
             ps,
         ).fetchall()
         pref_scores = {r["upc"]: dict(r) for r in pref_score_rows}
@@ -1571,7 +1571,26 @@ async def search_order_products(item_name: str, request: Request, fulfillment: s
         search_p = search_products_by_upc.get(p.upc)
         brand = search_p.brand if search_p and search_p.brand else p.brand
         cat = search_p.categories[0] if search_p and search_p.categories else None
-        in_stock = search_p.in_stock if search_p else bool(sc.get("in_stock", 1))
+        # Determine availability for the user's fulfillment mode
+        if search_p:
+            available = search_p.in_stock
+            has_curbside = search_p.curbside
+            has_delivery = search_p.delivery
+        else:
+            available = bool(sc.get("in_stock", 1))
+            has_curbside = bool(sc.get("curbside", 0))
+            has_delivery = bool(sc.get("delivery", 0))
+        # Check fulfillment-specific availability
+        if ff == "curbside" and not has_curbside and has_delivery:
+            unavailable_reason = "Delivery only"
+            available = False
+        elif ff == "delivery" and not has_delivery and has_curbside:
+            unavailable_reason = "Pickup only"
+            available = False
+        elif not available:
+            unavailable_reason = "Out of stock"
+        else:
+            unavailable_reason = None
         parent = get_parent_company(brand, conn, category=cat) if brand else "We're not sure"
         violations = get_company_violations(conn, parent) if parent not in ("We're not sure",) else None
         pref_item = {
@@ -1586,7 +1605,8 @@ async def search_order_products(item_name: str, request: Request, fulfillment: s
             "nova": sc.get("nova_group"),
             "nutriscore": sc.get("nutriscore", ""),
             "parent_company": parent,
-            "in_stock": in_stock,
+            "in_stock": available,
+            "unavailable_reason": unavailable_reason,
         }
         if violations:
             pref_item["violations"] = violations

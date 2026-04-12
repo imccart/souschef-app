@@ -123,6 +123,7 @@ def _run_column_migrations(conn: DictConnection) -> None:
         ("users", "last_name", "TEXT NOT NULL DEFAULT ''"),
         ("users", "tos_accepted_at", "TEXT"),
         ("users", "tos_version", "TEXT NOT NULL DEFAULT ''"),
+        ("product_scores", "delivery", "INTEGER"),
     ]
 
     for table_name, col_name, col_def in migrations:

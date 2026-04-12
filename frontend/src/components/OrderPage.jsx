@@ -702,7 +702,7 @@ export default function OrderPage() {
                           </>
                         )}
                       </div>
-                      {pref.in_stock === false && <div className={styles.outOfStockLabel}>Unavailable</div>}
+                      {pref.in_stock === false && <div className={styles.outOfStockLabel}>{pref.unavailable_reason || 'Unavailable'}</div>}
                       <ProductInsights nova={pref.nova} nutriscore={pref.nutriscore} />
                       <ParentCoBadge brand={pref.brand} parentCompany={pref.parent_company} violations={pref.violations} onTapUnknown={(b) => setCommunityBrand(b || 'Unknown')} />
                     </div>

@@ -233,6 +233,7 @@ product_scores = Table(
     Column("promo_price", Float),
     Column("in_stock", Integer),
     Column("curbside", Integer),
+    Column("delivery", Integer),
     Column("score_fetched_at", Text, nullable=False, server_default=text("CURRENT_TIMESTAMP")),
     Column("price_fetched_at", Text),
 )
