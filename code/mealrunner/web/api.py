@@ -858,10 +858,10 @@ def _refresh_trip_meal_items(conn, trip_id: int, mw, user_id: str) -> None:
                 # Same meals as before — only clear stale checked/have_it
                 # (3-day threshold mirrors the auto-prune for extras).
                 # Removed stays sticky until the user explicitly undoes.
-                reset_clause = """checked = CASE WHEN checked = 1 AND checked_at < NOW() - INTERVAL '3 days' THEN 0 ELSE checked END,
-                                  checked_at = CASE WHEN checked = 1 AND checked_at < NOW() - INTERVAL '3 days' THEN NULL ELSE checked_at END,
-                                  have_it = CASE WHEN have_it = 1 AND have_it_at < NOW() - INTERVAL '3 days' THEN 0 ELSE have_it END,
-                                  have_it_at = CASE WHEN have_it = 1 AND have_it_at < NOW() - INTERVAL '3 days' THEN NULL ELSE have_it_at END,"""
+                reset_clause = """checked = CASE WHEN checked = 1 AND checked_at::timestamptz < NOW() - INTERVAL '3 days' THEN 0 ELSE checked END,
+                                  checked_at = CASE WHEN checked = 1 AND checked_at::timestamptz < NOW() - INTERVAL '3 days' THEN NULL ELSE checked_at END,
+                                  have_it = CASE WHEN have_it = 1 AND have_it_at::timestamptz < NOW() - INTERVAL '3 days' THEN 0 ELSE have_it END,
+                                  have_it_at = CASE WHEN have_it = 1 AND have_it_at::timestamptz < NOW() - INTERVAL '3 days' THEN NULL ELSE have_it_at END,"""
 
             conn.execute(
                 text(f"""UPDATE trip_items SET
