@@ -11,6 +11,7 @@ import os
 
 from sqlalchemy import (
     Column,
+    DateTime,
     Float,
     ForeignKey,
     Integer,
@@ -21,6 +22,10 @@ from sqlalchemy import (
     create_engine,
     text,
 )
+
+
+# Convenience alias — every timestamp column is timezone-aware (timestamptz).
+TS = DateTime(timezone=True)
 
 
 # ── Engine Setup ──────────────────────────────────────────
@@ -50,10 +55,10 @@ users = Table(
     Column("display_name", Text, nullable=False, server_default=text("''")),
     Column("first_name", Text, nullable=False, server_default=text("''")),
     Column("last_name", Text, nullable=False, server_default=text("''")),
-    Column("tos_accepted_at", Text),
+    Column("tos_accepted_at", TS),
     Column("tos_version", Text, nullable=False, server_default=text("''")),
-    Column("created_at", Text, nullable=False, server_default=text("CURRENT_TIMESTAMP")),
-    Column("last_login", Text),
+    Column("created_at", TS, nullable=False, server_default=text("CURRENT_TIMESTAMP")),
+    Column("last_login", TS),
 )
 
 magic_links = Table(
@@ -61,29 +66,29 @@ magic_links = Table(
     Column("id", Integer, primary_key=True, autoincrement=True),
     Column("token", Text, unique=True, nullable=False),
     Column("user_id", Text, ForeignKey("users.id"), nullable=False),
-    Column("expires_at", Text, nullable=False),
-    Column("used_at", Text),
-    Column("created_at", Text, nullable=False, server_default=text("CURRENT_TIMESTAMP")),
+    Column("expires_at", TS, nullable=False),
+    Column("used_at", TS),
+    Column("created_at", TS, nullable=False, server_default=text("CURRENT_TIMESTAMP")),
 )
 
 sessions = Table(
     "sessions", metadata,
     Column("id", Text, primary_key=True),
     Column("user_id", Text, ForeignKey("users.id"), nullable=False),
-    Column("created_at", Text, nullable=False, server_default=text("CURRENT_TIMESTAMP")),
-    Column("expires_at", Text, nullable=False),
+    Column("created_at", TS, nullable=False, server_default=text("CURRENT_TIMESTAMP")),
+    Column("expires_at", TS, nullable=False),
 )
 
 allowed_emails = Table(
     "allowed_emails", metadata,
     Column("email", Text, primary_key=True),
-    Column("added_at", Text, nullable=False, server_default=text("CURRENT_TIMESTAMP")),
+    Column("added_at", TS, nullable=False, server_default=text("CURRENT_TIMESTAMP")),
 )
 
 waitlist = Table(
     "waitlist", metadata,
     Column("email", Text, primary_key=True),
-    Column("requested_at", Text, nullable=False, server_default=text("CURRENT_TIMESTAMP")),
+    Column("requested_at", TS, nullable=False, server_default=text("CURRENT_TIMESTAMP")),
 )
 
 
@@ -137,7 +142,7 @@ pantry = Table(
     Column("ingredient_id", Integer, ForeignKey("ingredients.id"), nullable=False),
     Column("quantity", Float, nullable=False),
     Column("unit", Text, nullable=False),
-    Column("updated_at", Text, nullable=False, server_default=text("CURRENT_TIMESTAMP")),
+    Column("updated_at", TS, nullable=False, server_default=text("CURRENT_TIMESTAMP")),
 )
 
 meals = Table(
@@ -153,7 +158,7 @@ meals = Table(
     Column("is_followup", Integer, nullable=False, server_default=text("0")),
     Column("on_grocery", Integer, nullable=False, server_default=text("0")),
     Column("side_recipe_id", Integer, ForeignKey("recipes.id"), nullable=True),
-    Column("created_at", Text, nullable=False, server_default=text("CURRENT_TIMESTAMP")),
+    Column("created_at", TS, nullable=False, server_default=text("CURRENT_TIMESTAMP")),
     Column("notes", Text, nullable=False, server_default=text("''")),
 )
 
@@ -170,7 +175,7 @@ grocery_runs = Table(
     "grocery_runs", metadata,
     Column("id", Integer, primary_key=True, autoincrement=True),
     Column("note", Text, nullable=False, server_default=text("''")),
-    Column("created_at", Text, nullable=False, server_default=text("CURRENT_TIMESTAMP")),
+    Column("created_at", TS, nullable=False, server_default=text("CURRENT_TIMESTAMP")),
 )
 
 grocery_run_items = Table(
@@ -190,7 +195,7 @@ product_preferences = Table(
     Column("product_description", Text, nullable=False),
     Column("size", Text, nullable=False, server_default=text("''")),
     Column("times_picked", Integer, nullable=False, server_default=text("1")),
-    Column("last_picked", Text, nullable=False, server_default=text("CURRENT_TIMESTAMP")),
+    Column("last_picked", TS, nullable=False, server_default=text("CURRENT_TIMESTAMP")),
     Column("source", Text, nullable=False, server_default=text("'picked'")),
     Column("order_id", Text, nullable=False, server_default=text("''")),
     Column("rating", Integer, nullable=False, server_default=text("0")),
@@ -206,8 +211,8 @@ product_ratings = Table(
     Column("upc", Text, nullable=False),
     Column("product_description", Text, nullable=False, server_default=text("''")),
     Column("rating", Integer, nullable=False),
-    Column("created_at", Text, nullable=False, server_default=text("CURRENT_TIMESTAMP")),
-    Column("updated_at", Text, nullable=False, server_default=text("CURRENT_TIMESTAMP")),
+    Column("created_at", TS, nullable=False, server_default=text("CURRENT_TIMESTAMP")),
+    Column("updated_at", TS, nullable=False, server_default=text("CURRENT_TIMESTAMP")),
     Column("brand", Text, nullable=False, server_default=text("''")),
     Column("product_key", Text, nullable=False, server_default=text("''")),
     UniqueConstraint("user_id", "product_key"),
@@ -234,8 +239,8 @@ product_scores = Table(
     Column("in_stock", Integer),
     Column("curbside", Integer),
     Column("delivery", Integer),
-    Column("score_fetched_at", Text, nullable=False, server_default=text("CURRENT_TIMESTAMP")),
-    Column("price_fetched_at", Text),
+    Column("score_fetched_at", TS, nullable=False, server_default=text("CURRENT_TIMESTAMP")),
+    Column("price_fetched_at", TS),
 )
 
 product_prices = Table(
@@ -249,7 +254,7 @@ product_prices = Table(
     Column("in_stock", Integer),
     Column("source", Text, nullable=False),
     Column("user_id", Text),
-    Column("fetched_at", Text, nullable=False, server_default=text("CURRENT_TIMESTAMP")),
+    Column("fetched_at", TS, nullable=False, server_default=text("CURRENT_TIMESTAMP")),
 )
 
 community_prices = Table(
@@ -272,20 +277,20 @@ grocery_trips = Table(
     Column("id", Integer, primary_key=True, autoincrement=True),
     Column("user_id", Text, nullable=False, server_default=text("'default'")),
     Column("trip_type", Text, nullable=False, server_default=text("'plan'")),
-    Column("created_at", Text, nullable=False, server_default=text("CURRENT_TIMESTAMP")),
-    Column("completed_at", Text),
+    Column("created_at", TS, nullable=False, server_default=text("CURRENT_TIMESTAMP")),
+    Column("completed_at", TS),
     Column("start_date", Text),
     Column("end_date", Text),
     Column("active", Integer, nullable=False, server_default=text("1")),
     Column("regulars_added", Integer, nullable=False, server_default=text("0")),
-    Column("regulars_added_at", Text),
+    Column("regulars_added_at", TS),
     Column("pantry_checked", Integer, nullable=False, server_default=text("0")),
-    Column("pantry_checked_at", Text),
+    Column("pantry_checked_at", TS),
     Column("order_source", Text, nullable=False, server_default=text("'none'")),
     Column("receipt_data", Text),
-    Column("receipt_parsed_at", Text),
+    Column("receipt_parsed_at", TS),
     Column("stale_checked", Integer, nullable=False, server_default=text("0")),
-    Column("stale_checked_at", Text),
+    Column("stale_checked_at", TS),
 )
 
 trip_items = Table(
@@ -298,14 +303,14 @@ trip_items = Table(
     Column("for_meals", Text, nullable=False, server_default=text("''")),
     Column("meal_count", Integer, nullable=False, server_default=text("0")),
     Column("checked", Integer, nullable=False, server_default=text("0")),
-    Column("checked_at", Text),
+    Column("checked_at", TS),
     Column("skipped", Integer, nullable=False, server_default=text("0")),
-    Column("skipped_at", Text),
+    Column("skipped_at", TS),
     Column("have_it", Integer, nullable=False, server_default=text("0")),
-    Column("have_it_at", Text),
-    Column("added_at", Text, server_default=text("CURRENT_TIMESTAMP")),
+    Column("have_it_at", TS),
+    Column("added_at", TS, server_default=text("CURRENT_TIMESTAMP")),
     Column("ordered", Integer, nullable=False, server_default=text("0")),
-    Column("ordered_at", Text),
+    Column("ordered_at", TS),
     Column("product_upc", Text, nullable=False, server_default=text("''")),
     Column("product_name", Text, nullable=False, server_default=text("''")),
     Column("product_brand", Text, nullable=False, server_default=text("''")),
@@ -313,17 +318,17 @@ trip_items = Table(
     Column("product_price", Float),
     Column("product_image", Text, nullable=False, server_default=text("''")),
     Column("quantity", Integer, nullable=False, server_default=text("1")),
-    Column("selected_at", Text),
-    Column("submitted_at", Text),
+    Column("selected_at", TS),
+    Column("submitted_at", TS),
     Column("receipt_item", Text, nullable=False, server_default=text("''")),
     Column("receipt_price", Float),
     Column("receipt_upc", Text, nullable=False, server_default=text("''")),
     Column("receipt_status", Text, nullable=False, server_default=text("''")),
     Column("notes", Text, nullable=False, server_default=text("''")),
     Column("removed", Integer, nullable=False, server_default=text("0")),
-    Column("removed_at", Text),
+    Column("removed_at", TS),
     Column("buy_elsewhere", Integer, nullable=False, server_default=text("0")),
-    Column("buy_elsewhere_at", Text),
+    Column("buy_elsewhere_at", TS),
     UniqueConstraint("trip_id", "name"),
 )
 
@@ -333,7 +338,7 @@ rate_limits = Table(
     Column("endpoint", Text, nullable=False),
     Column("user_id", Text, nullable=False),
     Column("count", Integer, nullable=False, server_default=text("0")),
-    Column("window_start", Text, nullable=False, server_default=text("CURRENT_TIMESTAMP")),
+    Column("window_start", TS, nullable=False, server_default=text("CURRENT_TIMESTAMP")),
     UniqueConstraint("endpoint", "user_id"),
 )
 
@@ -342,7 +347,7 @@ learning_dismissed = Table(
     Column("id", Integer, primary_key=True, autoincrement=True),
     Column("user_id", Text, nullable=False, server_default=text("'default'")),
     Column("name", Text, nullable=False),
-    Column("dismissed_at", Text, nullable=False, server_default=text("CURRENT_TIMESTAMP")),
+    Column("dismissed_at", TS, nullable=False, server_default=text("CURRENT_TIMESTAMP")),
     Column("kind", Text, nullable=False, server_default=text("'regular'")),
 )
 
@@ -353,7 +358,7 @@ meal_item_overrides = Table(
     Column("recipe_name", Text, nullable=False),
     Column("item_name", Text, nullable=False),
     Column("action", Text, nullable=False),
-    Column("created_at", Text, nullable=False, server_default=text("CURRENT_TIMESTAMP")),
+    Column("created_at", TS, nullable=False, server_default=text("CURRENT_TIMESTAMP")),
     UniqueConstraint("user_id", "recipe_name", "item_name"),
 )
 
@@ -363,7 +368,7 @@ household_members = Table(
     Column("household_id", Text, nullable=False),
     Column("user_id", Text, ForeignKey("users.id"), unique=True, nullable=False),
     Column("role", Text, nullable=False, server_default=text("'owner'")),
-    Column("joined_at", Text, nullable=False, server_default=text("CURRENT_TIMESTAMP")),
+    Column("joined_at", TS, nullable=False, server_default=text("CURRENT_TIMESTAMP")),
 )
 
 household_invites = Table(
@@ -373,7 +378,7 @@ household_invites = Table(
     Column("email", Text, nullable=False),
     Column("invited_by", Text, ForeignKey("users.id"), nullable=False),
     Column("status", Text, nullable=False, server_default=text("'pending'")),
-    Column("created_at", Text, nullable=False, server_default=text("CURRENT_TIMESTAMP")),
+    Column("created_at", TS, nullable=False, server_default=text("CURRENT_TIMESTAMP")),
 )
 
 user_feedback = Table(
@@ -382,10 +387,10 @@ user_feedback = Table(
     Column("user_id", Text, ForeignKey("users.id"), nullable=False),
     Column("message", Text, nullable=False),
     Column("page", Text, nullable=False, server_default=text("''")),
-    Column("created_at", Text, nullable=False, server_default=text("CURRENT_TIMESTAMP")),
+    Column("created_at", TS, nullable=False, server_default=text("CURRENT_TIMESTAMP")),
     Column("status", Text, nullable=False, server_default=text("'open'")),
     Column("response", Text, nullable=True),
-    Column("responded_at", Text, nullable=True),
+    Column("responded_at", TS, nullable=True),
     Column("dismissed", Integer, nullable=False, server_default=text("0")),
 )
 
@@ -395,7 +400,7 @@ user_item_groups = Table(
     Column("user_id", Text, nullable=False),
     Column("item_name", Text, nullable=False),
     Column("shopping_group", Text, nullable=False),
-    Column("updated_at", Text, nullable=False, server_default=text("CURRENT_TIMESTAMP")),
+    Column("updated_at", TS, nullable=False, server_default=text("CURRENT_TIMESTAMP")),
     UniqueConstraint("user_id", "item_name"),
 )
 
@@ -405,10 +410,10 @@ user_kroger_tokens = Table(
     Column("user_id", Text, ForeignKey("users.id"), unique=True, nullable=False),
     Column("access_token", Text, nullable=False),
     Column("refresh_token", Text, nullable=False),
-    Column("expires_at", Text, nullable=False),
+    Column("expires_at", TS, nullable=False),
     Column("scope", Text, nullable=False, server_default=text("''")),
-    Column("created_at", Text, nullable=False, server_default=text("CURRENT_TIMESTAMP")),
-    Column("updated_at", Text, nullable=False, server_default=text("CURRENT_TIMESTAMP")),
+    Column("created_at", TS, nullable=False, server_default=text("CURRENT_TIMESTAMP")),
+    Column("updated_at", TS, nullable=False, server_default=text("CURRENT_TIMESTAMP")),
     Column("allow_household", Integer, nullable=False, server_default=text("0")),
 )
 
@@ -420,7 +425,7 @@ community_data = Table(
     Column("data_type", Text, nullable=False),
     Column("subject", Text, nullable=False),
     Column("suggested_value", Text, nullable=False),
-    Column("created_at", Text, nullable=False, server_default=text("CURRENT_TIMESTAMP")),
+    Column("created_at", TS, nullable=False, server_default=text("CURRENT_TIMESTAMP")),
 )
 
 receipt_extra_items = Table(
@@ -431,7 +436,7 @@ receipt_extra_items = Table(
     Column("price", Float),
     Column("upc", Text, nullable=False, server_default=text("''")),
     Column("brand", Text, nullable=False, server_default=text("''")),
-    Column("created_at", Text, nullable=False, server_default=text("CURRENT_TIMESTAMP")),
+    Column("created_at", TS, nullable=False, server_default=text("CURRENT_TIMESTAMP")),
     Column("dismissed", Integer, nullable=False, server_default=text("0")),
 )
 
@@ -440,8 +445,8 @@ unknown_brands = Table(
     Column("id", Integer, primary_key=True, autoincrement=True),
     Column("brand", Text, nullable=False, unique=True),
     Column("times_seen", Integer, nullable=False, server_default=text("1")),
-    Column("first_seen", Text, nullable=False, server_default=text("CURRENT_TIMESTAMP")),
-    Column("last_seen", Text, nullable=False, server_default=text("CURRENT_TIMESTAMP")),
+    Column("first_seen", TS, nullable=False, server_default=text("CURRENT_TIMESTAMP")),
+    Column("last_seen", TS, nullable=False, server_default=text("CURRENT_TIMESTAMP")),
 )
 
 brand_ownership = Table(
@@ -462,8 +467,8 @@ company_violations = Table(
     Column("class_i", Integer, nullable=False, server_default=text("0")),
     Column("class_ii", Integer, nullable=False, server_default=text("0")),
     Column("class_iii", Integer, nullable=False, server_default=text("0")),
-    Column("most_recent_date", Text),
-    Column("refreshed_at", Text, nullable=False, server_default=text("CURRENT_TIMESTAMP")),
+    Column("most_recent_date", Text),  # FDA-supplied YYYYMMDD label, not a system timestamp
+    Column("refreshed_at", TS, nullable=False, server_default=text("CURRENT_TIMESTAMP")),
 )
 
 stores = Table(
@@ -486,7 +491,7 @@ nearby_stores = Table(
     Column("name", Text, nullable=False),
     Column("address", Text, nullable=False, server_default=text("''")),
     Column("rank", Integer, nullable=False, server_default=text("1")),
-    Column("created_at", Text, nullable=False, server_default=text("CURRENT_TIMESTAMP")),
+    Column("created_at", TS, nullable=False, server_default=text("CURRENT_TIMESTAMP")),
     UniqueConstraint("user_id", "location_id"),
 )
 
@@ -496,7 +501,7 @@ settings = Table(
     Column("user_id", Text),
     Column("key", Text, nullable=False),
     Column("value", Text, nullable=False, server_default=text("''")),
-    Column("updated_at", Text, nullable=False, server_default=text("CURRENT_TIMESTAMP")),
+    Column("updated_at", TS, nullable=False, server_default=text("CURRENT_TIMESTAMP")),
     UniqueConstraint("user_id", "key"),
 )
 

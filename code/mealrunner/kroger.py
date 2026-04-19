@@ -714,16 +714,17 @@ def get_user_token_from_db(conn: DictConnection, user_id: str) -> str | None:
     access_token = _decrypt_token(row["access_token"])
     refresh_token = _decrypt_token(row["refresh_token"])
 
-    # Check if still valid (expires_at is ISO timestamp)
+    # Check if still valid (expires_at is timestamptz from psycopg2)
     from datetime import datetime, timezone
     try:
-        expires = datetime.fromisoformat(row["expires_at"])
+        expires = row["expires_at"]
+        if isinstance(expires, str):
+            expires = datetime.fromisoformat(expires)
         if expires.tzinfo is None:
             expires = expires.replace(tzinfo=timezone.utc)
-        now = datetime.now(timezone.utc)
-        if now < expires:
+        if datetime.now(timezone.utc) < expires:
             return access_token
-    except (ValueError, TypeError):
+    except (ValueError, TypeError, AttributeError):
         pass
 
     # Try refresh

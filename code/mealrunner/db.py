@@ -74,7 +74,105 @@ def init_db(conn: DictConnection) -> None:
     _run_column_migrations(conn)
     print("[db] Column migrations done", flush=True)
 
+    print("[db] Running timestamp type migrations...", flush=True)
+    _migrate_text_to_timestamptz(conn)
+    print("[db] Timestamp type migrations done", flush=True)
+
     print("[db] init_db complete", flush=True)
+
+
+_TIMESTAMP_COLUMNS = [
+    ("allowed_emails", "added_at"),
+    ("community_data", "created_at"),
+    ("company_violations", "refreshed_at"),
+    ("grocery_lists", "created_at"),
+    ("grocery_runs", "created_at"),
+    ("grocery_trips", "completed_at"),
+    ("grocery_trips", "created_at"),
+    ("grocery_trips", "pantry_checked_at"),
+    ("grocery_trips", "receipt_parsed_at"),
+    ("grocery_trips", "regulars_added_at"),
+    ("grocery_trips", "stale_checked_at"),
+    ("household_invites", "created_at"),
+    ("household_members", "joined_at"),
+    ("learning_dismissed", "dismissed_at"),
+    ("magic_links", "created_at"),
+    ("magic_links", "expires_at"),
+    ("magic_links", "used_at"),
+    ("meal_item_overrides", "created_at"),
+    ("meal_plans", "created_at"),
+    ("meals", "created_at"),
+    ("nearby_stores", "created_at"),
+    ("pantry", "last_bought_at"),
+    ("pantry", "updated_at"),
+    ("product_preferences", "last_picked"),
+    ("product_prices", "fetched_at"),
+    ("product_ratings", "created_at"),
+    ("product_ratings", "updated_at"),
+    ("product_scores", "price_fetched_at"),
+    ("product_scores", "score_fetched_at"),
+    ("rate_limits", "window_start"),
+    ("receipt_extra_items", "created_at"),
+    ("regulars", "created_at"),
+    ("regulars", "last_bought_at"),
+    ("sessions", "created_at"),
+    ("sessions", "expires_at"),
+    ("settings", "updated_at"),
+    ("trip_items", "added_at"),
+    ("trip_items", "buy_elsewhere_at"),
+    ("trip_items", "checked_at"),
+    ("trip_items", "have_it_at"),
+    ("trip_items", "ordered_at"),
+    ("trip_items", "removed_at"),
+    ("trip_items", "selected_at"),
+    ("trip_items", "skipped_at"),
+    ("trip_items", "submitted_at"),
+    ("unknown_brands", "first_seen"),
+    ("unknown_brands", "last_seen"),
+    ("user_feedback", "created_at"),
+    ("user_feedback", "responded_at"),
+    ("user_item_groups", "updated_at"),
+    ("user_kroger_tokens", "created_at"),
+    ("user_kroger_tokens", "expires_at"),
+    ("user_kroger_tokens", "updated_at"),
+    ("users", "created_at"),
+    ("users", "last_login"),
+    ("users", "tos_accepted_at"),
+    ("waitlist", "requested_at"),
+]
+
+
+def _migrate_text_to_timestamptz(conn: DictConnection) -> None:
+    """One-time migration: convert TEXT timestamp columns to timestamptz.
+
+    Idempotent — checks data_type before issuing ALTER. Already-converted
+    columns are skipped silently. company_violations.most_recent_date is
+    intentionally excluded (it's an FDA-supplied YYYYMMDD date label, not a
+    system timestamp, and the frontend slices it as a string).
+    """
+    for table_name, col_name in _TIMESTAMP_COLUMNS:
+        try:
+            row = conn.execute(
+                text("""SELECT data_type FROM information_schema.columns
+                        WHERE table_schema='public' AND table_name=:t AND column_name=:c"""),
+                {"t": table_name, "c": col_name},
+            ).fetchone()
+            if not row:
+                continue
+            if row["data_type"] != "text":
+                continue
+            conn.execute(text(
+                f"ALTER TABLE {table_name} ALTER COLUMN {col_name} "
+                f"TYPE timestamptz USING {col_name}::timestamptz"
+            ))
+            conn.commit()
+            print(f"[db]   migrated {table_name}.{col_name} -> timestamptz", flush=True)
+        except Exception as e:
+            print(f"[db]   {table_name}.{col_name} migration skipped: {e}", flush=True)
+            try:
+                conn.raw.rollback()
+            except Exception:
+                pass
 
 
 def _run_column_migrations(conn: DictConnection) -> None:

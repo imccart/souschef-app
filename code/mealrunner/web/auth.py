@@ -81,7 +81,9 @@ def get_user_from_session(conn: DictConnection, session_id: str) -> str | None:
     if not row:
         return None
 
-    expires = datetime.fromisoformat(row["expires_at"])
+    expires = row["expires_at"]
+    if isinstance(expires, str):
+        expires = datetime.fromisoformat(expires)
     if expires.tzinfo is None:
         expires = expires.replace(tzinfo=timezone.utc)
     if _now() > expires:
@@ -150,7 +152,9 @@ def verify_magic_link(conn: DictConnection, token: str) -> str | None:
     # If already used, allow within 60-second grace window
     if row["used_at"]:
         try:
-            used = datetime.fromisoformat(row["used_at"])
+            used = row["used_at"]
+            if isinstance(used, str):
+                used = datetime.fromisoformat(used)
             if used.tzinfo is None:
                 used = used.replace(tzinfo=timezone.utc)
             if _now() - used < timedelta(minutes=10):
@@ -159,7 +163,9 @@ def verify_magic_link(conn: DictConnection, token: str) -> str | None:
             pass
         return None
 
-    expires = datetime.fromisoformat(row["expires_at"])
+    expires = row["expires_at"]
+    if isinstance(expires, str):
+        expires = datetime.fromisoformat(expires)
     if expires.tzinfo is None:
         expires = expires.replace(tzinfo=timezone.utc)
     if _now() > expires:

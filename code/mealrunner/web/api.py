@@ -1580,8 +1580,8 @@ async def search_order_products(item_name: str, request: Request, fulfillment: s
     # Check cache for prices (today) and scores (90 days)
     import datetime as _dt
     _SCORE_TTL_DAYS = 90
-    _today = _dt.date.today().isoformat()
-    _score_cutoff = (_dt.datetime.now() - _dt.timedelta(days=_SCORE_TTL_DAYS)).isoformat()
+    _today = _dt.date.today()
+    _score_cutoff = _dt.datetime.now(_dt.timezone.utc) - _dt.timedelta(days=_SCORE_TTL_DAYS)
 
     cached = {}
     if products:
@@ -1601,7 +1601,7 @@ async def search_order_products(item_name: str, request: Request, fulfillment: s
     need_price = []
     for p in products:
         c = cached.get(p.upc)
-        if c and c["price_fetched_at"] and c["price_fetched_at"][:10] == _today:
+        if c and c["price_fetched_at"] and c["price_fetched_at"].date() == _today:
             p.price = c["price"] if c["price"] is not None else p.price
             p.promo_price = c["promo_price"]
             p.in_stock = bool(c["in_stock"]) if c["in_stock"] is not None else p.in_stock
