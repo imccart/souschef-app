@@ -823,24 +823,29 @@ def _refresh_trip_meal_items(conn, trip_id: int, mw, user_id: str) -> None:
                     "meal_count": len(item.meals),
                 }
 
-    # Get existing meal-sourced items and their checked/receipt/removed state
+    # Get all existing items on the trip (any source) so we can apply the
+    # meals_added comparison to extras/regulars too. Without this, an extra
+    # row's checked state gets reset on every refresh by the INSERT...ON CONFLICT.
     existing = conn.execute(
-        text("""SELECT id, name, checked, checked_at, have_it, have_it_at,
+        text("""SELECT id, name, source, checked, checked_at, have_it, have_it_at,
                        removed, removed_at, for_meals, receipt_status
-                FROM trip_items WHERE trip_id = :trip_id AND source = 'meal'"""),
+                FROM trip_items WHERE trip_id = :trip_id"""),
         {"trip_id": trip_id},
     ).fetchall()
     existing_map = {r["name"].lower(): r for r in existing}
 
-    # Remove meal items no longer needed (preserve items with receipt data only)
+    # Remove meal items no longer needed (preserve items with receipt data only).
+    # Only delete source='meal' items — extras/regulars are user-managed.
     for name_lower, row in existing_map.items():
-        if name_lower not in fresh_meal_items and not row["receipt_status"]:
+        if (row["source"] == "meal"
+                and name_lower not in fresh_meal_items
+                and not row["receipt_status"]):
             conn.execute(
                 text("DELETE FROM trip_items WHERE id = :id"),
                 {"id": row["id"]},
             )
 
-    # Add or update meal items
+    # Add or update items needed by meals
     for name_lower, info in fresh_meal_items.items():
         if name_lower in existing_map:
             row = existing_map[name_lower]
@@ -872,19 +877,12 @@ def _refresh_trip_meal_items(conn, trip_id: int, mw, user_id: str) -> None:
                  "group": info["shopping_group"], "id": row["id"]},
             )
         else:
-            # New meal item — if a non-meal row exists with the same name, treat
-            # it as a fresh need (clear bought/have-it/removed state).
+            # Genuinely new item (no row exists with this name)
             conn.execute(
                 text("""INSERT INTO trip_items
                    (trip_id, name, shopping_group, source, for_meals, meal_count)
                    VALUES (:trip_id, :name, :group, 'meal', :for_meals, :meal_count)
-                   ON CONFLICT (trip_id, name) DO UPDATE SET
-                     for_meals = EXCLUDED.for_meals,
-                     meal_count = EXCLUDED.meal_count,
-                     shopping_group = EXCLUDED.shopping_group,
-                     checked = 0, checked_at = NULL,
-                     have_it = 0, have_it_at = NULL,
-                     removed = 0, removed_at = NULL"""),
+                   ON CONFLICT (trip_id, name) DO NOTHING"""),
                 {"trip_id": trip_id, "name": info["name"], "group": info["shopping_group"],
                  "for_meals": info["for_meals"], "meal_count": info["meal_count"]},
             )
