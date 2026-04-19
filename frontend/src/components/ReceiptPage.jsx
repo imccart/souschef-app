@@ -59,7 +59,9 @@ export default function ReceiptPage() {
   const [loadError, setLoadError] = useState(false)
   const [showPast, setShowPast] = useState(false)
   const [purchases, setPurchases] = useState(null)
-  const [expandedItem, setExpandedItem] = useState(null)
+  // Track items the user has explicitly collapsed; default state is everything
+  // expanded so users see what needs confirming without an extra tap.
+  const [collapsedItems, setCollapsedItems] = useState(() => new Set())
   const [matchingExtra, setMatchingExtra] = useState(null) // extra item being matched to grocery
   const [expandedWeeks, setExpandedWeeks] = useState({})
 
@@ -111,7 +113,6 @@ export default function ReceiptPage() {
   const handleConfirmMatch = async (name) => {
     try {
       await api.resolveReceiptItem(name, 'matched')
-      setExpandedItem(null)
       loadReceipt()
     } catch { /* ignore */ }
   }
@@ -119,7 +120,6 @@ export default function ReceiptPage() {
   const handleRejectMatch = async (name) => {
     try {
       await api.resolveReceiptItem(name, 'recover')
-      setExpandedItem(null)
       loadReceipt()
     } catch { /* ignore */ }
   }
@@ -127,7 +127,6 @@ export default function ReceiptPage() {
   const handleDismissExtra = async (name) => {
     try {
       await api.dismissExtra(name)
-      setExpandedItem(null)
       loadReceipt()
     } catch { /* ignore */ }
   }
@@ -136,7 +135,6 @@ export default function ReceiptPage() {
     try {
       await api.matchExtra(extraItem.item_name, groceryName, extraItem.price, extraItem.upc)
       setMatchingExtra(null)
-      setExpandedItem(null)
       loadReceipt()
     } catch { /* ignore */ }
   }
@@ -160,12 +158,13 @@ export default function ReceiptPage() {
     } catch { /* ignore */ }
   }
 
-  // Auto-expand first unconfirmed match after upload
+  // After a fresh upload, clear any prior collapsed state so the new items
+  // all show expanded by default (the user just uploaded — they should see
+  // everything that needs confirming).
   const uploadJustFinished = useRef(false)
   useEffect(() => {
     if (uploadJustFinished.current && receipt) {
-      const firstUnconfirmed = receipt.matched.find(i => !i.checked)
-      if (firstUnconfirmed) setExpandedItem(`match-${firstUnconfirmed.name}`)
+      setCollapsedItems(new Set())
       uploadJustFinished.current = false
     }
   }, [receipt])
@@ -190,7 +189,12 @@ export default function ReceiptPage() {
   }
 
   const toggleExpand = (key) => {
-    setExpandedItem(expandedItem === key ? null : key)
+    setCollapsedItems(prev => {
+      const next = new Set(prev)
+      if (next.has(key)) next.delete(key)
+      else next.add(key)
+      return next
+    })
     setMatchingExtra(null)
   }
 
@@ -294,7 +298,7 @@ export default function ReceiptPage() {
           )}
           {unmatchedMatches.map(item => {
             const key = `match-${item.name}`
-            const isExpanded = expandedItem === key
+            const isExpanded = !collapsedItems.has(key)
             return (
               <div key={item.name} className={styles.receiptItemRow}>
                 <div className={styles.receiptItemTop} onClick={() => toggleExpand(key)}>
@@ -338,7 +342,7 @@ export default function ReceiptPage() {
           <div className={styles.receiptSectionLabel}>Substituted ({receipt.substituted.length})</div>
           {receipt.substituted.map(item => {
             const key = `sub-${item.name}`
-            const isExpanded = expandedItem === key
+            const isExpanded = !collapsedItems.has(key)
             return (
               <div key={item.name} className={styles.receiptItemRow}>
                 <div className={styles.receiptItemTop} onClick={() => toggleExpand(key)}>
@@ -377,7 +381,7 @@ export default function ReceiptPage() {
           <div className={styles.receiptSectionLabel}>Unmatched ({receipt.extras.length})</div>
           {receipt.extras.map((item, i) => {
             const key = `extra-${item.item_name}-${i}`
-            const isExpanded = expandedItem === key
+            const isExpanded = !collapsedItems.has(key)
             const isMatching = matchingExtra === key
             return (
               <div key={key} className={styles.receiptItemRow}>
