@@ -2534,12 +2534,15 @@ async def _process_receipt(receipt_type: str, content: str, request: Request):
             gm = ri.get("grocery_match", "")
             if gm and gm.lower() in trip_items_by_name:
                 r = trip_items_by_name[gm.lower()]
+                # Prefer raw (the actual line text from the receipt) over item
+                # (which is the grocery name for matched image-parser items).
+                receipt_text = ri.get("raw") or ri.get("item", "")
                 conn.execute(
                     text("""UPDATE trip_items SET
                            receipt_item = :receipt_item, receipt_price = :receipt_price,
                            receipt_upc = :receipt_upc, receipt_status = 'matched'
                        WHERE trip_id = :trip_id AND LOWER(name) = LOWER(:name)"""),
-                    {"receipt_item": ri.get("item") or ri.get("raw", ""),
+                    {"receipt_item": receipt_text,
                      "receipt_price": ri.get("price"),
                      "receipt_upc": ri.get("upc", ""),
                      "trip_id": trip["id"], "name": gm},
