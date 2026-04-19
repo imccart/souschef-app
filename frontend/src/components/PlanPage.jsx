@@ -186,13 +186,6 @@ export default function PlanPage({ showHeader = true, onLoad, onNavigate }) {
     setPickerMode('replace')
   }
 
-  const handleToggleGrocery = async (date) => {
-    try {
-      const result = await api.toggleGrocery(date)
-      setData(result)
-    } catch { /* silent — checkbox stays in current state */ }
-  }
-
   const handleSetMeal = async (date, recipeId, sides) => {
     try {
       const hasNewSides = sides?.some(s => !s.side_recipe_id)
@@ -378,13 +371,6 @@ export default function PlanPage({ showHeader = true, onLoad, onNavigate }) {
                 {meal.notes && <div className={styles.mealNote}>{meal.notes}</div>}
               </div>
               <div className={styles.mealActions} onClick={(e) => e.stopPropagation()}>
-                {!isFreeform && (
-                  <button
-                    className={`${styles.mealBtn} ${meal.on_grocery ? styles.onList : ''}`}
-                    onClick={() => handleToggleGrocery(date)}
-                    title={meal.on_grocery ? 'On list' : 'Add to list'}
-                  >{meal.on_grocery ? '\u2713' : '\u{1F6D2}'}</button>
-                )}
                 <div
                   className={styles.dragHandle}
                   onTouchStart={(e) => handleGripStart(e, date)}
