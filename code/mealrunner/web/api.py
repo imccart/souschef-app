@@ -4445,20 +4445,39 @@ async def best_day_of_week(request: Request, scope: str = "trip"):
 
 @router.get("/price-tracking/basket-trend")
 async def basket_trend(request: Request):
-    """Weekly basket totals over the last ~6 months from receipt-matched items."""
+    """Weekly basket totals over the last ~6 months.
+
+    Sums BOTH matched/substituted trip items (using receipt_price, which is
+    the line total — no quantity multiplication) AND unmatched receipt extras
+    (receipt_extra_items.price). Both are real money on the receipt.
+    """
     user_id = request.state.user_id
     conn = _conn()
 
     rows = conn.execute(
-        text("""SELECT date_trunc('week', ti.checked_at)::date AS week,
-                       SUM(ti.receipt_price * COALESCE(ti.quantity, 1)) AS total
-                FROM trip_items ti
-                JOIN grocery_trips gt ON gt.id = ti.trip_id
-                WHERE gt.user_id = :uid
-                  AND ti.receipt_status IN ('matched', 'substituted')
-                  AND ti.receipt_price IS NOT NULL
-                  AND ti.checked_at IS NOT NULL
-                  AND ti.checked_at > NOW() - INTERVAL '180 days'
+        text("""WITH matched AS (
+                  SELECT date_trunc('week', ti.checked_at)::date AS week,
+                         ti.receipt_price AS line_total
+                  FROM trip_items ti
+                  JOIN grocery_trips gt ON gt.id = ti.trip_id
+                  WHERE gt.user_id = :uid
+                    AND ti.receipt_status IN ('matched', 'substituted')
+                    AND ti.receipt_price IS NOT NULL
+                    AND ti.checked_at IS NOT NULL
+                    AND ti.checked_at > NOW() - INTERVAL '180 days'
+                ),
+                extras AS (
+                  SELECT date_trunc('week', re.created_at)::date AS week,
+                         re.price AS line_total
+                  FROM receipt_extra_items re
+                  JOIN grocery_trips gt ON gt.id = re.trip_id
+                  WHERE gt.user_id = :uid
+                    AND re.price IS NOT NULL
+                    AND re.dismissed = 0
+                    AND re.created_at > NOW() - INTERVAL '180 days'
+                )
+                SELECT week, SUM(line_total) AS total
+                FROM (SELECT * FROM matched UNION ALL SELECT * FROM extras) combined
                 GROUP BY week
                 ORDER BY week"""),
         {"uid": user_id},
