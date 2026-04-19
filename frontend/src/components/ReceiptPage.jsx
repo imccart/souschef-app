@@ -213,14 +213,24 @@ export default function ReceiptPage() {
       )}
 
       <div className={styles.receiptUpload}>
+        {!hasReconciled && (
+          <>
+            <h3 className={styles.receiptUploadHeading}>Got a receipt? Let's match it up.</h3>
+            <p className={styles.receiptUploadSub}>We'll line up what you bought against your grocery list.</p>
+          </>
+        )}
         <div className={styles.receiptUploadButtons}>
           {hasCamera && (
             <button className={styles.receiptUploadBtn} onClick={() => setShowCamera(true)}>
-              Take photo
+              <span className={styles.receiptUploadIcon}>{'\u{1F4F7}'}</span>
+              <span className={styles.receiptUploadLabel}>Take a photo</span>
+              <span className={styles.receiptUploadHint}>Snap your receipt now</span>
             </button>
           )}
-          <label className={`${styles.receiptUploadBtn} ${styles.secondary}`}>
-            Choose from library
+          <label className={styles.receiptUploadBtn}>
+            <span className={styles.receiptUploadIcon}>{'\u{1F4C1}'}</span>
+            <span className={styles.receiptUploadLabel}>Choose a file</span>
+            <span className={styles.receiptUploadHint}>Photo or PDF from your device</span>
             <input
               type="file"
               accept=".pdf,.jpg,.jpeg,.png,.webp"

@@ -190,6 +190,73 @@
   border-radius: 6px;
 }
 
+.prefsInsight {
+  margin-top: 14px;
+  padding: 12px 14px;
+  background: var(--warm-white);
+  border: 1px solid var(--tan);
+  border-radius: 8px;
+}
+.prefsInsightHeader {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+  margin-bottom: 8px;
+}
+.prefsInsightTitle {
+  font-family: 'Playfair Display', serif;
+  font-size: 14px;
+  font-weight: 600;
+  color: var(--dark);
+}
+.prefsInsightTabs {
+  display: inline-flex;
+  background: white;
+  border: 1px solid var(--tan);
+  border-radius: 6px;
+  padding: 2px;
+}
+.prefsInsightTab {
+  font-family: 'DM Sans', sans-serif;
+  font-size: 11px;
+  padding: 4px 9px;
+  border: none;
+  background: transparent;
+  color: #8a7f72;
+  border-radius: 4px;
+  cursor: pointer;
+}
+.prefsInsightTab.active {
+  background: var(--accent);
+  color: white;
+}
+.prefsInsightHero {
+  font-family: 'Playfair Display', serif;
+  font-size: 22px;
+  font-weight: 600;
+  color: var(--dark);
+  display: flex;
+  align-items: baseline;
+  gap: 8px;
+}
+.prefsInsightDelta {
+  font-size: 13px;
+  font-family: 'DM Sans', sans-serif;
+  font-weight: 500;
+  color: var(--accent);
+}
+.prefsInsightSub {
+  font-size: 12px;
+  color: #8a7f72;
+  margin-top: 4px;
+}
+.prefsInsightHint {
+  font-size: 12px;
+  color: #8a7f72;
+  font-style: italic;
+}
+
 .prefsIntegrationBlock {
   /* container for integration content */
 }

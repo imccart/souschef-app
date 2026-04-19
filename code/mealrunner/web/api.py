@@ -4360,6 +4360,130 @@ async def set_price_tracking(body: dict, request: Request):
     return {"ok": True}
 
 
+@router.get("/price-tracking/best-day")
+async def best_day_of_week(request: Request, scope: str = "trip"):
+    """Return day-of-week price patterns for the user's basket.
+
+    scope='trip' uses items currently on the active trip with a product UPC.
+    scope='usuals' uses items the user has purchased (receipt-matched) in the last 12 weeks.
+    """
+    user_id = request.state.user_id
+    conn = _conn()
+
+    if scope == "usuals":
+        upc_rows = conn.execute(
+            text("""SELECT DISTINCT ti.receipt_upc AS upc
+                    FROM trip_items ti
+                    JOIN grocery_trips gt ON gt.id = ti.trip_id
+                    WHERE gt.user_id = :uid
+                      AND ti.receipt_status IN ('matched', 'substituted')
+                      AND ti.receipt_upc != ''
+                      AND ti.checked_at IS NOT NULL
+                      AND ti.checked_at > NOW() - INTERVAL '84 days'"""),
+            {"uid": user_id},
+        ).fetchall()
+    else:
+        scope = "trip"
+        upc_rows = conn.execute(
+            text("""SELECT DISTINCT ti.product_upc AS upc
+                    FROM trip_items ti
+                    JOIN grocery_trips gt ON gt.id = ti.trip_id
+                    WHERE gt.user_id = :uid AND gt.active = 1
+                      AND ti.product_upc != ''"""),
+            {"uid": user_id},
+        ).fetchall()
+
+    upcs = [r["upc"] for r in upc_rows if r["upc"]]
+    if not upcs:
+        return {"scope": scope, "best_day": None, "by_day": [], "total_samples": 0,
+                "thin": True, "basket_size": 0}
+
+    placeholders = ",".join(f":u{i}" for i in range(len(upcs)))
+    params = {f"u{i}": u for i, u in enumerate(upcs)}
+
+    # For each (upc, dow), compute average price; then express each as % of that UPC's
+    # overall mean to normalize across cheap/expensive items; then average across UPCs per dow.
+    rows = conn.execute(
+        text(f"""WITH per_upc_dow AS (
+                    SELECT upc, EXTRACT(DOW FROM fetched_at)::int AS dow,
+                           AVG(price) AS avg_price, COUNT(*) AS n
+                    FROM product_prices
+                    WHERE upc IN ({placeholders}) AND price IS NOT NULL AND price > 0
+                    GROUP BY upc, dow
+                 ),
+                 per_upc_mean AS (
+                    SELECT upc, AVG(avg_price) AS mean FROM per_upc_dow GROUP BY upc
+                 )
+                 SELECT pud.dow,
+                        AVG((pud.avg_price - pum.mean) / pum.mean * 100.0) AS pct_vs_mean,
+                        SUM(pud.n) AS samples
+                 FROM per_upc_dow pud
+                 JOIN per_upc_mean pum ON pum.upc = pud.upc
+                 WHERE pum.mean > 0
+                 GROUP BY pud.dow
+                 ORDER BY pud.dow"""),
+        params,
+    ).fetchall()
+
+    by_day = [
+        {"dow": r["dow"],
+         "pct_vs_mean": float(r["pct_vs_mean"]) if r["pct_vs_mean"] is not None else 0.0,
+         "samples": int(r["samples"])}
+        for r in rows
+    ]
+    best = min(by_day, key=lambda d: d["pct_vs_mean"]) if by_day else None
+    total_samples = sum(d["samples"] for d in by_day)
+    return {
+        "scope": scope,
+        "basket_size": len(upcs),
+        "by_day": by_day,
+        "best_day": best,
+        "total_samples": total_samples,
+        "thin": total_samples < 20 or len(by_day) < 4,
+    }
+
+
+@router.get("/price-tracking/basket-trend")
+async def basket_trend(request: Request):
+    """Weekly basket totals over the last ~6 months from receipt-matched items."""
+    user_id = request.state.user_id
+    conn = _conn()
+
+    rows = conn.execute(
+        text("""SELECT date_trunc('week', ti.checked_at)::date AS week,
+                       SUM(ti.receipt_price * COALESCE(ti.quantity, 1)) AS total
+                FROM trip_items ti
+                JOIN grocery_trips gt ON gt.id = ti.trip_id
+                WHERE gt.user_id = :uid
+                  AND ti.receipt_status IN ('matched', 'substituted')
+                  AND ti.receipt_price IS NOT NULL
+                  AND ti.checked_at IS NOT NULL
+                  AND ti.checked_at > NOW() - INTERVAL '180 days'
+                GROUP BY week
+                ORDER BY week"""),
+        {"uid": user_id},
+    ).fetchall()
+
+    weeks = [{"week": r["week"].isoformat(), "total": round(float(r["total"]), 2)}
+             for r in rows if r["total"] is not None]
+
+    pct_change = None
+    if len(weeks) >= 2:
+        first, last = weeks[0]["total"], weeks[-1]["total"]
+        if first > 0:
+            pct_change = round((last - first) / first * 100.0, 1)
+
+    avg = round(sum(w["total"] for w in weeks) / len(weeks), 2) if weeks else 0
+
+    return {
+        "weeks": weeks,
+        "average_weekly": avg,
+        "pct_change_first_to_last": pct_change,
+        "weeks_of_data": len(weeks),
+        "thin": len(weeks) < 4,
+    }
+
+
 @router.post("/settings/home-zip")
 async def set_home_zip(body: dict, request: Request):
     """Save the user's home zip code."""

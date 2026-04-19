@@ -6,34 +6,72 @@
   margin-bottom: 16px;
 }
 
-.receiptUploadBtn {
-  display: inline-flex;
-  align-items: center;
-  justify-content: center;
-  padding: 10px 20px;
-  font-size: 14px;
-  font-weight: 500;
-  font-family: 'DM Sans', sans-serif;
-  border: 1.5px solid var(--tan);
-  border-radius: 8px;
-  background: white;
+.receiptUploadHeading {
+  font-family: 'Playfair Display', serif;
+  font-size: 20px;
+  font-weight: 600;
   color: var(--dark);
-  cursor: pointer;
+  margin: 0 0 6px;
+}
+
+.receiptUploadSub {
+  font-size: 13px;
+  color: #8a7f72;
+  margin: 0 0 16px;
 }
 
 .receiptUploadButtons {
-  display: flex;
-  gap: 10px;
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 12px;
 }
 
-.receiptUploadBtn.secondary {
-  border-color: #e0d8cc;
+.receiptUploadBtn {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  text-align: center;
+  gap: 6px;
+  padding: 18px 12px;
+  font-family: 'DM Sans', sans-serif;
+  border: 1.5px solid var(--tan);
+  border-radius: 12px;
+  background: white;
+  color: var(--dark);
+  cursor: pointer;
+  transition: border-color 0.15s, transform 0.05s;
+}
+
+.receiptUploadBtn:hover {
+  border-color: var(--accent);
+  background: #fdfaf6;
+}
+
+.receiptUploadBtn:active {
+  transform: scale(0.98);
+}
+
+.receiptUploadIcon {
+  font-size: 28px;
+  line-height: 1;
+}
+
+.receiptUploadLabel {
+  font-size: 15px;
+  font-weight: 600;
+}
+
+.receiptUploadHint {
+  font-size: 12px;
   color: #8a7f72;
   font-weight: 400;
 }
 
-.receiptUploadBtn:hover {
-  border-color: var(--accent-light);
+@media (max-width: 380px) {
+  .receiptUploadButtons {
+    grid-template-columns: 1fr;
+  }
 }
 
 .receiptProcessing {

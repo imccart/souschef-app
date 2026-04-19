@@ -313,6 +313,10 @@ export const api = {
     body: JSON.stringify(settings),
   }),
 
+  // Price insights
+  getBestDay: (scope = 'trip') => request(`/price-tracking/best-day?scope=${scope}`),
+  getBasketTrend: () => request('/price-tracking/basket-trend'),
+
   // Feedback
   sendFeedback: (message, page) => request('/feedback', {
     method: 'POST',

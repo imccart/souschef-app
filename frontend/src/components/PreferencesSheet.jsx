@@ -19,6 +19,108 @@ function AccordionSection({ title, count, children, defaultOpen = false }) {
   )
 }
 
+const DOW_NAMES = ['Sunday', 'Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday']
+
+function BestDayInsight() {
+  const [scope, setScope] = useState('trip')
+  const [data, setData] = useState(null)
+  const [loading, setLoading] = useState(false)
+
+  useEffect(() => {
+    let cancelled = false
+    setLoading(true)
+    api.getBestDay(scope).then(d => { if (!cancelled) { setData(d); setLoading(false) } })
+                       .catch(() => { if (!cancelled) { setData(null); setLoading(false) } })
+    return () => { cancelled = true }
+  }, [scope])
+
+  return (
+    <div className={styles.prefsInsight}>
+      <div className={styles.prefsInsightHeader}>
+        <span className={styles.prefsInsightTitle}>Best day to shop</span>
+        <div className={styles.prefsInsightTabs}>
+          <button
+            className={`${styles.prefsInsightTab} ${scope === 'trip' ? styles.active : ''}`}
+            onClick={() => setScope('trip')}
+          >This trip</button>
+          <button
+            className={`${styles.prefsInsightTab} ${scope === 'usuals' ? styles.active : ''}`}
+            onClick={() => setScope('usuals')}
+          >Your usuals</button>
+        </div>
+      </div>
+      {loading && <div className={styles.prefsInsightHint}>Crunching prices...</div>}
+      {!loading && data && data.basket_size === 0 && (
+        <div className={styles.prefsInsightHint}>
+          {scope === 'trip'
+            ? 'Pick some products on the order page to see this report.'
+            : 'Match a few receipts to start tracking your usuals.'}
+        </div>
+      )}
+      {!loading && data && data.basket_size > 0 && data.thin && (
+        <div className={styles.prefsInsightHint}>
+          Not enough price data yet. Check back after a few more shopping cycles.
+        </div>
+      )}
+      {!loading && data && data.best_day && !data.thin && (
+        <>
+          <div className={styles.prefsInsightHero}>
+            {DOW_NAMES[data.best_day.dow]}
+            <span className={styles.prefsInsightDelta}>
+              {data.best_day.pct_vs_mean < 0 ? '\u2193' : '\u2191'} {Math.abs(data.best_day.pct_vs_mean).toFixed(1)}%
+            </span>
+          </div>
+          <div className={styles.prefsInsightSub}>
+            Across {data.basket_size} item{data.basket_size === 1 ? '' : 's'}, {data.total_samples} price samples.
+          </div>
+        </>
+      )}
+    </div>
+  )
+}
+
+function BasketTrendInsight() {
+  const [data, setData] = useState(null)
+  const [loading, setLoading] = useState(true)
+
+  useEffect(() => {
+    let cancelled = false
+    api.getBasketTrend().then(d => { if (!cancelled) { setData(d); setLoading(false) } })
+                       .catch(() => { if (!cancelled) { setData(null); setLoading(false) } })
+    return () => { cancelled = true }
+  }, [])
+
+  return (
+    <div className={styles.prefsInsight}>
+      <div className={styles.prefsInsightHeader}>
+        <span className={styles.prefsInsightTitle}>Basket trend</span>
+      </div>
+      {loading && <div className={styles.prefsInsightHint}>Loading...</div>}
+      {!loading && data && data.weeks_of_data === 0 && (
+        <div className={styles.prefsInsightHint}>Upload a receipt to start tracking your basket.</div>
+      )}
+      {!loading && data && data.weeks_of_data > 0 && (
+        <>
+          <div className={styles.prefsInsightHero}>
+            ${data.average_weekly.toFixed(2)}
+            <span className={styles.prefsInsightSub} style={{ marginLeft: 8 }}>avg/week</span>
+          </div>
+          {data.thin ? (
+            <div className={styles.prefsInsightHint}>
+              {data.weeks_of_data} week{data.weeks_of_data === 1 ? '' : 's'} of data so far. Trends sharpen with more receipts.
+            </div>
+          ) : (
+            <div className={styles.prefsInsightSub}>
+              {data.pct_change_first_to_last > 0 ? '\u2197' : '\u2198'}{' '}
+              {Math.abs(data.pct_change_first_to_last).toFixed(1)}% over {data.weeks_of_data} weeks
+            </div>
+          )}
+        </>
+      )}
+    </div>
+  )
+}
+
 export default function PreferencesSheet({ onClose, onStartTour }) {
   const [members, setMembers] = useState(null)
   const [householdEmail, setHouseholdEmail] = useState('')
@@ -437,6 +539,8 @@ export default function PreferencesSheet({ onClose, onStartTour }) {
             <span>Share anonymous pricing data</span>
             <div className={styles.prefsToggleHint}>Help other mealrunner users find better prices. We share product prices (not your identity or purchase history) with the community.</div>
           </label>
+          <BestDayInsight />
+          <BasketTrendInsight />
         </AccordionSection>
 
         {/* Behind the Label */}
