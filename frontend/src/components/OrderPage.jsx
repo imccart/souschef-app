@@ -453,7 +453,7 @@ export default function OrderPage() {
       <div className={styles.pickingRowMain} onClick={() => setShowQueue(true)}>
         <span className={styles.pickingRowLabel}>Picking for</span>
         <span className={styles.pickingRowItem}>{activeItem}</span>
-        <span className={styles.pickingRowProgress}>[{pickedCount}/{totalCount}]</span>
+        <span className={styles.pickingRowProgress}>[{[...order.pending.map(p => p.name), ...order.selected.map(s => s.name)].indexOf(activeItem) + 1}/{totalCount}]</span>
         <span className={styles.pickingRowExpand}>{'\u25BE'}</span>
       </div>
       <button className={styles.pickingRowNav} onClick={handleNext} title="Next item">{'\u2192'}</button>
@@ -466,11 +466,6 @@ export default function OrderPage() {
           {order.total_price > 0 && ` \u00B7 ${formatPrice(order.total_price)}`}
         </span>
       </div>
-      {pickedCount > 0 && !submitResult?.ok && (
-        <button className={styles.pickingRowSend} onClick={handleSubmit} disabled={submitting}>
-          {submitting ? '...' : `Send to ${storeName} \u2192`}
-        </button>
-      )}
       {submitResult?.ok && (
         <span className={styles.pickingRowSent}>Sent {'\u2713'}</span>
       )}

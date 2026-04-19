@@ -774,6 +774,14 @@ def _ensure_active_trip(conn, mw, user_id: str):
         # Refresh meal-sourced items (meals may have changed) but preserve extras and checked state
         _refresh_trip_meal_items(conn, trip["id"], mw, user_id)
 
+    # Fix inconsistent state: items with submitted_at but ordered=0 are stuck
+    # (can't be re-ordered, don't show as ordered). Clear stale submitted_at.
+    conn.execute(
+        text("""UPDATE trip_items SET submitted_at = NULL
+           WHERE trip_id = :tid AND ordered = 0 AND submitted_at IS NOT NULL"""),
+        {"tid": trip["id"]},
+    )
+
     # Prune checked/removed items older than 3 days.
     # Only prune non-meal items (extras, regulars). Meal-sourced items are
     # managed by _refresh_trip_meal_items which preserves checked state and
@@ -845,7 +853,10 @@ def _refresh_trip_meal_items(conn, trip_id: int, mw, user_id: str) -> None:
                 text("""INSERT INTO trip_items
                    (trip_id, name, shopping_group, source, for_meals, meal_count)
                    VALUES (:trip_id, :name, :group, 'meal', :for_meals, :meal_count)
-                   ON CONFLICT DO NOTHING"""),
+                   ON CONFLICT (trip_id, name) DO UPDATE SET
+                     for_meals = EXCLUDED.for_meals,
+                     meal_count = EXCLUDED.meal_count,
+                     shopping_group = EXCLUDED.shopping_group"""),
                 {"trip_id": trip_id, "name": info["name"], "group": info["shopping_group"],
                  "for_meals": info["for_meals"], "meal_count": info["meal_count"]},
             )

@@ -280,7 +280,7 @@ export default function GroceryPage({ sidebar = false }) {
             const items = items_by_group[group]
             const active = items.filter(i => {
               const nl = i.name.toLowerCase()
-              return !checkedSet.has(nl) && !haveItSet.has(nl) && !removedSet.has(nl)
+              return !checkedSet.has(nl) && !haveItSet.has(nl) && !removedSet.has(nl) && !orderedSet.has(nl)
             })
             const done = items.filter(i => {
               const nl = i.name.toLowerCase()
@@ -534,11 +534,11 @@ export default function GroceryPage({ sidebar = false }) {
     const isOrdered = orderedSet.has(nameLower)
     const isHaveIt = haveItSet.has(nameLower)
     const isRemoved = removedSet.has(nameLower)
-    const isDone = isChecked || isHaveIt || isRemoved
+    const isDone = isChecked || isHaveIt || isRemoved || isOrdered
     const hasMeals = item.for_meals && item.for_meals.length > 0
     const isSelected = selectedItem === item.name
 
-    // Hide checked/have_it/removed items — they go to "recently checked" section
+    // Hide checked/have_it/removed/ordered items — they go to "recently checked" section
     if (isDone) return null
 
     const handleToggle = (e) => {

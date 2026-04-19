@@ -6,6 +6,7 @@ export default function FeedbackFab({ page }) {
   const [show, setShow] = useState(false)
   const [text, setText] = useState('')
   const [sent, setSent] = useState(false)
+  const [sending, setSending] = useState(false)
 
   return (
     <>
@@ -33,15 +34,17 @@ export default function FeedbackFab({ page }) {
               <button
                 className="btn primary"
                 style={{ width: '100%', marginTop: 12 }}
-                disabled={!text.trim()}
+                disabled={!text.trim() || sending}
                 onClick={async () => {
+                  setSending(true)
                   try {
                     await api.sendFeedback(text.trim(), page)
                     setSent(true)
                   } catch { /* silent */ }
+                  setSending(false)
                 }}
               >
-                Send
+                {sending ? 'Sending...' : 'Send'}
               </button>
             </>
           )}
