@@ -4479,30 +4479,41 @@ async def basket_trend(request: Request):
                     AND re.dismissed = 0
                     AND re.created_at > NOW() - INTERVAL '180 days'
                 )
-                SELECT week, SUM(line_total) AS total
+                SELECT week, SUM(line_total) AS total, COUNT(*) AS items
                 FROM (SELECT * FROM matched UNION ALL SELECT * FROM extras) combined
                 GROUP BY week
                 ORDER BY week"""),
         {"uid": user_id},
     ).fetchall()
 
-    weeks = [{"week": r["week"].isoformat(), "total": round(float(r["total"]), 2)}
-             for r in rows if r["total"] is not None]
+    all_weeks = [{"week": r["week"].isoformat(),
+                  "total": round(float(r["total"]), 2),
+                  "items": int(r["items"])}
+                 for r in rows if r["total"] is not None]
+
+    # A "real" shopping week has enough captured purchases to represent a full
+    # trip. Weeks below this threshold are almost always partial data (old
+    # receipts that were only partially matched, or mid-week stop-ins) and
+    # drag the average down misleadingly.
+    MIN_ITEMS = 10
+    MIN_TOTAL = 50.0
+    real_weeks = [w for w in all_weeks if w["items"] >= MIN_ITEMS or w["total"] >= MIN_TOTAL]
 
     pct_change = None
-    if len(weeks) >= 2:
-        first, last = weeks[0]["total"], weeks[-1]["total"]
+    if len(real_weeks) >= 2:
+        first, last = real_weeks[0]["total"], real_weeks[-1]["total"]
         if first > 0:
             pct_change = round((last - first) / first * 100.0, 1)
 
-    avg = round(sum(w["total"] for w in weeks) / len(weeks), 2) if weeks else 0
+    avg = round(sum(w["total"] for w in real_weeks) / len(real_weeks), 2) if real_weeks else 0
 
     return {
-        "weeks": weeks,
+        "weeks": real_weeks,
         "average_weekly": avg,
         "pct_change_first_to_last": pct_change,
-        "weeks_of_data": len(weeks),
-        "thin": len(weeks) < 4,
+        "weeks_of_data": len(real_weeks),
+        "weeks_excluded_thin": len(all_weeks) - len(real_weeks),
+        "thin": len(real_weeks) < 4,
     }
 
 
