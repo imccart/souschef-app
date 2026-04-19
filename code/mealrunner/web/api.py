@@ -855,18 +855,36 @@ def _refresh_trip_meal_items(conn, trip_id: int, mw, user_id: str) -> None:
 
             if meals_added:
                 # A new meal pulled this ingredient in — give it a fresh status
-                # so the user sees it on the active list again.
+                # so the user sees it on the active list again. Also decouple from
+                # any prior receipt match, since this is a new need, not the same
+                # one that was previously fulfilled.
                 reset_clause = """checked = 0, checked_at = NULL,
                                   have_it = 0, have_it_at = NULL,
-                                  removed = 0, removed_at = NULL,"""
+                                  removed = 0, removed_at = NULL,
+                                  receipt_status = '', receipt_item = '',
+                                  receipt_upc = '', receipt_price = NULL,"""
             else:
                 # Same meals as before — only clear stale checked/have_it
                 # (3-day threshold mirrors the auto-prune for extras).
                 # Removed stays sticky until the user explicitly undoes.
+                # When checked/have_it ages out, also drop the receipt match so
+                # the receipt page doesn't show a stale "already received" tag.
                 reset_clause = """checked = CASE WHEN checked = 1 AND checked_at::timestamptz < NOW() - INTERVAL '3 days' THEN 0 ELSE checked END,
                                   checked_at = CASE WHEN checked = 1 AND checked_at::timestamptz < NOW() - INTERVAL '3 days' THEN NULL ELSE checked_at END,
                                   have_it = CASE WHEN have_it = 1 AND have_it_at::timestamptz < NOW() - INTERVAL '3 days' THEN 0 ELSE have_it END,
-                                  have_it_at = CASE WHEN have_it = 1 AND have_it_at::timestamptz < NOW() - INTERVAL '3 days' THEN NULL ELSE have_it_at END,"""
+                                  have_it_at = CASE WHEN have_it = 1 AND have_it_at::timestamptz < NOW() - INTERVAL '3 days' THEN NULL ELSE have_it_at END,
+                                  receipt_status = CASE WHEN (checked = 1 AND checked_at::timestamptz < NOW() - INTERVAL '3 days')
+                                                          OR (have_it = 1 AND have_it_at::timestamptz < NOW() - INTERVAL '3 days')
+                                                       THEN '' ELSE receipt_status END,
+                                  receipt_item = CASE WHEN (checked = 1 AND checked_at::timestamptz < NOW() - INTERVAL '3 days')
+                                                        OR (have_it = 1 AND have_it_at::timestamptz < NOW() - INTERVAL '3 days')
+                                                     THEN '' ELSE receipt_item END,
+                                  receipt_upc = CASE WHEN (checked = 1 AND checked_at::timestamptz < NOW() - INTERVAL '3 days')
+                                                       OR (have_it = 1 AND have_it_at::timestamptz < NOW() - INTERVAL '3 days')
+                                                    THEN '' ELSE receipt_upc END,
+                                  receipt_price = CASE WHEN (checked = 1 AND checked_at::timestamptz < NOW() - INTERVAL '3 days')
+                                                         OR (have_it = 1 AND have_it_at::timestamptz < NOW() - INTERVAL '3 days')
+                                                      THEN NULL ELSE receipt_price END,"""
 
             conn.execute(
                 text(f"""UPDATE trip_items SET
