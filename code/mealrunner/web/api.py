@@ -4655,6 +4655,86 @@ async def refresh_violations(request: Request):
     return {"ok": True, **result}
 
 
+@router.post("/admin/e2e-cleanup")
+async def e2e_cleanup(body: dict):
+    """Playwright test cleanup. Deletes all e2e-*@mealrunner-test.invalid users
+    and their data. Only active when PLAYWRIGHT_TEST_SECRET is set."""
+    from mealrunner.web.auth import e2e_enabled, verify_e2e_secret, E2E_EMAIL_DOMAIN
+
+    if not e2e_enabled():
+        return JSONResponse({"error": "Not found"}, status_code=404)
+    if not verify_e2e_secret(body.get("secret", "")):
+        return JSONResponse({"error": "Invalid secret"}, status_code=401)
+
+    conn = _conn()
+    pattern = f"e2e-%{E2E_EMAIL_DOMAIN}"
+    rows = conn.execute(
+        text("SELECT id, email FROM users WHERE email LIKE :pattern"),
+        {"pattern": pattern},
+    ).fetchall()
+    user_ids = [r["id"] for r in rows]
+    emails = [r["email"] for r in rows]
+    if not user_ids:
+        return {"ok": True, "deleted": 0}
+
+    # Tables with a user_id column — scoped deletes, one user at a time.
+    # Slower but avoids array-binding quirks and keeps the SQL simple.
+    user_scoped = [
+        "magic_links", "sessions", "recipes", "pantry", "meals",
+        "product_preferences", "product_ratings", "regulars",
+        "grocery_trips", "rate_limits", "learning_dismissed",
+        "meal_item_overrides", "household_members", "user_feedback",
+        "user_item_groups", "user_kroger_tokens", "community_data",
+        "stores", "nearby_stores", "settings", "product_prices",
+    ]
+    # Child tables keyed by parent id. Delete children first.
+    #   trip_items ← grocery_trips
+    #   meal_sides ← meals
+    #   recipe_ingredients ← recipes
+    #   grocery_run_items ← grocery_runs (no user_id — skip; orphans harmless)
+    for uid in user_ids:
+        conn.execute(
+            text("""DELETE FROM trip_items
+                    WHERE trip_id IN (SELECT id FROM grocery_trips WHERE user_id = :uid)"""),
+            {"uid": uid},
+        )
+        conn.execute(
+            text("""DELETE FROM meal_sides
+                    WHERE meal_id IN (SELECT id FROM meals WHERE user_id = :uid)"""),
+            {"uid": uid},
+        )
+        conn.execute(
+            text("""DELETE FROM recipe_ingredients
+                    WHERE recipe_id IN (SELECT id FROM recipes WHERE user_id = :uid)"""),
+            {"uid": uid},
+        )
+        for tbl in user_scoped:
+            try:
+                conn.execute(
+                    text(f"DELETE FROM {tbl} WHERE user_id = :uid"),
+                    {"uid": uid},
+                )
+            except Exception as e:
+                # Be tolerant — this is test cleanup, not prod.
+                print(f"[e2e-cleanup] failed to clear {tbl} for {uid}: {e}")
+
+    # Household invites keyed by email, not user_id.
+    for email in emails:
+        try:
+            conn.execute(
+                text("DELETE FROM household_invites WHERE LOWER(email) = :email"),
+                {"email": email.lower()},
+            )
+        except Exception as e:
+            print(f"[e2e-cleanup] failed to clear household_invites for {email}: {e}")
+
+    # Finally, the users themselves.
+    for uid in user_ids:
+        conn.execute(text("DELETE FROM users WHERE id = :uid"), {"uid": uid})
+    conn.commit()
+    return {"ok": True, "deleted": len(user_ids)}
+
+
 @router.post("/feedback/{feedback_id}/respond")
 async def respond_to_feedback(feedback_id: int, body: dict, request: Request):
     """Admin: respond to a feedback item."""

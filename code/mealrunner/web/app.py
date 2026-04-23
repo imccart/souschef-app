@@ -34,6 +34,9 @@ from mealrunner.web.auth import (
     get_user_from_session,
     get_household_owner_id,
     ensure_household,
+    e2e_enabled,
+    verify_e2e_secret,
+    is_e2e_email,
     SESSION_COOKIE,
     BASE_URL,
 )
@@ -407,6 +410,32 @@ async def auth_logout(request: Request):
 
     response = JSONResponse({"ok": True})
     clear_session_cookie(response)
+    return response
+
+
+@app.post("/api/auth/e2e-login")
+async def auth_e2e_login(body: dict):
+    """Playwright test bypass. Only active when PLAYWRIGHT_TEST_SECRET is set.
+
+    Enforces: email must be e2e-*@mealrunner-test.invalid. Never set the
+    secret in production — the endpoint 404s without it.
+    """
+    if not e2e_enabled():
+        return JSONResponse({"error": "Not found"}, status_code=404)
+    if not verify_e2e_secret(body.get("secret", "")):
+        return JSONResponse({"error": "Invalid secret"}, status_code=401)
+    email = (body.get("email", "") or "").strip().lower()
+    if not is_e2e_email(email):
+        return JSONResponse(
+            {"error": "Email must be e2e-*@mealrunner-test.invalid"},
+            status_code=400,
+        )
+    conn = get_request_connection()
+    user_id = find_or_create_user(conn, email)
+    ensure_household(conn, user_id)
+    session_id = create_session(conn, user_id)
+    response = JSONResponse({"ok": True, "user_id": user_id, "email": email})
+    set_session_cookie(response, session_id)
     return response
 
 

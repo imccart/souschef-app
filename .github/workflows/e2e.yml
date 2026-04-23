@@ -1,0 +1,62 @@
+name: E2E Tests
+
+on:
+  push:
+    branches: [master, staging]
+  workflow_dispatch:
+
+jobs:
+  e2e:
+    name: Playwright against staging
+    runs-on: ubuntu-latest
+    # Advisory-only — failures show up here but don't block merges.
+    # Flip to blocking later by making it a required status check.
+    continue-on-error: true
+    timeout-minutes: 20
+    defaults:
+      run:
+        working-directory: frontend
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup Node
+        uses: actions/setup-node@v4
+        with:
+          node-version: "20"
+          cache: "npm"
+          cache-dependency-path: frontend/package-lock.json
+
+      - name: Install deps
+        run: npm ci
+
+      - name: Install Playwright browsers
+        run: npx playwright install --with-deps chromium
+
+      - name: Wait for staging to be reachable
+        run: |
+          for i in {1..30}; do
+            if curl -fsS "${{ secrets.STAGING_URL }}/health" > /dev/null; then
+              echo "staging is up"
+              exit 0
+            fi
+            echo "waiting for staging... ($i/30)"
+            sleep 10
+          done
+          echo "staging never came up"
+          exit 1
+
+      - name: Run Playwright tests
+        env:
+          CI: "true"
+          PLAYWRIGHT_BASE_URL: ${{ secrets.STAGING_URL }}
+          PLAYWRIGHT_TEST_SECRET: ${{ secrets.PLAYWRIGHT_TEST_SECRET }}
+        run: npm run test:e2e
+
+      - name: Upload Playwright report
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: playwright-report-${{ github.sha }}
+          path: frontend/playwright-report/
+          retention-days: 14

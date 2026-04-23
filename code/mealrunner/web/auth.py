@@ -20,6 +20,27 @@ RESEND_API_KEY = os.environ.get("RESEND_API_KEY", "")
 RESEND_FROM = os.environ.get("RESEND_FROM", "mealrunner <noreply@mealrunner.app>")
 BASE_URL = os.environ.get("BASE_URL", "http://localhost:8000")
 
+# ── Playwright / E2E Test Bypass ─────────────────────────
+# Only active when PLAYWRIGHT_TEST_SECRET is set. Must never be set in prod.
+E2E_TEST_SECRET = os.environ.get("PLAYWRIGHT_TEST_SECRET", "")
+E2E_EMAIL_DOMAIN = "@mealrunner-test.invalid"
+E2E_EMAIL_PREFIX = "e2e-"
+
+
+def e2e_enabled() -> bool:
+    return bool(E2E_TEST_SECRET)
+
+
+def verify_e2e_secret(candidate: str) -> bool:
+    if not E2E_TEST_SECRET:
+        return False
+    return secrets.compare_digest(candidate or "", E2E_TEST_SECRET)
+
+
+def is_e2e_email(email: str) -> bool:
+    e = (email or "").strip().lower()
+    return e.startswith(E2E_EMAIL_PREFIX) and e.endswith(E2E_EMAIL_DOMAIN)
+
 # Paths that don't require authentication
 PUBLIC_PATHS = {
     "/health",
@@ -28,6 +49,8 @@ PUBLIC_PATHS = {
     "/api/auth/google",
     "/api/auth/google-client-id",
     "/api/auth/me",
+    "/api/auth/e2e-login",
+    "/api/admin/e2e-cleanup",
     "/api/kroger/callback",
 }
 
