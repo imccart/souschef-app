@@ -419,6 +419,13 @@ async def auth_e2e_login(body: dict):
 
     Enforces: email must be e2e-*@mealrunner-test.invalid. Never set the
     secret in production — the endpoint 404s without it.
+
+    Body:
+      secret (required)     — must match PLAYWRIGHT_TEST_SECRET
+      email (required)      — e2e-*@mealrunner-test.invalid
+      skip_onboarding (opt) — default true. Marks onboarding complete so the
+                              test lands on Plan. Pass false to exercise the
+                              onboarding flow itself.
     """
     if not e2e_enabled():
         return JSONResponse({"error": "Not found"}, status_code=404)
@@ -430,9 +437,19 @@ async def auth_e2e_login(body: dict):
             {"error": "Email must be e2e-*@mealrunner-test.invalid"},
             status_code=400,
         )
+    skip_onboarding = body.get("skip_onboarding", True)
     conn = get_request_connection()
     user_id = find_or_create_user(conn, email)
     ensure_household(conn, user_id)
+    if skip_onboarding:
+        conn.execute(
+            text("""INSERT INTO settings (user_id, key, value, updated_at)
+                    VALUES (:uid, 'onboarding_complete', 'true', CURRENT_TIMESTAMP)
+                    ON CONFLICT (user_id, key) DO UPDATE
+                    SET value = 'true', updated_at = CURRENT_TIMESTAMP"""),
+            {"uid": user_id},
+        )
+        conn.commit()
     session_id = create_session(conn, user_id)
     response = JSONResponse({"ok": True, "user_id": user_id, "email": email})
     set_session_cookie(response, session_id)
