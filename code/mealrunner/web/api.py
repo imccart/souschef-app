@@ -66,11 +66,18 @@ def _check_throttle(user_id: str, endpoint: str, max_requests: int, window_secon
     ).fetchone()
 
     if row:
-        try:
-            ws = datetime.fromisoformat(row["window_start"].replace("Z", "+00:00"))
-        except (ValueError, TypeError):
-            ws = cutoff  # treat invalid as expired
-        if ws < cutoff:
+        # window_start is timestamptz post-session-53 migration — psycopg2
+        # returns it as a tz-aware datetime. Before the migration it was a
+        # TEXT ISO string. Handle both so old + new rows work.
+        ws = row["window_start"]
+        if isinstance(ws, str):
+            try:
+                ws = datetime.fromisoformat(ws.replace("Z", "+00:00"))
+            except (ValueError, TypeError):
+                ws = cutoff  # treat unparseable as expired
+        if ws is not None and ws.tzinfo is None:
+            ws = ws.replace(tzinfo=timezone.utc)
+        if ws is None or ws < cutoff:
             # Window expired — reset
             conn.execute(
                 text("UPDATE rate_limits SET count = 1, window_start = :ws WHERE id = :id"),
