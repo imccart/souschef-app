@@ -1764,127 +1764,148 @@ async def search_order_products(item_name: str, request: Request, fulfillment: s
     # Use search results to get fresh brand/category for preferences
     search_products_by_upc = {p.upc: p for p in products if p.upc}
 
-    # For any pref UPC not in today's search results, look it up directly at
-    # the user's store. The "Prior selections" row promises one-click
-    # re-orders — showing an item we can't confirm Kroger carries right now
-    # (foreign-chain UPCs like Publix receipts, or Kroger SKUs that have
-    # been discontinued) leads the user to pick something that fails later
-    # in their Kroger cart. A per-UPC catalog lookup is authoritative.
-    unknown_pref_upcs = [
-        p.upc for p in prefs
-        if p.upc and p.upc not in search_products_by_upc
-    ]
-    pref_direct_results: dict[str, object] = {}
-    if unknown_pref_upcs:
-        from concurrent.futures import ThreadPoolExecutor as _TPE
+    # Build pref_list. Wrapped in a top-level try/except so any failure in
+    # the authoritative-availability enrichment (Kroger UPC lookup,
+    # fill_prices, product_scores upsert) doesn't take down the whole
+    # search endpoint — prior selections just come back empty for that
+    # request, which degrades gracefully instead of crashing ordering.
+    pref_list: list[dict] = []
+    try:
+        # For any pref UPC not in today's search results, look it up directly
+        # at the user's store. The "Prior selections" row promises one-click
+        # re-orders — showing an item we can't confirm Kroger carries right
+        # now (foreign-chain UPCs like Publix receipts, or Kroger SKUs that
+        # have been discontinued) leads the user to pick something that
+        # fails later in their Kroger cart. A per-UPC catalog lookup is
+        # authoritative.
+        unknown_pref_upcs = [
+            p.upc for p in prefs
+            if p.upc and p.upc not in search_products_by_upc
+        ]
+        pref_direct_results: dict[str, object] = {}
+        if unknown_pref_upcs:
+            from concurrent.futures import ThreadPoolExecutor as _TPE
 
-        def _lookup_upc(upc: str):
-            try:
-                matches = search_products_fast(
-                    upc, limit=1, fulfillment=ff, location_id=user_location_id,
-                )
-                for m in matches:
-                    if m.upc == upc:
-                        return upc, m
-            except Exception as e:
-                print(f"[order/search] pref lookup failed for {upc}: {e}")
-            return upc, None
+            def _lookup_upc(upc: str):
+                try:
+                    matches = search_products_fast(
+                        upc, limit=1, fulfillment=ff, location_id=user_location_id,
+                    )
+                    for m in matches:
+                        if m.upc == upc:
+                            return upc, m
+                except Exception as e:
+                    print(f"[order/search] pref lookup failed for {upc}: {e}")
+                return upc, None
 
-        with _TPE(max_workers=3) as _pool:
-            for _upc, _match in _pool.map(_lookup_upc, unknown_pref_upcs):
-                if _match is not None:
-                    pref_direct_results[_upc] = _match
+            with _TPE(max_workers=3) as _pool:
+                for _upc, _match in _pool.map(_lookup_upc, unknown_pref_upcs):
+                    if _match is not None:
+                        pref_direct_results[_upc] = _match
 
-        # Kroger's catalog search often omits price; backfill from the
-        # per-product endpoint so product_scores gets real numbers.
-        _direct_matches = list(pref_direct_results.values())
-        if _direct_matches:
-            try:
-                fill_prices(_direct_matches, location_id=user_location_id)
-            except Exception as e:
-                print(f"[order/search] fill_prices for pref lookups failed: {e}")
+            # Kroger's catalog search often omits price; backfill from the
+            # per-product endpoint so product_scores gets real numbers.
+            _direct_matches = list(pref_direct_results.values())
+            if _direct_matches:
+                try:
+                    fill_prices(_direct_matches, location_id=user_location_id)
+                except Exception as e:
+                    print(f"[order/search] fill_prices for pref lookups failed: {e}")
 
-        # Refresh product_scores for confirmed-available prefs so next time
-        # they come back through the normal cache path without a lookup.
-        for _upc, m in pref_direct_results.items():
-            conn.execute(
-                text("""INSERT INTO product_scores
-                        (upc, price, promo_price, in_stock, curbside, delivery, price_fetched_at)
-                        VALUES (:upc, :price, :promo_price, :in_stock, :curbside, :delivery, CURRENT_TIMESTAMP)
-                        ON CONFLICT(upc) DO UPDATE SET
-                          price=excluded.price,
-                          promo_price=excluded.promo_price,
-                          in_stock=excluded.in_stock,
-                          curbside=excluded.curbside,
-                          delivery=excluded.delivery,
-                          price_fetched_at=excluded.price_fetched_at"""),
-                {"upc": _upc, "price": m.price, "promo_price": m.promo_price,
-                 "in_stock": int(m.in_stock), "curbside": int(m.curbside),
-                 "delivery": int(m.delivery)},
-            )
-        conn.commit()
-        # Re-read pref_scores so the loop below sees the fresh rows.
-        ph = ", ".join(f":pu{i}" for i in range(len(pref_upcs)))
-        ps = {f"pu{i}": u for i, u in enumerate(pref_upcs)}
-        pref_score_rows = conn.execute(
-            text(f"SELECT upc, nova_group, nutriscore, price, promo_price, "
-                 f"in_stock, curbside, delivery "
-                 f"FROM product_scores WHERE upc IN ({ph})"),
-            ps,
-        ).fetchall()
-        pref_scores = {r["upc"]: dict(r) for r in pref_score_rows}
+            # Refresh product_scores for confirmed-available prefs so next time
+            # they come back through the normal cache path without a lookup.
+            for _upc, m in pref_direct_results.items():
+                try:
+                    conn.execute(
+                        text("""INSERT INTO product_scores
+                                (upc, price, promo_price, in_stock, curbside, delivery, price_fetched_at)
+                                VALUES (:upc, :price, :promo_price, :in_stock, :curbside, :delivery, CURRENT_TIMESTAMP)
+                                ON CONFLICT(upc) DO UPDATE SET
+                                  price=excluded.price,
+                                  promo_price=excluded.promo_price,
+                                  in_stock=excluded.in_stock,
+                                  curbside=excluded.curbside,
+                                  delivery=excluded.delivery,
+                                  price_fetched_at=excluded.price_fetched_at"""),
+                        {"upc": _upc, "price": m.price, "promo_price": m.promo_price,
+                         "in_stock": int(m.in_stock) if m.in_stock is not None else None,
+                         "curbside": int(m.curbside) if m.curbside is not None else None,
+                         "delivery": int(m.delivery) if m.delivery is not None else None},
+                    )
+                except Exception as e:
+                    print(f"[order/search] product_scores upsert failed for {_upc}: {e}")
+            conn.commit()
+            # Re-read pref_scores so the loop below sees the fresh rows.
+            # Skip empty-string UPCs — they'd match only the synthetic '' upc
+            # row (which won't exist) and add noise.
+            _non_empty = [u for u in pref_upcs if u]
+            if _non_empty:
+                ph = ", ".join(f":pu{i}" for i in range(len(_non_empty)))
+                ps = {f"pu{i}": u for i, u in enumerate(_non_empty)}
+                pref_score_rows = conn.execute(
+                    text(f"SELECT upc, nova_group, nutriscore, price, promo_price, "
+                         f"in_stock, curbside, delivery "
+                         f"FROM product_scores WHERE upc IN ({ph})"),
+                    ps,
+                ).fetchall()
+                pref_scores = {r["upc"]: dict(r) for r in pref_score_rows}
 
-    # UPCs Kroger has confirmed carrying right now, either from the current
-    # "black beans"-style search or the targeted UPC lookup above.
-    confirmed_upcs = set(search_products_by_upc.keys()) | set(pref_direct_results.keys())
+        # UPCs Kroger has confirmed carrying right now, either from the current
+        # "black beans"-style search or the targeted UPC lookup above.
+        confirmed_upcs = set(search_products_by_upc.keys()) | set(pref_direct_results.keys())
 
-    pref_list = []
-    for p in prefs:
-        # Drop preferences Kroger didn't acknowledge. Covers both
-        # non-Kroger receipt UPCs (Publix etc.) and UPCs that have been
-        # silently discontinued since the user last picked them.
-        if not p.upc or p.upc not in confirmed_upcs:
-            continue
+        for p in prefs:
+            # Drop preferences Kroger didn't acknowledge. Covers both
+            # non-Kroger receipt UPCs (Publix etc.) and UPCs that have been
+            # silently discontinued since the user last picked them.
+            if not p.upc or p.upc not in confirmed_upcs:
+                continue
 
-        search_p = search_products_by_upc.get(p.upc) or pref_direct_results.get(p.upc)
-        sc = pref_scores.get(p.upc, {})
+            search_p = search_products_by_upc.get(p.upc) or pref_direct_results.get(p.upc)
+            sc = pref_scores.get(p.upc, {})
 
-        brand = search_p.brand if search_p and search_p.brand else p.brand
-        cat = search_p.categories[0] if search_p and search_p.categories else None
-        available = search_p.in_stock
-        has_curbside = search_p.curbside
-        has_delivery = search_p.delivery
+            brand = search_p.brand if search_p and search_p.brand else p.brand
+            cat = search_p.categories[0] if search_p and search_p.categories else None
+            available = bool(search_p.in_stock)
+            has_curbside = bool(search_p.curbside)
+            has_delivery = bool(search_p.delivery)
 
-        # Drop items that aren't orderable in the user's current mode.
-        # Prior selections is a "pick and order now" row — stale picks
-        # just cause frustration when the Kroger cart rejects them.
-        if ff == "curbside" and not has_curbside and has_delivery:
-            continue
-        if ff == "delivery" and not has_delivery and has_curbside:
-            continue
-        if not available:
-            continue
+            # Drop items that aren't orderable in the user's current mode.
+            # Prior selections is a "pick and order now" row — stale picks
+            # just cause frustration when the Kroger cart rejects them.
+            if ff == "curbside" and not has_curbside and has_delivery:
+                continue
+            if ff == "delivery" and not has_delivery and has_curbside:
+                continue
+            if not available:
+                continue
 
-        parent = get_parent_company(brand, conn, category=cat) if brand else "We're not sure"
-        violations = get_company_violations(conn, parent) if parent not in ("We're not sure",) else None
-        pref_item = {
-            "upc": p.upc,
-            "name": p.description,
-            "brand": brand,
-            "size": p.size,
-            "rating": p.rating,
-            "image": f"https://www.kroger.com/product/images/medium/front/{p.upc}",
-            "price": sc.get("price"),
-            "promo_price": sc.get("promo_price"),
-            "nova": sc.get("nova_group"),
-            "nutriscore": sc.get("nutriscore", ""),
-            "parent_company": parent,
-            "in_stock": True,
-            "unavailable_reason": None,
-        }
-        if violations:
-            pref_item["violations"] = violations
-        pref_list.append(pref_item)
+            parent = get_parent_company(brand, conn, category=cat) if brand else "We're not sure"
+            violations = get_company_violations(conn, parent) if parent not in ("We're not sure",) else None
+            pref_item = {
+                "upc": p.upc,
+                "name": p.description,
+                "brand": brand,
+                "size": p.size,
+                "rating": p.rating,
+                "image": f"https://www.kroger.com/product/images/medium/front/{p.upc}",
+                "price": sc.get("price"),
+                "promo_price": sc.get("promo_price"),
+                "nova": sc.get("nova_group"),
+                "nutriscore": sc.get("nutriscore", ""),
+                "parent_company": parent,
+                "in_stock": True,
+                "unavailable_reason": None,
+            }
+            if violations:
+                pref_item["violations"] = violations
+            pref_list.append(pref_item)
+    except Exception as e:
+        import traceback
+        print(f"[order/search] prior-selections enrichment failed for "
+              f"'{item_name}': {type(e).__name__}: {e}")
+        traceback.print_exc()
+        pref_list = []
 
     # Look up user ratings for search result products
     product_ratings = {}
