@@ -643,7 +643,7 @@ export default function OrderPage() {
         ]
       }</div>}
 
-      {products && !searching && (
+      {activeItem && products && !searching && (
         <>
           {products.preferences.length > 0 && (
             <div className={styles.orderSection}>
