@@ -325,6 +325,7 @@ trip_items = Table(
     Column("receipt_price", Float),
     Column("receipt_upc", Text, nullable=False, server_default=text("''")),
     Column("receipt_status", Text, nullable=False, server_default=text("''")),
+    Column("receipt_acknowledged", Integer, nullable=False, server_default=text("0")),
     Column("notes", Text, nullable=False, server_default=text("''")),
     Column("removed", Integer, nullable=False, server_default=text("0")),
     Column("removed_at", TS),

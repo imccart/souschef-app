@@ -2514,6 +2514,10 @@ async def get_receipt(request: Request):
             removed = bool(r["removed"])
         except (KeyError, Exception):
             removed = False
+        try:
+            acknowledged = bool(r["receipt_acknowledged"])
+        except (KeyError, Exception):
+            acknowledged = False
         items.append({
             "name": r["name"],
             "shopping_group": r["shopping_group"],
@@ -2531,6 +2535,7 @@ async def get_receipt(request: Request):
             "receipt_price": r["receipt_price"],
             "receipt_upc": r["receipt_upc"],
             "receipt_status": r["receipt_status"],
+            "receipt_acknowledged": acknowledged,
         })
 
     # Categorize
@@ -2704,7 +2709,8 @@ async def _process_receipt(receipt_type: str, content: str, request: Request):
                 conn.execute(
                     text("""UPDATE trip_items SET
                            receipt_item = :receipt_item, receipt_price = :receipt_price,
-                           receipt_upc = :receipt_upc, receipt_status = 'matched'
+                           receipt_upc = :receipt_upc, receipt_status = 'matched',
+                           receipt_acknowledged = 0
                        WHERE trip_id = :trip_id AND LOWER(name) = LOWER(:name)"""),
                     {"receipt_item": receipt_text,
                      "receipt_price": ri.get("price"),
@@ -2741,7 +2747,7 @@ async def _process_receipt(receipt_type: str, content: str, request: Request):
             conn.execute(
                 text("""UPDATE trip_items SET
                        receipt_item = :receipt_item, receipt_price = :receipt_price, receipt_upc = :receipt_upc,
-                       receipt_status = :status
+                       receipt_status = :status, receipt_acknowledged = 0
                    WHERE trip_id = :trip_id AND LOWER(name) = LOWER(:name)"""),
                 {"receipt_item": r.get("item", ""), "receipt_price": r.get("price"),
                  "receipt_upc": r.get("upc", ""),
@@ -2766,7 +2772,7 @@ async def _process_receipt(receipt_type: str, content: str, request: Request):
             conn.execute(
                 text("""UPDATE trip_items SET
                        receipt_item = :receipt_item, receipt_price = :receipt_price, receipt_upc = :receipt_upc,
-                       receipt_status = 'matched'
+                       receipt_status = 'matched', receipt_acknowledged = 0
                    WHERE trip_id = :trip_id AND LOWER(name) = LOWER(:name)"""),
                 {"receipt_item": r.get("item", ""), "receipt_price": r.get("price"),
                  "receipt_upc": r.get("upc", ""),
@@ -2969,10 +2975,13 @@ async def resolve_receipt_item(body: dict, request: Request):
     if status not in ALLOWED_STATUSES:
         return JSONResponse(status_code=400, content={"ok": False, "error": f"Invalid status '{status}'. Must be one of: {', '.join(sorted(ALLOWED_STATUSES))}"})
 
+    # Any user-driven resolve action acknowledges the item — it leaves the
+    # receipt-page queue regardless of which action was taken.
     if status == "recover":
         # Put item back on the active grocery list (un-order it, clear submitted so it can be re-ordered)
         conn.execute(
             text("""UPDATE trip_items SET ordered = 0, submitted_at = NULL, receipt_status = '',
+                   receipt_acknowledged = 1,
                    product_upc = '', product_name = '', product_brand = '', product_size = '',
                    product_price = NULL, product_image = ''
                WHERE trip_id = :trip_id AND LOWER(name) = LOWER(:name)"""),
@@ -2981,13 +2990,15 @@ async def resolve_receipt_item(body: dict, request: Request):
     elif status == "dismissed":
         # Acknowledged as not needed — mark so it doesn't keep prompting
         conn.execute(
-            text("UPDATE trip_items SET receipt_status = 'dismissed' WHERE trip_id = :trip_id AND LOWER(name) = LOWER(:name)"),
+            text("""UPDATE trip_items SET receipt_status = 'dismissed', receipt_acknowledged = 1
+               WHERE trip_id = :trip_id AND LOWER(name) = LOWER(:name)"""),
             {"trip_id": trip["id"], "name": name},
         )
     elif status == "matched":
         # Confirming a match checks it off the grocery list and clears ordered
         conn.execute(
             text("""UPDATE trip_items SET receipt_status = 'matched',
+                   receipt_acknowledged = 1,
                    checked = 1, checked_at = CURRENT_TIMESTAMP, ordered = 0
                WHERE trip_id = :trip_id AND LOWER(name) = LOWER(:name)"""),
             {"trip_id": trip["id"], "name": name},
@@ -2996,6 +3007,7 @@ async def resolve_receipt_item(body: dict, request: Request):
         # Reset to active so item can be re-ordered
         conn.execute(
             text("""UPDATE trip_items SET receipt_status = 'not_fulfilled',
+                   receipt_acknowledged = 1,
                    ordered = 0, submitted_at = NULL,
                    product_upc = '', product_name = '', product_brand = '',
                    product_size = '', product_price = NULL, product_image = ''
@@ -3004,7 +3016,8 @@ async def resolve_receipt_item(body: dict, request: Request):
         )
     else:
         conn.execute(
-            text("UPDATE trip_items SET receipt_status = :status WHERE trip_id = :trip_id AND LOWER(name) = LOWER(:name)"),
+            text("""UPDATE trip_items SET receipt_status = :status, receipt_acknowledged = 1
+               WHERE trip_id = :trip_id AND LOWER(name) = LOWER(:name)"""),
             {"status": status, "trip_id": trip["id"], "name": name},
         )
     conn.commit()

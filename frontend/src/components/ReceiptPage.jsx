@@ -172,7 +172,15 @@ export default function ReceiptPage() {
   if (loadError) return <><div className="loading">Something went wrong loading receipts. Try refreshing.</div><FeedbackFab page="receipt" /></>
   if (!receipt) return <><div className="loading">Checking the tab...</div><FeedbackFab page="receipt" /></>
 
-  const unmatchedMatches = receipt.matched.filter(i => !i.checked)
+  // Items needing the user's attention on the receipt page: matched but
+  // not yet acknowledged. The receipt page is the reconciliation step;
+  // pre-checking via the grocery list (e.g. you grabbed it in-store) is
+  // not the same as confirming the receipt's match — the user may want
+  // to verify the parser got it right or rate the actual product. Once
+  // they tap Confirm/Not-this/etc. the resolve endpoint sets
+  // receipt_acknowledged=1 and the item leaves this queue.
+  const unmatchedMatches = receipt.matched.filter(i => !i.receipt_acknowledged)
+  const unackedSubstituted = receipt.substituted.filter(i => !i.receipt_acknowledged)
   const hasReconciled = receipt.matched.length > 0 || receipt.substituted.length > 0
 
   // Unreconciled grocery items (for "This is..." picker)
@@ -340,10 +348,10 @@ export default function ReceiptPage() {
       )}
 
       {/* Substituted items */}
-      {receipt.substituted.length > 0 && (
+      {unackedSubstituted.length > 0 && (
         <div className={styles.receiptSection}>
-          <div className={styles.receiptSectionLabel}>Substituted ({receipt.substituted.length})</div>
-          {receipt.substituted.map(item => {
+          <div className={styles.receiptSectionLabel}>Substituted ({unackedSubstituted.length})</div>
+          {unackedSubstituted.map(item => {
             const key = `sub-${item.name}`
             const isExpanded = !collapsedItems.has(key)
             return (
