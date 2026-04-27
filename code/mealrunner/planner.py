@@ -547,31 +547,35 @@ def swap_meal_side(conn: DictConnection, user_id: str, slot_date: str) -> Meal:
 
 
 def swap_dates(conn: DictConnection, user_id: str, date_a: str, date_b: str) -> list[Meal]:
-    """Swap meals between two dates. Returns updated week."""
-    rows_a = conn.execute(
-        text("SELECT * FROM meals WHERE user_id = :user_id AND slot_date = :slot_date"),
+    """Swap meals between two dates by moving slot_date, not by swapping
+    recipe attributes between two meal rows. Preserving each meal's id keeps
+    trip_items.meal_ids stable across the swap, so _refresh_trip_meal_items
+    doesn't see the swap as a new occurrence and re-surface ingredients the
+    user already bought / checked off.
+    """
+    row_a = conn.execute(
+        text("SELECT id FROM meals WHERE user_id = :user_id AND slot_date = :slot_date"),
         {"user_id": user_id, "slot_date": date_a},
-    ).fetchall()
-    rows_b = conn.execute(
-        text("SELECT * FROM meals WHERE user_id = :user_id AND slot_date = :slot_date"),
+    ).fetchone()
+    row_b = conn.execute(
+        text("SELECT id FROM meals WHERE user_id = :user_id AND slot_date = :slot_date"),
         {"user_id": user_id, "slot_date": date_b},
-    ).fetchall()
-    meal_a = _row_to_meal(rows_a[0]) if rows_a else None
-    meal_b = _row_to_meal(rows_b[0]) if rows_b else None
-    if meal_a:
-        _load_meal_sides(conn, meal_a)
-    if meal_b:
-        _load_meal_sides(conn, meal_b)
+    ).fetchone()
+    id_a = row_a["id"] if row_a else None
+    id_b = row_b["id"] if row_b else None
 
-    if meal_a and meal_b:
-        for attr in ("recipe_id", "recipe_name", "is_followup"):
-            val_a = getattr(meal_a, attr)
-            val_b = getattr(meal_b, attr)
-            setattr(meal_a, attr, val_b)
-            setattr(meal_b, attr, val_a)
-        # Swap sides lists
-        meal_a.sides, meal_b.sides = meal_b.sides, meal_a.sides
-        save_meals(conn, user_id, [meal_a, meal_b])
+    if id_a and id_b:
+        conn.execute(text("UPDATE meals SET slot_date = :d WHERE id = :id"),
+                     {"d": date_b, "id": id_a})
+        conn.execute(text("UPDATE meals SET slot_date = :d WHERE id = :id"),
+                     {"d": date_a, "id": id_b})
+    elif id_a:
+        conn.execute(text("UPDATE meals SET slot_date = :d WHERE id = :id"),
+                     {"d": date_b, "id": id_a})
+    elif id_b:
+        conn.execute(text("UPDATE meals SET slot_date = :d WHERE id = :id"),
+                     {"d": date_a, "id": id_b})
+    conn.commit()
 
     s, e = week_range(date_a)
     return load_meals(conn, user_id, s, e)

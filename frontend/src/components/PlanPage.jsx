@@ -65,9 +65,31 @@ export default function PlanPage({ showHeader = true, onLoad, onNavigate }) {
     if (data && onLoad) onLoad(data)
   }, [data, onLoad])
 
+  // Cleanup ghost + drop highlights. Used on end AND cancel so a cancelled
+  // touch (incoming call, system gesture) doesn't leave the cloned row stuck
+  // on top of the page.
+  const cleanupDrag = useCallback(() => {
+    if (rowsRef.current) {
+      rowsRef.current.querySelectorAll('.touch-drop-hover').forEach(
+        n => n.classList.remove('touch-drop-hover')
+      )
+    }
+    if (ghostRef.current) {
+      ghostRef.current.el.remove()
+      ghostRef.current = null
+    }
+    touchDragFrom.current = null
+    setDragFrom(null)
+  }, [])
+
   // Drag handle touch handlers
   const handleGripStart = useCallback((e, date) => {
     e.stopPropagation()
+    // Defensive: clear any orphaned ghost from a prior aborted drag.
+    if (ghostRef.current) {
+      ghostRef.current.el.remove()
+      ghostRef.current = null
+    }
     touchDragFrom.current = date
     didDrag.current = true
     setDragFrom(date)
@@ -119,29 +141,22 @@ export default function PlanPage({ showHeader = true, onLoad, onNavigate }) {
     const el = document.elementFromPoint(touch.clientX, touch.clientY)
     const row = el?.closest('[data-role="meal-row"], [data-role="add-meal-row"]')
     const targetDate = row?.dataset.date
+    const fromDate = touchDragFrom.current
 
-    if (targetDate && targetDate !== touchDragFrom.current) {
+    cleanupDrag()
+
+    if (targetDate && targetDate !== fromDate) {
       try {
-        const result = await api.swapDays(touchDragFrom.current, targetDate)
+        const result = await api.swapDays(fromDate, targetDate)
         setData(result)
       } catch { /* silent — rows snap back */ }
     }
+  }, [cleanupDrag])
 
-    if (rowsRef.current) {
-      rowsRef.current.querySelectorAll('.touch-drop-hover').forEach(
-        n => n.classList.remove('touch-drop-hover')
-      )
-    }
-
-    // Remove ghost
-    if (ghostRef.current) {
-      ghostRef.current.el.remove()
-      ghostRef.current = null
-    }
-
-    touchDragFrom.current = null
-    setDragFrom(null)
-  }, [])
+  const handleGripCancel = useCallback(() => {
+    if (!touchDragFrom.current) return
+    cleanupDrag()
+  }, [cleanupDrag])
 
   if (loading) return <><div className="loading">Setting the table...</div><FeedbackFab page="plan" /></>
   if (loadError) return <><div className="loading">Something went wrong loading meals. Try refreshing.</div><FeedbackFab page="plan" /></>
@@ -376,6 +391,7 @@ export default function PlanPage({ showHeader = true, onLoad, onNavigate }) {
                   onTouchStart={(e) => handleGripStart(e, date)}
                   onTouchMove={handleGripMove}
                   onTouchEnd={handleGripEnd}
+                  onTouchCancel={handleGripCancel}
                 >
                   <svg width="10" height="16" viewBox="0 0 10 16" fill="currentColor">
                     <circle cx="2" cy="2" r="1.5"/><circle cx="8" cy="2" r="1.5"/>
