@@ -104,8 +104,9 @@ def poll_user_prices(conn: DictConnection, user_id: str) -> dict:
                 polled += 1
             # Rate limit: sleep between calls to avoid Kroger 429
             time.sleep(0.5)
-        except Exception:
+        except Exception as e:
             errors += 1
+            print(f"[pricing] poll error for {upc}: {type(e).__name__}: {e}", flush=True)
 
     conn.commit()
     return {"polled": polled, "errors": errors}
