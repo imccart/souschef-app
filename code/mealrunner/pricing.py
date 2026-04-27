@@ -98,8 +98,8 @@ def poll_user_prices(conn: DictConnection, user_id: str) -> dict:
                     {"upc": upc, "price": price_data["price"],
                      "promo": price_data.get("promo_price"),
                      "stock": price_data.get("in_stock"),
-                     "curbside": price_data.get("curbside", False),
-                     "delivery": price_data.get("delivery", False)},
+                     "curbside": int(bool(price_data.get("curbside", False))),
+                     "delivery": int(bool(price_data.get("delivery", False)))},
                 )
                 polled += 1
             # Rate limit: sleep between calls to avoid Kroger 429
