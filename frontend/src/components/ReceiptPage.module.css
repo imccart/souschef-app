@@ -201,7 +201,37 @@
   gap: 8px;
   cursor: pointer;
 }
-.receiptItemTop .receiptItemInfo { flex: 1; }
+.receiptItemTop .receiptItemInfo { flex: 1; min-width: 0; }
+
+/* Thumbnail rendered alongside the info block in matched/substituted rows */
+.receiptItemThumb {
+  width: 44px;
+  height: 44px;
+  border-radius: 6px;
+  object-fit: cover;
+  flex-shrink: 0;
+  background: var(--warm-white);
+}
+
+/* Brand + size line on a reconciled row (e.g., "Mission Flour 8" 10ct") */
+.receiptItemBrand {
+  font-size: 12px;
+  color: var(--text-muted);
+  margin-top: 2px;
+}
+
+/* "for Enchiladas" — meal attribution inline within meta line */
+.receiptItemMeals {
+  font-style: italic;
+}
+
+/* User-entered notes from the grocery item */
+.receiptItemNotes {
+  font-size: 11px;
+  color: var(--text-light, var(--text-muted));
+  font-style: italic;
+  margin-top: 2px;
+}
 
 .receiptActionBar {
   display: flex;

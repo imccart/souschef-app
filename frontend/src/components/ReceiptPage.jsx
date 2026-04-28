@@ -13,6 +13,47 @@ function formatPrice(price) {
   return `$${price.toFixed(2)}`
 }
 
+// Enriched meta block for a reconciled row: brand/size, meal attribution,
+// notes. Used by every row in matched/substituted/not-fulfilled/unresolved
+// sections. Thumbnail is rendered alongside (not inside) so flex layout
+// with the action button stays clean.
+function ReceiptRowMeta({ item, receiptText }) {
+  const brand = item.product_brand || ''
+  const size = item.product_size || ''
+  const forMeals = Array.isArray(item.for_meals) ? item.for_meals.filter(Boolean) : []
+  const notes = item.notes || ''
+  const price = item.receipt_price
+  const hasBrandLine = brand || size
+  return (
+    <>
+      {receiptText && (
+        <div className={styles.receiptItemDetail}>
+          from receipt: {receiptText}
+        </div>
+      )}
+      {hasBrandLine && (
+        <div className={styles.receiptItemBrand}>
+          {brand}
+          {brand && size ? ' ' : ''}
+          {size}
+        </div>
+      )}
+      {(price != null || forMeals.length > 0) && (
+        <div className={styles.receiptItemMeta}>
+          {price != null && <span>{formatPrice(price)}</span>}
+          {price != null && forMeals.length > 0 && <span> · </span>}
+          {forMeals.length > 0 && (
+            <span className={styles.receiptItemMeals}>for {forMeals.join(', ')}</span>
+          )}
+        </div>
+      )}
+      {notes && (
+        <div className={styles.receiptItemNotes}>{notes}</div>
+      )}
+    </>
+  )
+}
+
 function PurchaseItem({ item, onRate }) {
   const desc = item.receipt_item || item.product_name || item.name
   const brand = item.product_brand || ''
@@ -110,16 +151,16 @@ export default function ReceiptPage() {
     await uploadFormData(formData)
   }
 
-  const handleConfirmMatch = async (name) => {
+  const handleConfirmMatch = async (id) => {
     try {
-      await api.resolveReceiptItem(name, 'matched')
+      await api.resolveReceiptItem(id, 'matched')
       loadReceipt()
     } catch { /* ignore */ }
   }
 
-  const handleRejectMatch = async (name) => {
+  const handleRejectMatch = async (id) => {
     try {
-      await api.resolveReceiptItem(name, 'recover')
+      await api.resolveReceiptItem(id, 'recover')
       loadReceipt()
     } catch { /* ignore */ }
   }
@@ -131,9 +172,9 @@ export default function ReceiptPage() {
     } catch { /* ignore */ }
   }
 
-  const handleMatchExtra = async (extraItem, groceryName) => {
+  const handleMatchExtra = async (extraItem, groceryItem) => {
     try {
-      await api.matchExtra(extraItem.item_name, groceryName, extraItem.price, extraItem.upc)
+      await api.matchExtra(extraItem.item_name, groceryItem.id, extraItem.price, extraItem.upc)
       setMatchingExtra(null)
       loadReceipt()
     } catch { /* ignore */ }
@@ -183,8 +224,9 @@ export default function ReceiptPage() {
   const unackedSubstituted = receipt.substituted.filter(i => !i.receipt_acknowledged)
   const hasReconciled = receipt.matched.length > 0 || receipt.substituted.length > 0
 
-  // Unreconciled grocery items (for "This is..." picker)
-  const unreconciledGroceryNames = receipt.unresolved.map(i => i.name)
+  // Unreconciled grocery items (for "This is..." picker) — keep full
+  // objects so we have the id available when matching an extra to one.
+  const unreconciledGroceryItems = receipt.unresolved
 
   // Group purchases by week
   const purchasesByWeek = {}
@@ -307,30 +349,25 @@ export default function ReceiptPage() {
             <div className={styles.receiptHint}>Tap each item to confirm or reject the match.</div>
           )}
           {unmatchedMatches.map(item => {
-            const key = `match-${item.name}`
+            const key = `match-${item.id}`
             const isExpanded = !collapsedItems.has(key)
             const receiptText = item.receipt_item || item.product_name
             return (
-              <div key={item.name} className={styles.receiptItemRow}>
+              <div key={item.id} className={styles.receiptItemRow}>
                 <div className={styles.receiptItemTop} onClick={() => toggleExpand(key)}>
+                  {item.product_image && (
+                    <img className={styles.receiptItemThumb} src={item.product_image} alt="" />
+                  )}
                   <div className={styles.receiptItemInfo}>
                     <div className={styles.receiptItemName}>{item.name}</div>
-                    {receiptText && (
-                      <div className={styles.receiptItemDetail}>
-                        from receipt: {receiptText}
-                      </div>
-                    )}
-                    <div className={styles.receiptItemMeta}>
-                      {item.product_brand && <span>{item.product_brand}</span>}
-                      {item.receipt_price != null && <span> · {formatPrice(item.receipt_price)}</span>}
-                    </div>
+                    <ReceiptRowMeta item={item} receiptText={receiptText} />
                   </div>
                   <button className="grocery-expand-btn">{'\u2630'}</button>
                 </div>
                 {isExpanded && (
                   <div className={styles.receiptActionBar}>
-                    <button className={`${styles.receiptActionBtn} ${styles.confirm}`} onClick={() => handleConfirmMatch(item.name)}>Confirm</button>
-                    <button className={styles.receiptActionBtn} onClick={() => handleRejectMatch(item.name)}>Not this</button>
+                    <button className={`${styles.receiptActionBtn} ${styles.confirm}`} onClick={() => handleConfirmMatch(item.id)}>Confirm</button>
+                    <button className={styles.receiptActionBtn} onClick={() => handleRejectMatch(item.id)}>Not this</button>
                     <button
                       className={`${styles.receiptActionBtn} ${styles.rate}${item.rating === 1 ? ` ${styles.activeUp}` : ''}`}
                       onClick={() => handleRate(item, item.rating === 1 ? 0 : 1)}
@@ -352,24 +389,28 @@ export default function ReceiptPage() {
         <div className={styles.receiptSection}>
           <div className={styles.receiptSectionLabel}>Substituted ({unackedSubstituted.length})</div>
           {unackedSubstituted.map(item => {
-            const key = `sub-${item.name}`
+            const key = `sub-${item.id}`
             const isExpanded = !collapsedItems.has(key)
+            // For substituted rows the "primary label" is what arrived at
+            // checkout (receipt_item) and the secondary is the original
+            // grocery line. ReceiptRowMeta handles brand/size/meals/notes.
+            const subSubText = `Ordered: ${item.name}`
             return (
-              <div key={item.name} className={styles.receiptItemRow}>
+              <div key={item.id} className={styles.receiptItemRow}>
                 <div className={styles.receiptItemTop} onClick={() => toggleExpand(key)}>
+                  {item.product_image && (
+                    <img className={styles.receiptItemThumb} src={item.product_image} alt="" />
+                  )}
                   <div className={styles.receiptItemInfo}>
                     <div className={styles.receiptItemName}>{item.receipt_item || item.name}</div>
-                    <div className={styles.receiptItemDetail}>Ordered: {item.name}</div>
-                    {item.receipt_price != null && (
-                      <div className={styles.receiptItemMeta}>{formatPrice(item.receipt_price)}</div>
-                    )}
+                    <ReceiptRowMeta item={item} receiptText={subSubText} />
                   </div>
                   <button className="grocery-expand-btn">{'\u2630'}</button>
                 </div>
                 {isExpanded && (
                   <div className={styles.receiptActionBar}>
-                    <button className={`${styles.receiptActionBtn} ${styles.confirm}`} onClick={() => handleConfirmMatch(item.name)}>That's fine</button>
-                    <button className={styles.receiptActionBtn} onClick={() => handleRejectMatch(item.name)}>Not this</button>
+                    <button className={`${styles.receiptActionBtn} ${styles.confirm}`} onClick={() => handleConfirmMatch(item.id)}>That's fine</button>
+                    <button className={styles.receiptActionBtn} onClick={() => handleRejectMatch(item.id)}>Not this</button>
                     <button
                       className={`${styles.receiptActionBtn} ${styles.rate}${item.rating === 1 ? ` ${styles.activeUp}` : ''}`}
                       onClick={() => handleRate(item, item.rating === 1 ? 0 : 1)}
@@ -409,7 +450,7 @@ export default function ReceiptPage() {
                 </div>
                 {isExpanded && !isMatching && (
                   <div className={styles.receiptActionBar}>
-                    {unreconciledGroceryNames.length > 0 && (
+                    {unreconciledGroceryItems.length > 0 && (
                       <button className={styles.receiptActionBtn} onClick={() => setMatchingExtra(key)}>This is...</button>
                     )}
                     <button
@@ -426,13 +467,13 @@ export default function ReceiptPage() {
                 {isMatching && (
                   <div className={styles.receiptMatchPicker}>
                     <div className={styles.receiptMatchLabel}>Match to:</div>
-                    {unreconciledGroceryNames.map(name => (
+                    {unreconciledGroceryItems.map(g => (
                       <button
-                        key={name}
+                        key={g.id}
                         className={styles.receiptMatchOption}
-                        onClick={() => handleMatchExtra(item, name)}
+                        onClick={() => handleMatchExtra(item, g)}
                       >
-                        {name}
+                        {g.name}
                       </button>
                     ))}
                     <button className={styles.receiptMatchCancel} onClick={() => setMatchingExtra(null)}>Cancel</button>

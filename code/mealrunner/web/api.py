@@ -2500,9 +2500,19 @@ async def get_receipt(request: Request):
             acknowledged = bool(r["receipt_acknowledged"])
         except (KeyError, Exception):
             acknowledged = False
+        try:
+            notes = r["notes"] or ""
+        except (KeyError, Exception):
+            notes = ""
+        for_meals_str = r["for_meals"] or ""
+        for_meals = [m for m in for_meals_str.split(",") if m]
         items.append({
+            "id": r["id"],
             "name": r["name"],
             "shopping_group": r["shopping_group"],
+            "source": r["source"],
+            "for_meals": for_meals,
+            "notes": notes,
             "checked": bool(r["checked"]),
             "ordered": bool(r["ordered"]),
             "have_it": have_it,
@@ -2940,17 +2950,14 @@ async def upload_receipt_file(request: Request, file: UploadFile = File(...)):
 
 @router.post("/receipt/resolve")
 async def resolve_receipt_item(body: dict, request: Request):
-    """Resolve a receipt item. {name: str, status: 'matched'|'substituted'|'not_fulfilled', note: str?}"""
+    """Resolve a receipt item. {id: int, status: 'matched'|'substituted'|'not_fulfilled'|'recover'|'dismissed'}"""
     user_id = request.state.user_id
     conn = _conn()
-    trip = _get_active_trip(conn, user_id)
-    if not trip:
-        return {"ok": False}
 
-    name = body.get("name")
+    item_id = body.get("id")
     status = body.get("status")
-    if not name or not status:
-        return {"ok": False, "error": "name and status required"}
+    if item_id is None or not status:
+        return {"ok": False, "error": "id and status required"}
 
     ALLOWED_STATUSES = {"matched", "substituted", "not_fulfilled", "recover", "dismissed"}
     if status not in ALLOWED_STATUSES:
@@ -2965,15 +2972,15 @@ async def resolve_receipt_item(body: dict, request: Request):
                    receipt_acknowledged = 1,
                    product_upc = '', product_name = '', product_brand = '', product_size = '',
                    product_price = NULL, product_image = ''
-               WHERE user_id = :user_id AND LOWER(name) = LOWER(:name)"""),
-            {"user_id": user_id, "name": name},
+               WHERE id = :id AND user_id = :user_id"""),
+            {"id": item_id, "user_id": user_id},
         )
     elif status == "dismissed":
         # Acknowledged as not needed — mark so it doesn't keep prompting
         conn.execute(
             text("""UPDATE grocery_items SET receipt_status = 'dismissed', receipt_acknowledged = 1
-               WHERE user_id = :user_id AND LOWER(name) = LOWER(:name)"""),
-            {"user_id": user_id, "name": name},
+               WHERE id = :id AND user_id = :user_id"""),
+            {"id": item_id, "user_id": user_id},
         )
     elif status == "matched":
         # Confirming a match checks it off the grocery list and clears ordered
@@ -2981,8 +2988,8 @@ async def resolve_receipt_item(body: dict, request: Request):
             text("""UPDATE grocery_items SET receipt_status = 'matched',
                    receipt_acknowledged = 1,
                    checked = 1, checked_at = CURRENT_TIMESTAMP, ordered = 0
-               WHERE user_id = :user_id AND LOWER(name) = LOWER(:name)"""),
-            {"user_id": user_id, "name": name},
+               WHERE id = :id AND user_id = :user_id"""),
+            {"id": item_id, "user_id": user_id},
         )
     elif status == "not_fulfilled":
         # Reset to active so item can be re-ordered
@@ -2992,14 +2999,14 @@ async def resolve_receipt_item(body: dict, request: Request):
                    ordered = 0, submitted_at = NULL,
                    product_upc = '', product_name = '', product_brand = '',
                    product_size = '', product_price = NULL, product_image = ''
-               WHERE user_id = :user_id AND LOWER(name) = LOWER(:name)"""),
-            {"user_id": user_id, "name": name},
+               WHERE id = :id AND user_id = :user_id"""),
+            {"id": item_id, "user_id": user_id},
         )
     else:
         conn.execute(
             text("""UPDATE grocery_items SET receipt_status = :status, receipt_acknowledged = 1
-               WHERE user_id = :user_id AND LOWER(name) = LOWER(:name)"""),
-            {"status": status, "user_id": user_id, "name": name},
+               WHERE id = :id AND user_id = :user_id"""),
+            {"status": status, "id": item_id, "user_id": user_id},
         )
     conn.commit()
     return {"ok": True}
@@ -3007,32 +3014,30 @@ async def resolve_receipt_item(body: dict, request: Request):
 
 @router.post("/receipt/match-extra")
 async def match_extra_to_grocery(body: dict, request: Request):
-    """Manually match an unmatched receipt item to a grocery list item.
-    {extra_name: str, grocery_name: str, receipt_price: float?, receipt_upc: str?}"""
+    """Manually match an unmatched receipt item to a specific grocery row.
+    {extra_name: str, grocery_id: int, receipt_price: float?, receipt_upc: str?}"""
     user_id = request.state.user_id
     conn = _conn()
-    trip = _get_active_trip(conn, user_id)
-    if not trip:
-        return {"ok": False, "error": "No active trip"}
 
     extra_name = body.get("extra_name", "").strip()
-    grocery_name = body.get("grocery_name", "").strip()
+    grocery_id = body.get("grocery_id")
     receipt_price = body.get("receipt_price")
     receipt_upc = body.get("receipt_upc", "")
 
-    if not extra_name or not grocery_name:
-        return {"ok": False, "error": "extra_name and grocery_name required"}
+    if not extra_name or grocery_id is None:
+        return {"ok": False, "error": "extra_name and grocery_id required"}
 
-    # Update the trip item with receipt data and mark as matched + checked
+    # Update the chosen grocery row with receipt data and mark as matched + checked
     conn.execute(
         text("""UPDATE grocery_items SET
                receipt_item = :receipt_item, receipt_price = :receipt_price,
                receipt_upc = :receipt_upc, receipt_status = 'matched',
+               receipt_acknowledged = 1,
                checked = 1, checked_at = CURRENT_TIMESTAMP, ordered = 0
-           WHERE user_id = :user_id AND LOWER(name) = LOWER(:grocery_name)"""),
+           WHERE id = :grocery_id AND user_id = :user_id"""),
         {"receipt_item": extra_name, "receipt_price": receipt_price,
          "receipt_upc": receipt_upc,
-         "user_id": user_id, "grocery_name": grocery_name},
+         "grocery_id": grocery_id, "user_id": user_id},
     )
 
     # Remove from receipt_extra_items

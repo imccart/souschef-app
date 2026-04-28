@@ -150,13 +150,13 @@ export const api = {
     method: 'POST',
     body: JSON.stringify({ type, content }),
   }),
-  resolveReceiptItem: (name, status) => request('/receipt/resolve', {
+  resolveReceiptItem: (id, status) => request('/receipt/resolve', {
     method: 'POST',
-    body: JSON.stringify({ name, status }),
+    body: JSON.stringify({ id, status }),
   }),
-  matchExtra: (extraName, groceryName, receiptPrice, receiptUpc) => request('/receipt/match-extra', {
+  matchExtra: (extraName, groceryId, receiptPrice, receiptUpc) => request('/receipt/match-extra', {
     method: 'POST',
-    body: JSON.stringify({ extra_name: extraName, grocery_name: groceryName, receipt_price: receiptPrice, receipt_upc: receiptUpc }),
+    body: JSON.stringify({ extra_name: extraName, grocery_id: groceryId, receipt_price: receiptPrice, receipt_upc: receiptUpc }),
   }),
   dismissExtra: (name) => request('/receipt/dismiss-extra', {
     method: 'POST',
