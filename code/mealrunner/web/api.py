@@ -881,7 +881,22 @@ def _refresh_trip_meal_items(conn, user_id: str, mw) -> None:
                 {"id": row["id"]},
             )
 
-    # Add or update items needed by meals
+    # Add or update items needed by meals.
+    #
+    # Three branches based on the row's meal_ids history:
+    #   1. Legacy migration (old_meal_ids empty): row pre-dates session-54's
+    #      meal_ids tracking. Don't touch state — just populate meal_ids so
+    #      future refreshes can compare correctly. Subsequent refreshes fall
+    #      into branch 2 or 3.
+    #   2. New occurrence (new_meal_ids has an id not in old): a brand-new
+    #      meal instance is pulling this ingredient in. The point of the app
+    #      is to put what each meal needs on the list, so reset all per-buy
+    #      state — checked / have_it / removed / receipt / product. The user
+    #      re-decides whether they have enough on hand for the new meal.
+    #   3. Same occurrences as before: nothing changed in the meal plan, just
+    #      a routine sync triggered by some unrelated action. Preserve all
+    #      state (don't make unrelated grocery actions like /grocery/add
+    #      resurrect items).
     for name_lower, info in fresh_meal_items.items():
         meal_ids_str = ",".join(str(i) for i in sorted(info["meal_ids"]))
         if name_lower in existing_map:
@@ -890,29 +905,23 @@ def _refresh_trip_meal_items(conn, user_id: str, mw) -> None:
                 int(x) for x in (row["meal_ids"] or "").split(",") if x.strip().isdigit()
             }
             new_meal_ids = info["meal_ids"]
-            new_occurrence = bool(new_meal_ids - old_meal_ids)
 
-            # Legacy state: row pre-dates the meal_ids column and is in a
-            # completed state (checked / receipt). Treat as old so a fresh
-            # meal needing this ingredient re-surfaces it on the active list.
-            # Fires once per legacy row; subsequent refreshes have meal_ids
-            # populated and this branch no longer applies.
-            legacy_completed = (
-                not old_meal_ids and (
-                    row["checked"]
-                    or (row["receipt_status"] or "") != ""
+            if not old_meal_ids:
+                # Branch 1: legacy migration. Populate meal_ids without disturbing state.
+                conn.execute(
+                    text("""UPDATE grocery_items SET
+                           for_meals = :for_meals, meal_ids = :meal_ids,
+                           meal_count = :meal_count, shopping_group = :group
+                       WHERE id = :id"""),
+                    {"for_meals": info["for_meals"], "meal_ids": meal_ids_str,
+                     "meal_count": info["meal_count"],
+                     "group": info["shopping_group"], "id": row["id"]},
                 )
-            )
-
-            if new_occurrence or legacy_completed:
-                # A new meal occurrence is pulling this ingredient in. Reset
-                # only the per-occurrence state — what was bought / ordered /
-                # matched against the LAST occurrence of this meal. Leave
-                # have_it and removed alone: those are pantry / preference
-                # claims that aren't invalidated by a new meal occurrence.
-                # The user can un-have-it / un-remove themselves if their
-                # claim has changed.
+            elif new_meal_ids - old_meal_ids:
+                # Branch 2: new occurrence. Reset everything per-buy.
                 reset_clause = """checked = 0, checked_at = NULL,
+                                  have_it = 0, have_it_at = NULL,
+                                  removed = 0, removed_at = NULL,
                                   receipt_status = '', receipt_item = '',
                                   receipt_upc = '', receipt_price = NULL,
                                   receipt_acknowledged = 0,
@@ -931,9 +940,7 @@ def _refresh_trip_meal_items(conn, user_id: str, mw) -> None:
                      "group": info["shopping_group"], "id": row["id"]},
                 )
             else:
-                # Same meal occurrences as before — preserve all state
-                # (checked, have_it, receipt, product selection). The user
-                # bought this for a meal still on the plan; don't un-buy it.
+                # Branch 3: same occurrences. Preserve all state.
                 conn.execute(
                     text("""UPDATE grocery_items SET
                            for_meals = :for_meals, meal_ids = :meal_ids,
