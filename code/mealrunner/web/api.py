@@ -4913,6 +4913,68 @@ async def respond_to_feedback(feedback_id: int, body: dict, request: Request):
     return {"ok": True}
 
 
+# ── Diagnostic ───────────────────────────────────────────
+
+
+@router.get("/debug/ingredient/{name:path}")
+async def debug_ingredient(name: str, request: Request):
+    """One-off diagnostic: dump everything we know about an ingredient by name.
+    Lets us see why something isn't flowing onto the grocery list."""
+    user_id = request.state.user_id
+    conn = _conn()
+    name_lower = name.lower()
+
+    ing_rows = conn.execute(
+        text("SELECT id, name, aisle, is_pantry_staple, default_unit, store_pref FROM ingredients WHERE LOWER(name) = :n"),
+        {"n": name_lower},
+    ).fetchall()
+    ingredients = [dict(r) for r in ing_rows]
+
+    ri_rows = conn.execute(
+        text("""SELECT ri.recipe_id, ri.ingredient_id, ri.quantity, ri.unit, ri.component,
+                   r.name AS recipe_name, r.user_id
+              FROM recipe_ingredients ri
+              JOIN recipes r ON r.id = ri.recipe_id
+              JOIN ingredients i ON i.id = ri.ingredient_id
+              WHERE LOWER(i.name) = :n AND r.user_id = :uid"""),
+        {"n": name_lower, "uid": user_id},
+    ).fetchall()
+    recipe_ingredients = [dict(r) for r in ri_rows]
+
+    g_rows = conn.execute(
+        text("""SELECT id, name, source, for_meals, meal_ids, checked, have_it, removed,
+                       receipt_status, ordered, submitted_at, added_at
+                FROM grocery_items
+                WHERE user_id = :uid AND LOWER(name) = :n
+                ORDER BY id"""),
+        {"uid": user_id, "n": name_lower},
+    ).fetchall()
+    grocery_items_rows = [dict(r) for r in g_rows]
+
+    reg_rows = conn.execute(
+        text("SELECT id, name, active FROM regulars WHERE user_id = :uid AND LOWER(name) = :n"),
+        {"uid": user_id, "n": name_lower},
+    ).fetchall()
+    regulars = [dict(r) for r in reg_rows]
+
+    p_rows = conn.execute(
+        text("""SELECT p.id, p.ingredient_id, p.quantity, i.name
+                FROM pantry p JOIN ingredients i ON i.id = p.ingredient_id
+                WHERE p.user_id = :uid AND LOWER(i.name) = :n"""),
+        {"uid": user_id, "n": name_lower},
+    ).fetchall()
+    pantry = [dict(r) for r in p_rows]
+
+    return {
+        "name": name,
+        "ingredients_table": ingredients,
+        "recipe_ingredients": recipe_ingredients,
+        "grocery_items": grocery_items_rows,
+        "regulars": regulars,
+        "pantry": pantry,
+    }
+
+
 # ── Helpers ──────────────────────────────────────────────
 
 
