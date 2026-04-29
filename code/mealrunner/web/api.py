@@ -3260,20 +3260,23 @@ async def toggle_regular(regular_id: int, request: Request):
 
 @router.delete("/regulars/{regular_id}")
 async def remove_regular(regular_id: int, request: Request):
-    """Soft-delete a regular by ID."""
+    """Delete a regular by ID. Hard-delete: the row goes away. If a meal needs
+    the ingredient later it flows onto the grocery list as a meal-source item
+    like any other ingredient. The 'don't re-suggest' signal is preserved
+    separately via learning_dismissed."""
     user_id = request.state.user_id
     conn = _conn()
     row = conn.execute(
-        text("SELECT name FROM regulars WHERE id = :id AND user_id = :user_id AND active = 1"),
+        text("SELECT name FROM regulars WHERE id = :id AND user_id = :user_id"),
         {"id": regular_id, "user_id": user_id},
     ).fetchone()
     if not row:
         return {"ok": False}
     conn.execute(
-        text("UPDATE regulars SET active = 0 WHERE id = :id"),
+        text("DELETE FROM regulars WHERE id = :id"),
         {"id": regular_id},
     )
-    # Auto-dismiss any "add" learning suggestion for this item
+    # Remember not to re-suggest this as an "extra to add" learning hint.
     conn.execute(
         text("INSERT INTO learning_dismissed (name, user_id) VALUES (:name, :user_id) ON CONFLICT DO NOTHING"),
         {"name": row["name"].lower(), "user_id": user_id},

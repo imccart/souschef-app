@@ -117,9 +117,9 @@ def add_regular(
 
 
 def remove_regular(conn: DictConnection, user_id: str, name: str) -> bool:
-    """Soft-delete a regular (sets active=0)."""
+    """Hard-delete a regular by name."""
     cursor = conn.execute(
-        text("UPDATE regulars SET active = 0 WHERE user_id = :user_id AND LOWER(name) = LOWER(:name) AND active = 1"),
+        text("DELETE FROM regulars WHERE user_id = :user_id AND LOWER(name) = LOWER(:name)"),
         {"user_id": user_id, "name": name},
     )
     conn.commit()
