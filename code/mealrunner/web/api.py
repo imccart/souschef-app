@@ -797,22 +797,19 @@ def _ensure_active_trip(conn, mw, user_id: str):
         {"user_id": user_id},
     )
 
-    # Revert "ordered" rows that have sat for 2+ days without a receipt
-    # reconciliation. Kroger pickup/delivery typically clears within 1-2 days;
-    # after that, assume the order completed (and the receipt wasn't uploaded)
-    # or was cancelled. Flip the row back to active so it behaves like any
-    # other grocery-list item. receipt_status='' means not yet reconciled —
-    # don't touch matched/substituted/not_fulfilled rows.
+    # Delete "ordered" rows that have sat for 3+ days without a receipt
+    # reconciliation. Kroger pickup/delivery typically clears in 1-2 days;
+    # after 3 days the order is either completed (receipt wasn't uploaded)
+    # or cancelled. Hard-delete so the row doesn't pile up indefinitely AND
+    # doesn't reappear on the active list. User who actually wanted the item
+    # can manually re-add via the grocery input. receipt_status='' filter
+    # protects matched/substituted/not_fulfilled rows from the prune.
     conn.execute(
-        text("""UPDATE grocery_items SET
-               ordered = 0, ordered_at = NULL, submitted_at = NULL,
-               selected_at = NULL, product_upc = '', product_name = '',
-               product_brand = '', product_size = '',
-               product_price = NULL, product_image = ''
+        text("""DELETE FROM grocery_items
            WHERE user_id = :user_id
              AND ordered = 1
              AND submitted_at IS NOT NULL
-             AND submitted_at < NOW() - INTERVAL '2 days'
+             AND submitted_at < NOW() - INTERVAL '3 days'
              AND COALESCE(receipt_status, '') = ''"""),
         {"user_id": user_id},
     )
