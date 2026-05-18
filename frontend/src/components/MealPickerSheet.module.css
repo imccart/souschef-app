@@ -49,7 +49,7 @@
   transition: all 0.15s;
 }
 
-.mealPill:hover {
+.mealPill:hover:not(.selectedSide) {
   border-color: var(--accent-light);
   background: var(--accent-bg);
 }

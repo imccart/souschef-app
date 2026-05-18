@@ -1,4 +1,4 @@
-import { useState, useEffect } from 'react'
+import { useState, useEffect, useRef } from 'react'
 import { api } from '../api/client'
 import Sheet from './Sheet'
 import FeedbackFab from './FeedbackFab'
@@ -126,6 +126,17 @@ export default function OrderPage() {
   const [showCompareSheet, setShowCompareSheet] = useState(false)
 
   const [sharedAccountName, setSharedAccountName] = useState(null)
+
+  const activeItemRef = useRef(null)
+
+  // When activeItem changes (prev/next nav, queue tap), scroll the new item's
+  // section to the top of the viewport. Without this, the page stays scrolled
+  // wherever the prior item left it, which lands mid-list for items whose
+  // product results are shorter than the previous item's scroll depth.
+  useEffect(() => {
+    if (!activeItem || !activeItemRef.current) return
+    activeItemRef.current.scrollIntoView({ block: 'start', behavior: 'smooth' })
+  }, [activeItem])
 
   useEffect(() => {
     api.getKrogerHouseholdAccounts().then(data => {
@@ -569,7 +580,7 @@ export default function OrderPage() {
         {storeDetails}
       </div>
       {activeItem && (
-        <div className={styles.orderActiveItem}>
+        <div className={styles.orderActiveItem} ref={activeItemRef}>
           <div className={styles.orderItemTopRow}>
             <div>
               <div className={styles.orderItemLabel}>Picking for</div>

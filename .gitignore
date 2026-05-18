@@ -51,3 +51,6 @@ CLAUDE.md
 # Local-only docs (credentials, prod connection details, anything that
 # shouldn't ride along in the public repo). Never commit anything from here.
 agents/local/
+
+# Marketing strategy, ad copy, targeting notes — personal/strategic, not product.
+promotion/

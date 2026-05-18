@@ -1634,11 +1634,15 @@ async def get_order(request: Request):
 
 
 def _bg_prewarm_order(user_id: str, item_names: list[str]):
-    """Background thread: pre-warm product_scores for pending order items."""
+    """Background thread: pre-warm _search_cache for pending order items.
+
+    Calls the same helper the user-facing endpoint uses and stashes the full
+    response in _search_cache under the same key. When the user actually
+    types a search a moment later, it's an in-memory hit and skips the
+    Kroger / OFF / DB enrichment pipeline entirely.
+    """
     from mealrunner.database import get_connection
-    from mealrunner.kroger import search_products_fast, fill_prices
     from mealrunner.stores import get_kroger_location_id
-    import datetime as _dt
     import time as _time
 
     try:
@@ -1647,47 +1651,21 @@ def _bg_prewarm_order(user_id: str, item_names: list[str]):
             if not location_id:
                 return
 
-            _today = _dt.date.today().isoformat()
             warmed = 0
+            ff = "curbside"  # frontend defaults to curbside; delivery prewarms on first miss
+            start = 1
 
             for name in item_names:
                 try:
-                    products = search_products_fast(name, limit=12, fulfillment="curbside", location_id=location_id)
-                    if not products:
-                        continue
+                    cache_key = f"{name.lower().strip()}:{ff}:{start}"
+                    now = _time.time()
+                    if cache_key in _search_cache:
+                        ts, _ = _search_cache[cache_key]
+                        if now - ts < _SEARCH_CACHE_TTL:
+                            continue  # already fresh, skip
 
-                    # Skip items already cached today
-                    upcs = [p.upc for p in products]
-                    ph = ", ".join(f":p{i}" for i in range(len(upcs)))
-                    params = {f"p{i}": upc for i, upc in enumerate(upcs)}
-                    cached_rows = bg_conn.execute(
-                        text(f"SELECT upc FROM product_scores WHERE upc IN ({ph}) AND price_fetched_at::date::text = :today"),
-                        {**params, "today": _today},
-                    ).fetchall()
-                    cached_upcs = {r["upc"] for r in cached_rows}
-
-                    need_price = [p for p in products if p.upc not in cached_upcs and p.price is None]
-                    if need_price:
-                        fill_prices(need_price, location_id=location_id)
-
-                    # Save to cache
-                    for p in products:
-                        if p.upc in cached_upcs:
-                            continue
-                        bg_conn.execute(
-                            text("""INSERT INTO product_scores
-                               (upc, price, promo_price, in_stock, curbside, delivery, price_fetched_at)
-                               VALUES (:upc, :price, :promo, :stock, :curbside, :delivery, CURRENT_TIMESTAMP)
-                               ON CONFLICT(upc) DO UPDATE SET
-                                 price = excluded.price, promo_price = excluded.promo_price,
-                                 in_stock = excluded.in_stock, curbside = excluded.curbside,
-                                 delivery = excluded.delivery,
-                                 price_fetched_at = excluded.price_fetched_at"""),
-                            {"upc": p.upc, "price": p.price, "promo": p.promo_price,
-                             "stock": int(p.in_stock), "curbside": int(p.curbside),
-                             "delivery": int(p.delivery)},
-                        )
-                    bg_conn.commit()
+                    response = _build_search_response(bg_conn, user_id, name, ff, start, location_id)
+                    _cache_search_response(cache_key, response)
                     warmed += 1
                     _time.sleep(0.3)
                 except Exception as e:
@@ -1699,45 +1677,21 @@ def _bg_prewarm_order(user_id: str, item_names: list[str]):
 
 
 _search_cache: dict[str, tuple[float, dict]] = {}  # {term: (timestamp, response)}
-_SEARCH_CACHE_TTL = 300  # 5 minutes
-_SEARCH_CACHE_MAX = 50
+_SEARCH_CACHE_TTL = 1200  # 20 minutes — matches a typical shopping session
+_SEARCH_CACHE_MAX = 200
 
-@router.get("/order/search/{item_name:path}")
-async def search_order_products(item_name: str, request: Request, fulfillment: str = "curbside", start: int = 1):
-    """Search Kroger products for a grocery item. Returns products + preferences.
-    fulfillment: 'curbside' (pickup) or 'delivery'. start: pagination offset (1-based)."""
-    import time as _time
+def _build_search_response(conn, user_id: str, item_name: str, ff: str, start: int, user_location_id: str) -> dict:
+    """Build the full /order/search response for a single item.
+
+    Shared by the user-facing endpoint and the background prewarm thread so
+    both populate `_search_cache` with identical shapes. Caller owns cache
+    read/write and rate limiting; this function does the work.
+    """
     from concurrent.futures import ThreadPoolExecutor
     from mealrunner.kroger import (
         search_products_fast, fill_prices, _lookup_food_score,
         get_preferred_products,
     )
-    from mealrunner.stores import get_kroger_location_id
-
-    user_id = request.state.user_id
-
-    # Rate limit: max 20 searches per user per minute
-    throttled = _check_throttle(user_id, "order_search", 20, 60)
-    if throttled:
-        return throttled
-
-    conn = _conn()
-
-    # Get user's Kroger location
-    user_location_id = get_kroger_location_id(conn, user_id)
-    if not user_location_id:
-        return {"error": "no_store", "message": "Set your Kroger store in Preferences", "prior_selections": [], "products": []}
-
-    # Return cached response if fresh
-    ff = fulfillment if fulfillment in ("curbside", "delivery") else "curbside"
-    cache_key = f"{item_name.lower().strip()}:{ff}:{start}"
-    now = _time.time()
-    if cache_key in _search_cache:
-        ts, resp = _search_cache[cache_key]
-        if now - ts < _SEARCH_CACHE_TTL:
-            return resp
-        else:
-            del _search_cache[cache_key]
 
     # Use the item name as-is for the Kroger search. The ingredient 'root' field
     # is for dedup (e.g., "apple juice" and "orange juice" → "juice"), not for search.
@@ -1846,7 +1800,6 @@ async def search_order_products(item_name: str, request: Request, fulfillment: s
     _log_prices(conn, [{"upc": p.upc, "price": p.price, "promo_price": p.promo_price, "in_stock": int(p.in_stock)} for p in products if p.price], user_location_id, "search", user_id)
 
     from mealrunner.brands import get_parent_company
-    from mealrunner.kroger import get_product_ratings
     from mealrunner.violations import get_company_violations
 
     # Enrich preferences with freshly-updated product_scores
@@ -2012,12 +1965,19 @@ async def search_order_products(item_name: str, request: Request, fulfillment: s
         traceback.print_exc()
         pref_list = []
 
-    # Look up user ratings for search result products
+    # Look up user ratings for search result products in one batched query.
+    # Endpoint only uses your_rating, so skip the up/down counts.
     product_ratings = {}
-    for p in products:
-        if p.upc:
-            r = get_product_ratings(conn, p.upc, user_id)
-            product_ratings[p.upc] = r["your_rating"]
+    _rating_upcs = [p.upc for p in products if p.upc]
+    if _rating_upcs:
+        _rph = ", ".join(f":pk{i}" for i in range(len(_rating_upcs)))
+        _rparams = {f"pk{i}": u for i, u in enumerate(_rating_upcs)}
+        _rparams["uid"] = user_id
+        _rrows = conn.execute(
+            text(f"SELECT product_key, rating FROM product_ratings WHERE user_id = :uid AND product_key IN ({_rph})"),
+            _rparams,
+        ).fetchall()
+        product_ratings = {r["product_key"]: r["rating"] for r in _rrows}
 
     # Resolve parent companies first, then batch-load violations
     product_parents = {}
@@ -2079,7 +2039,7 @@ async def search_order_products(item_name: str, request: Request, fulfillment: s
     result = [r for r in result if r["rating"] >= 0]
     result.sort(key=lambda r: -r["rating"])
 
-    response = {
+    return {
         "item_name": item_name,
         "search_term": search_term,
         "preferences": pref_list if start == 1 else [],  # only show prefs on first page
@@ -2087,7 +2047,12 @@ async def search_order_products(item_name: str, request: Request, fulfillment: s
         "start": start,
         "has_more": len(products) == 12,  # if we got a full page, there's probably more
     }
-    # Evict expired entries, then oldest if over max size
+
+
+def _cache_search_response(cache_key: str, response: dict) -> None:
+    """Stash a search response in the in-memory cache with LRU eviction."""
+    import time as _time
+    now = _time.time()
     expired = [k for k, (ts, _) in _search_cache.items() if now - ts >= _SEARCH_CACHE_TTL]
     for k in expired:
         del _search_cache[k]
@@ -2095,6 +2060,40 @@ async def search_order_products(item_name: str, request: Request, fulfillment: s
         oldest = min(_search_cache, key=lambda k: _search_cache[k][0])
         del _search_cache[oldest]
     _search_cache[cache_key] = (now, response)
+
+
+@router.get("/order/search/{item_name:path}")
+async def search_order_products(item_name: str, request: Request, fulfillment: str = "curbside", start: int = 1):
+    """Search Kroger products for a grocery item. Returns products + preferences.
+    fulfillment: 'curbside' (pickup) or 'delivery'. start: pagination offset (1-based)."""
+    import time as _time
+    from mealrunner.stores import get_kroger_location_id
+
+    user_id = request.state.user_id
+
+    # Rate limit: max 20 searches per user per minute
+    throttled = _check_throttle(user_id, "order_search", 20, 60)
+    if throttled:
+        return throttled
+
+    conn = _conn()
+
+    user_location_id = get_kroger_location_id(conn, user_id)
+    if not user_location_id:
+        return {"error": "no_store", "message": "Set your Kroger store in Preferences", "prior_selections": [], "products": []}
+
+    ff = fulfillment if fulfillment in ("curbside", "delivery") else "curbside"
+    cache_key = f"{item_name.lower().strip()}:{ff}:{start}"
+    now = _time.time()
+    if cache_key in _search_cache:
+        ts, resp = _search_cache[cache_key]
+        if now - ts < _SEARCH_CACHE_TTL:
+            return resp
+        else:
+            del _search_cache[cache_key]
+
+    response = _build_search_response(conn, user_id, item_name, ff, start, user_location_id)
+    _cache_search_response(cache_key, response)
     return response
 
 
