@@ -2745,12 +2745,18 @@ async def get_receipt(request: Request):
     }
 
 
+_EMPTY_RECEIPT_META = {"store": "", "store_location": "", "order_date": "",
+                       "order_number": "", "total_price": None}
+
+
 def _parse_receipt_by_type(receipt_type: str, content: str, grocery_names: list[str] | None = None):
     """Internal: parse receipt content by type. Only called from trusted code paths.
 
-    Returns (items, footer_count). footer_count is the chain-printed total
-    item count from the receipt (e.g. Kroger PDF "58 Items"); None if the
-    parser can't extract one for this receipt type.
+    Returns (items, footer_count, metadata):
+      - footer_count: chain-printed total item count from the receipt
+        (e.g. Kroger PDF "58 Items"); None if the parser can't extract one.
+      - metadata: dict with store, store_location, order_date, order_number,
+        total_price. Empty/None for parsers that don't extract them.
     """
     from mealrunner.reconcile import (
         parse_receipt_text, parse_receipt_pdf, parse_receipt_image,
@@ -2761,9 +2767,9 @@ def _parse_receipt_by_type(receipt_type: str, content: str, grocery_names: list[
     elif receipt_type == "image_path":
         return parse_receipt_image(content, grocery_names=grocery_names)
     elif receipt_type == "eml_path":
-        return parse_receipt_email(content), None
+        return parse_receipt_email(content), None, dict(_EMPTY_RECEIPT_META)
     else:
-        return parse_receipt_text(content), None
+        return parse_receipt_text(content), None, dict(_EMPTY_RECEIPT_META)
 
 
 async def _process_receipt(receipt_type: str, content: str, request: Request):
@@ -2792,7 +2798,7 @@ async def _process_receipt(receipt_type: str, content: str, request: Request):
 
     # Parse receipt
     try:
-        receipt_items, footer_count = _parse_receipt_by_type(receipt_type, content, grocery_names=grocery_names)
+        receipt_items, footer_count, receipt_meta = _parse_receipt_by_type(receipt_type, content, grocery_names=grocery_names)
     except Exception as e:
         logger.exception("Failed to parse receipt")
         return {"ok": False, "error": "Failed to parse receipt"}
@@ -2800,35 +2806,48 @@ async def _process_receipt(receipt_type: str, content: str, request: Request):
     if not receipt_items:
         return {"ok": False, "error": "No items found on receipt"}
 
-    # Append receipt data (support multiple receipts per trip)
+    # Append receipt data (support multiple receipts per trip). Each entry is
+    # a dict with metadata + items. Legacy entries stored as a bare list of
+    # items get wrapped on read so the shape is uniform going forward.
     import json
+    new_entry = {
+        "store": receipt_meta.get("store", ""),
+        "store_location": receipt_meta.get("store_location", ""),
+        "order_date": receipt_meta.get("order_date", ""),
+        "order_number": receipt_meta.get("order_number", ""),
+        "total_price": receipt_meta.get("total_price"),
+        "footer_count": footer_count,
+        "items": receipt_items,
+    }
     existing_data = trip["receipt_data"] if "receipt_data" in trip.keys() and trip["receipt_data"] else None
     if existing_data:
         try:
             all_receipts = json.loads(existing_data)
-            if isinstance(all_receipts, list) and all_receipts and not isinstance(all_receipts[0], list):
-                # First receipt was stored as flat list — wrap it
-                all_receipts = [all_receipts]
-            all_receipts.append(receipt_items)
+            if not isinstance(all_receipts, list):
+                all_receipts = []
+            # Migration: wrap legacy entries (bare list of items) as dict entries.
+            for i, entry in enumerate(all_receipts):
+                if isinstance(entry, list):
+                    all_receipts[i] = {
+                        "store": "", "store_location": "", "order_date": "",
+                        "order_number": "", "total_price": None,
+                        "footer_count": None, "items": entry,
+                    }
+            all_receipts.append(new_entry)
         except (json.JSONDecodeError, TypeError):
-            all_receipts = [receipt_items]
+            all_receipts = [new_entry]
     else:
-        all_receipts = [receipt_items]
+        all_receipts = [new_entry]
     conn.execute(
         text("UPDATE grocery_state SET receipt_data = :data, receipt_parsed_at = CURRENT_TIMESTAMP WHERE user_id = :user_id"),
         {"data": json.dumps(all_receipts), "user_id": user_id},
     )
 
-    # Dedup: find receipt items already matched in prior uploads
-    # Check both receipt_item (decoded name) and raw text stored in receipt_data
-    already_matched_rows = conn.execute(
-        text("""SELECT LOWER(receipt_item) AS ri FROM grocery_items
-           WHERE user_id = :user_id AND receipt_status IN ('matched', 'substituted') AND receipt_item != ''"""),
-        {"user_id": user_id},
-    ).fetchall()
-    already_matched_names = {r["ri"] for r in already_matched_rows}
-
-    # Also check existing extras to avoid re-inserting
+    # Skip already-extra'd receipt items so re-uploading doesn't pile up
+    # duplicate extras rows. We intentionally do NOT filter by past matched
+    # grocery rows — that was the old "already_matched_names" bug, which
+    # blocked repeat purchases of the same product (same Kroger description)
+    # from ever matching again.
     try:
         existing_extras = conn.execute(
             text("SELECT LOWER(item_name) AS name FROM receipt_extra_items WHERE user_id = :user_id"),
@@ -2838,15 +2857,12 @@ async def _process_receipt(receipt_type: str, content: str, request: Request):
     except Exception:
         already_extra_names = set()
 
-    # Filter out previously matched receipt items (check both raw and decoded names)
     new_receipt_items = []
     previously_matched = 0
     for ri in receipt_items:
         ri_name = (ri.get("item") or "").lower().strip()
         ri_raw = (ri.get("raw") or "").lower().strip()
-        if (ri_name and ri_name in already_matched_names) or \
-           (ri_raw and ri_raw in already_matched_names) or \
-           (ri_name and ri_name in already_extra_names) or \
+        if (ri_name and ri_name in already_extra_names) or \
            (ri_raw and ri_raw in already_extra_names):
             previously_matched += 1
         else:
@@ -2968,7 +2984,8 @@ async def _process_receipt(receipt_type: str, content: str, request: Request):
         _not_fulfilled_sql = """UPDATE grocery_items SET receipt_status = 'not_fulfilled',
                ordered = 0, submitted_at = NULL,
                product_upc = '', product_name = '', product_brand = '',
-               product_size = '', product_price = NULL, product_image = ''"""
+               product_size = '', product_price = NULL, product_image = '',
+               receipt_item = '', receipt_upc = '', receipt_price = NULL"""
         for uname in upc_unmatched_names:
             if uname.lower() not in matched_grocery_names:
                 conn.execute(
@@ -2983,7 +3000,8 @@ async def _process_receipt(receipt_type: str, content: str, request: Request):
         _not_fulfilled_sql = """UPDATE grocery_items SET receipt_status = 'not_fulfilled',
                ordered = 0, submitted_at = NULL,
                product_upc = '', product_name = '', product_brand = '',
-               product_size = '', product_price = NULL, product_image = ''"""
+               product_size = '', product_price = NULL, product_image = '',
+               receipt_item = '', receipt_upc = '', receipt_price = NULL"""
         for uname in upc_unmatched_names:
             conn.execute(
                 text(_not_fulfilled_sql + " WHERE user_id = :user_id AND LOWER(name) = LOWER(:name)"),

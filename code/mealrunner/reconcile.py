@@ -75,17 +75,19 @@ _skip_patterns = re.compile(
 )
 
 
-def parse_receipt_image(image_path: str, grocery_names: list[str] | None = None) -> tuple[list[dict], int | None]:
+def parse_receipt_image(image_path: str, grocery_names: list[str] | None = None) -> tuple[list[dict], int | None, dict]:
     """Parse a receipt image using Claude Vision (single combined call).
 
     Extracts purchased items AND matches them against the grocery list in one pass.
     Visual context (sizes, brands, position) helps Claude make better matching
     decisions than text-only matching.
 
-    Returns (items, footer_count). footer_count is the chain-printed total
-    item count from the receipt footer ("# ITEMS SOLD 7", "ITEMS SOLD 20",
-    "TOTAL NUMBER OF ITEMS SOLD - 20", etc.) — used by callers to detect
-    extraction misses. None if no count is visible.
+    Returns (items, footer_count, metadata):
+      - footer_count: chain-printed total item count ("# ITEMS SOLD 7",
+        "ITEMS SOLD 20", "TOTAL NUMBER OF ITEMS SOLD - 20", etc.) — used by
+        callers to detect extraction misses. None if no count is visible.
+      - metadata: dict with store, store_location, order_date (ISO YYYY-MM-DD),
+        order_number, total_price. Fields are empty/None when not visible.
     """
     image_data, media_type = _load_image_for_api(image_path)
     logger.info(
@@ -126,6 +128,14 @@ def parse_receipt_image(image_path: str, grocery_names: list[str] | None = None)
         "appear (e.g. Costco shows both 'BOB Count' and 'TOTAL NUMBER OF ITEMS'), "
         "return the TOTAL NUMBER value.\n"
         "- If no count is visible, return null.\n\n"
+        "RECEIPT METADATA:\n"
+        "- Also extract these top-of-receipt / bottom-of-receipt fields:\n"
+        "  * `store`: chain/store name (e.g. 'Kroger', 'Publix', 'Trader Joe's', 'Costco').\n"
+        "  * `store_location`: street address or store number if printed.\n"
+        "  * `order_date`: ISO YYYY-MM-DD (convert from any printed format).\n"
+        "  * `order_number`: order/transaction/receipt number if printed.\n"
+        "  * `total_price`: grand total in dollars (float; e.g. 136.70).\n"
+        "- Use empty string '' (or null for total_price) for any field not visible.\n\n"
     )
 
     if grocery_names:
@@ -155,6 +165,9 @@ def parse_receipt_image(image_path: str, grocery_names: list[str] | None = None)
         schema_line = (
             "Return ONLY a JSON object (no markdown):\n"
             '{"footer_count": 20 or null, '
+            '"store": "Kroger" or "", "store_location": "..." or "", '
+            '"order_date": "2026-05-18" or "", "order_number": "..." or "", '
+            '"total_price": 136.70 or null, '
             '"items": [{"raw": "EXACT text", "price": 3.67, '
             '"grocery_match": "exact grocery list item or null"}, ...]}'
         )
@@ -163,6 +176,9 @@ def parse_receipt_image(image_path: str, grocery_names: list[str] | None = None)
         schema_line = (
             "Return ONLY a JSON object (no markdown):\n"
             '{"footer_count": 20 or null, '
+            '"store": "Kroger" or "", "store_location": "..." or "", '
+            '"order_date": "2026-05-18" or "", "order_number": "..." or "", '
+            '"total_price": 136.70 or null, '
             '"items": [{"raw": "EXACT text", "price": 3.67}, ...]}'
         )
 
@@ -198,15 +214,24 @@ def parse_receipt_image(image_path: str, grocery_names: list[str] | None = None)
         )
         raise
     # Accept both new shape {"footer_count": N, "items": [...]} and legacy bare array.
+    metadata = {"store": "", "store_location": "", "order_date": "",
+                "order_number": "", "total_price": None}
     if isinstance(parsed, dict):
         raw_items = parsed.get("items") or []
         fc = parsed.get("footer_count")
         footer_count = int(fc) if isinstance(fc, (int, float)) else None
+        for k in ("store", "store_location", "order_date", "order_number"):
+            v = parsed.get(k)
+            if isinstance(v, str):
+                metadata[k] = v.strip()
+        tp = parsed.get("total_price")
+        if isinstance(tp, (int, float)):
+            metadata["total_price"] = float(tp)
     elif isinstance(parsed, list):
         raw_items = parsed
         footer_count = None
     else:
-        return [], None
+        return [], None, metadata
     # Log Vision's raw item list (pre-filter) so extraction misses are
     # debuggable after the fact. Without this, post-filter logs show what
     # made it through but nothing about what Vision actually returned —
@@ -223,7 +248,7 @@ def parse_receipt_image(image_path: str, grocery_names: list[str] | None = None)
     )
 
     if not raw_items:
-        return [], footer_count
+        return [], footer_count, metadata
 
     # Filter out non-item lines Claude may have included anyway
     filtered = []
@@ -239,7 +264,7 @@ def parse_receipt_image(image_path: str, grocery_names: list[str] | None = None)
         filtered.append(item)
 
     if not filtered:
-        return [], footer_count
+        return [], footer_count, metadata
 
     grocery_lower_set = {g.lower() for g in (grocery_names or [])}
     grocery_canonical = {g.lower(): g for g in (grocery_names or [])}
@@ -282,7 +307,7 @@ def parse_receipt_image(image_path: str, grocery_names: list[str] | None = None)
 
     print(f"[receipt] {matched_count} matched, {len(results) - matched_count} extras "
           f"(out of {len(filtered)} extracted, footer_count={footer_count})", flush=True)
-    return results, footer_count
+    return results, footer_count, metadata
 
 
 def parse_receipt_text(text: str) -> list[dict]:
@@ -351,13 +376,15 @@ def _extract_json(response_text: str) -> list[dict]:
     return json.loads(text)
 
 
-def parse_receipt_pdf(pdf_path: str) -> tuple[list[dict], int | None]:
+def parse_receipt_pdf(pdf_path: str) -> tuple[list[dict], int | None, dict]:
     """Parse a Kroger PDF receipt. Extracts structured item data directly (no LLM needed).
 
     Falls back to Claude text parsing if the structured format isn't detected.
-    Returns (items, footer_count) where footer_count is the chain-printed total
-    item count (e.g. "58 Items" header on Kroger PDFs) for cross-check vs.
-    sum-of-qty, or None if not extractable.
+    Returns (items, footer_count, metadata):
+      - footer_count: chain-printed total item count (e.g. "58 Items" header)
+        for cross-check vs. sum-of-qty, or None if not extractable.
+      - metadata: dict with store, store_location, order_date (ISO YYYY-MM-DD),
+        order_number, total_price. Fields are empty string / None when not found.
     """
     import fitz  # PyMuPDF
 
@@ -370,20 +397,75 @@ def parse_receipt_pdf(pdf_path: str) -> tuple[list[dict], int | None]:
     doc.close()
 
     footer_count = _extract_kroger_item_count(text)
+    metadata = _extract_kroger_metadata(text)
 
     # Try structured Kroger format first (has UPC lines)
     items = _parse_kroger_structured(text)
     if items:
-        return items, footer_count
+        return items, footer_count, metadata
 
     # Fall back to Claude text parsing
-    return parse_receipt_text(text), footer_count
+    return parse_receipt_text(text), footer_count, metadata
 
 
 def _extract_kroger_item_count(text: str) -> int | None:
     """Extract Kroger PDF's "Item Details   N Items" footer count."""
     m = re.search(r"Item Details\s+(\d+)\s+Items?\b", text)
     return int(m.group(1)) if m else None
+
+
+def _extract_kroger_metadata(text: str) -> dict:
+    """Extract store, location, order date, order number, and order total
+    from a Kroger PDF receipt text.
+
+    Kroger PDFs print these as labeled lines near the top:
+        Order Date: May 18, 2026
+        Order Number: 1261381128181632101
+        Kroger
+        4357 Lawrenceville Hwy
+        Tucker, GA 30084 USA
+        ...
+        Order Total
+        $136.70
+
+    Returns a dict with empty/None values for fields that aren't found, so
+    callers can dedupe safely on whatever combination is present.
+    """
+    from datetime import datetime
+
+    md = {"store": "", "store_location": "", "order_date": "",
+          "order_number": "", "total_price": None}
+
+    m = re.search(r"Order Number:\s*(\S+)", text)
+    if m:
+        md["order_number"] = m.group(1).strip()
+
+    m = re.search(r"Order Date:\s*([A-Za-z]+ \d+,\s*\d{4})", text)
+    if m:
+        try:
+            md["order_date"] = datetime.strptime(m.group(1).strip(), "%B %d, %Y").date().isoformat()
+        except ValueError:
+            md["order_date"] = m.group(1).strip()
+
+    # Store name: Kroger PDFs put the bare brand on its own line right above
+    # the street address. Hard-code "Kroger" detection for now since that's
+    # the only chain we parse structurally; other chains hit Claude fallback.
+    if re.search(r"\bKroger\b", text):
+        md["store"] = "Kroger"
+        # First street-address line under the Kroger name.
+        m = re.search(r"\bKroger\b\s*\n([^\n]+)\n([A-Za-z][^\n]*\b\d{5}\b[^\n]*)", text)
+        if m:
+            md["store_location"] = f"{m.group(1).strip()}, {m.group(2).strip()}"
+
+    # Order Total is on its own line, followed by the $amount line.
+    m = re.search(r"Order Total\s*\n\$([\d,]+\.\d{2})", text)
+    if m:
+        try:
+            md["total_price"] = float(m.group(1).replace(",", ""))
+        except ValueError:
+            pass
+
+    return md
 
 
 def _parse_kroger_structured(text: str) -> list[dict]:
