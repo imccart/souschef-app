@@ -318,6 +318,7 @@ export const api = {
 
   // Admin feedback
   getAdminMetrics: () => request('/admin/metrics'),
+  getAdminDetail: (key) => request(`/admin/detail/${key}`),
   getAllFeedback: () => request('/feedback/all'),
   respondToFeedback: (id, response) => request(`/feedback/${id}/respond`, {
     method: 'POST',

@@ -4944,6 +4944,72 @@ async def get_admin_metrics(request: Request):
     return {"ok": True, "metrics": metrics}
 
 
+@router.get("/admin/detail/{key}")
+async def get_admin_detail(key: str, request: Request):
+    """Admin: drill-down lists behind the dashboard cards (people-oriented)."""
+    real_user_id = getattr(request.state, 'real_user_id', request.state.user_id)
+    conn = _conn()
+    if not _is_admin(conn, real_user_id):
+        return {"ok": False, "error": "Not authorized"}
+
+    def rows_of(sql: str) -> list[dict]:
+        return [dict(r) for r in conn.execute(text(sql)).fetchall()]
+
+    if key == "users":
+        return {"ok": True, "rows": rows_of("""
+            SELECT u.email, u.created_at, u.last_login,
+                   EXISTS(SELECT 1 FROM sessions s WHERE s.user_id = u.id AND s.expires_at > NOW()) AS active,
+                   hm.role AS household_role
+            FROM users u
+            LEFT JOIN household_members hm ON hm.user_id = u.id
+            ORDER BY u.created_at
+        """)}
+
+    if key == "waitlist":
+        return {"ok": True, "rows": rows_of(
+            "SELECT email, requested_at FROM waitlist ORDER BY requested_at DESC")}
+
+    if key == "invites":
+        return {"ok": True, "rows": rows_of("""
+            SELECT hi.email, hi.status, hi.created_at, u.email AS invited_by
+            FROM household_invites hi
+            LEFT JOIN users u ON u.id = hi.invited_by
+            ORDER BY hi.created_at DESC
+        """)}
+
+    if key == "kroger":
+        return {"ok": True, "rows": rows_of("""
+            SELECT DISTINCT u.email
+            FROM user_kroger_tokens t JOIN users u ON u.id = t.user_id
+            ORDER BY u.email
+        """)}
+
+    if key == "tips":
+        return {"ok": True, "rows": rows_of("""
+            SELECT u.email, t.amount_cents, t.mode, t.created_at
+            FROM tips t JOIN users u ON u.id = t.user_id
+            WHERE t.status = 'succeeded'
+            ORDER BY t.created_at DESC
+        """)}
+
+    if key == "households":
+        flat = rows_of("""
+            SELECT hm.household_id, hm.role, u.email
+            FROM household_members hm JOIN users u ON u.id = hm.user_id
+            ORDER BY hm.household_id, (hm.role = 'owner') DESC, u.email
+        """)
+        groups: dict = {}
+        for r in flat:
+            g = groups.setdefault(r["household_id"], {
+                "household_id": r["household_id"], "owner_email": None, "members": []})
+            g["members"].append({"email": r["email"], "role": r["role"]})
+            if r["role"] == "owner":
+                g["owner_email"] = r["email"]
+        return {"ok": True, "rows": list(groups.values())}
+
+    return {"ok": False, "error": f"Unknown detail key: {key}"}
+
+
 @router.get("/admin/unknown-brands")
 async def get_unknown_brands(request: Request):
     """Admin: list unknown brands sorted by frequency."""
