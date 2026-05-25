@@ -4892,7 +4892,7 @@ async def get_all_feedback(request: Request):
     rows = conn.execute(
         text("SELECT f.*, u.email FROM user_feedback f JOIN users u ON u.id = f.user_id ORDER BY f.created_at DESC"),
     ).fetchall()
-    return {"feedback": [dict(r._mapping) for r in rows]}
+    return {"feedback": [dict(r) for r in rows]}
 
 
 @router.get("/admin/metrics")
@@ -4935,7 +4935,7 @@ async def get_admin_metrics(request: Request):
         "receipts_7d": scalar("SELECT COUNT(*) FROM grocery_state WHERE receipt_parsed_at > NOW() - INTERVAL '7 days'"),
         "invites_sent": scalar("SELECT COUNT(*) FROM household_invites"),
         "invites_accepted": scalar("SELECT COUNT(*) FROM household_invites WHERE status = 'accepted'"),
-        "open_feedback": scalar("SELECT COUNT(*) FROM user_feedback WHERE status != 'responded'"),
+        "open_feedback": scalar("SELECT COUNT(*) FROM user_feedback WHERE COALESCE(dismissed, 0) = 0 AND status NOT IN ('responded', 'resolved', 'dismissed')"),
         "waitlist": scalar("SELECT COUNT(*) FROM waitlist"),
         "tip_subscribers": scalar("SELECT COUNT(*) FROM users WHERE active_tip_subscription_id IS NOT NULL"),
         "tips_total": scalar("SELECT COUNT(*) FROM tips WHERE status = 'succeeded'"),
@@ -4954,7 +4954,7 @@ async def get_unknown_brands(request: Request):
     rows = conn.execute(
         text("SELECT brand, times_seen, first_seen, last_seen FROM unknown_brands ORDER BY times_seen DESC"),
     ).fetchall()
-    return {"brands": [dict(r._mapping) for r in rows]}
+    return {"brands": [dict(r) for r in rows]}
 
 
 @router.post("/admin/refresh-violations")

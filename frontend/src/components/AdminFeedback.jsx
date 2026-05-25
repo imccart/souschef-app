@@ -56,24 +56,28 @@ export default function AdminFeedback({ embedded = false }) {
     }
   }
 
+  // "Open" = needs attention: not dismissed and not already responded/resolved.
+  const HANDLED = ['responded', 'resolved', 'dismissed']
+  const isOpen = (it) => !it.dismissed && !HANDLED.includes(it.status)
+
   const filtered = (items || []).filter(it => {
     if (filter === 'all') return true
-    if (filter === 'open') return it.status !== 'responded'
-    if (filter === 'responded') return it.status === 'responded'
+    if (filter === 'open') return isOpen(it)
+    if (filter === 'handled') return !isOpen(it)
     return true
   })
 
   const counts = (items || []).reduce((acc, it) => {
     acc.all += 1
-    if (it.status === 'responded') acc.responded += 1
-    else acc.open += 1
+    if (isOpen(it)) acc.open += 1
+    else acc.handled += 1
     return acc
-  }, { all: 0, open: 0, responded: 0 })
+  }, { all: 0, open: 0, handled: 0 })
 
   const inner = (
     <>
         <div className={styles.tabs}>
-          {['open', 'responded', 'all'].map(t => (
+          {['open', 'handled', 'all'].map(t => (
             <button
               key={t}
               className={`${styles.tab} ${filter === t ? styles.active : ''}`}
