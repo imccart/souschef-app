@@ -629,6 +629,21 @@ export default function PreferencesSheet({ onClose, onStartTour, isAdmin }) {
           </button>
         )}
 
+        {/* Delete account (self-serve) */}
+        <button className={styles.prefsDeleteAccount} onClick={async () => {
+          if (!window.confirm("Delete your account and all your data permanently? This cannot be undone. If you share a household, members will lose the shared data too.")) return
+          try {
+            const res = await api.deleteAccount()
+            if (res?.error) { window.alert(res.error); return }
+            localStorage.clear()
+            window.location.reload()
+          } catch (e) {
+            window.alert('Could not delete your account. Please try again, or email support@aletheia-apps.com.')
+          }
+        }}>
+          Delete my account
+        </button>
+
         {/* Sign Out */}
         <button className={styles.prefsSignOut} onClick={async () => {
           await api.logout()

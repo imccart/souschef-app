@@ -73,7 +73,9 @@
 .detailRow {
   display: flex;
   justify-content: space-between;
-  gap: 12px;
+  align-items: center;
+  gap: 10px;
+  flex-wrap: wrap;
   padding: 10px 14px;
   border-bottom: 1px solid var(--border);
   font-size: 14px;
@@ -86,10 +88,40 @@
 .detailPrimary {
   color: var(--dark);
   word-break: break-all;
+  flex: 1 1 auto;
+}
+
+.detailRight {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  flex-shrink: 0;
 }
 
 .detailSecondary {
   color: var(--text-muted);
+  white-space: nowrap;
+}
+
+.actBtn {
+  background: var(--cream);
+  border: 1px solid var(--border);
+  color: var(--brown);
+  font-size: 12px;
+  padding: 4px 10px;
+  border-radius: 8px;
+  cursor: pointer;
+  white-space: nowrap;
+}
+
+.actDanger {
+  background: #fef2f2;
+  border: 1px solid #fecaca;
+  color: #991b1b;
+  font-size: 12px;
+  padding: 4px 10px;
+  border-radius: 8px;
+  cursor: pointer;
   white-space: nowrap;
 }
 

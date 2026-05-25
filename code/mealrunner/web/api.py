@@ -4956,14 +4956,19 @@ async def get_admin_detail(key: str, request: Request):
         return [dict(r) for r in conn.execute(text(sql)).fetchall()]
 
     if key == "users":
-        return {"ok": True, "rows": rows_of("""
-            SELECT u.email, u.created_at, u.last_login,
+        admin_id = _admin_user_id(conn)
+        rows = rows_of("""
+            SELECT u.id, u.email, u.created_at, u.last_login,
                    EXISTS(SELECT 1 FROM sessions s WHERE s.user_id = u.id AND s.expires_at > NOW()) AS active,
                    hm.role AS household_role
             FROM users u
             LEFT JOIN household_members hm ON hm.user_id = u.id
             ORDER BY u.created_at
-        """)}
+        """)
+        for r in rows:
+            r["protected"] = r["id"] in (admin_id, real_user_id)  # owner/self get no revoke/delete buttons
+            r.pop("id", None)
+        return {"ok": True, "rows": rows}
 
     if key == "waitlist":
         return {"ok": True, "rows": rows_of(
@@ -4971,7 +4976,7 @@ async def get_admin_detail(key: str, request: Request):
 
     if key == "invites":
         return {"ok": True, "rows": rows_of("""
-            SELECT hi.email, hi.status, hi.created_at, u.email AS invited_by
+            SELECT hi.id, hi.email, hi.status, hi.created_at, u.email AS invited_by
             FROM household_invites hi
             LEFT JOIN users u ON u.id = hi.invited_by
             ORDER BY hi.created_at DESC
@@ -5008,6 +5013,170 @@ async def get_admin_detail(key: str, request: Request):
         return {"ok": True, "rows": list(groups.values())}
 
     return {"ok": False, "error": f"Unknown detail key: {key}"}
+
+
+def _admin_user_id(conn) -> str | None:
+    """The user_id that resolves as admin/owner — mirrors _is_admin."""
+    import os
+    aid = os.environ.get("ADMIN_USER_ID")
+    if aid:
+        return aid
+    row = conn.execute(text("SELECT id FROM users ORDER BY created_at LIMIT 1")).fetchone()
+    return row["id"] if row else None
+
+
+def _resolve_user_id(conn, email: str) -> str | None:
+    row = conn.execute(
+        text("SELECT id FROM users WHERE LOWER(email) = LOWER(:e)"), {"e": email}
+    ).fetchone()
+    return row["id"] if row else None
+
+
+# All tables holding per-user rows, child-first so the users row deletes last
+# without tripping a foreign key. Keyed by :uid except the email-keyed pair.
+_USER_DELETE_SQL = [
+    "DELETE FROM sessions WHERE user_id = :uid",
+    "DELETE FROM magic_links WHERE user_id = :uid",
+    "DELETE FROM grocery_items WHERE user_id = :uid",
+    "DELETE FROM grocery_state WHERE user_id = :uid",
+    "DELETE FROM meals WHERE user_id = :uid",
+    "DELETE FROM household_members WHERE user_id = :uid",
+    "DELETE FROM household_invites WHERE invited_by = :uid OR LOWER(email) = LOWER(:email)",
+    "DELETE FROM user_feedback WHERE user_id = :uid",
+    "DELETE FROM user_kroger_tokens WHERE user_id = :uid",
+    "DELETE FROM community_data WHERE user_id = :uid",
+    "DELETE FROM receipt_extra_items WHERE user_id = :uid",
+    "DELETE FROM tips WHERE user_id = :uid",
+    "DELETE FROM pantry WHERE user_id = :uid",
+    "DELETE FROM product_preferences WHERE user_id = :uid",
+    "DELETE FROM product_ratings WHERE user_id = :uid",
+    "DELETE FROM regulars WHERE user_id = :uid",
+    "DELETE FROM staples WHERE user_id = :uid",
+    "DELETE FROM learning_dismissed WHERE user_id = :uid",
+    "DELETE FROM meal_item_overrides WHERE user_id = :uid",
+    "DELETE FROM user_item_groups WHERE user_id = :uid",
+    "DELETE FROM stores WHERE user_id = :uid",
+    "DELETE FROM nearby_stores WHERE user_id = :uid",
+    "DELETE FROM settings WHERE user_id = :uid",
+    "DELETE FROM recipes WHERE user_id = :uid",
+    "DELETE FROM allowed_emails WHERE LOWER(email) = LOWER(:email)",
+    "DELETE FROM waitlist WHERE LOWER(email) = LOWER(:email)",
+    "DELETE FROM users WHERE id = :uid",
+]
+
+
+@router.post("/admin/waitlist/approve")
+async def admin_waitlist_approve(body: dict, request: Request):
+    """Admin: approve a waitlisted email — allowlist it, send a magic link, clear it from the waitlist."""
+    from mealrunner.web.auth import find_or_create_user, create_magic_link, send_magic_link_email
+    real_user_id = getattr(request.state, 'real_user_id', request.state.user_id)
+    conn = _conn()
+    if not _is_admin(conn, real_user_id):
+        return {"ok": False, "error": "Not authorized"}
+    email = (body.get("email") or "").strip().lower()
+    if not email:
+        return {"ok": False, "error": "Email required"}
+    conn.execute(text("INSERT INTO allowed_emails (email) VALUES (:e) ON CONFLICT DO NOTHING"), {"e": email})
+    conn.execute(text("DELETE FROM waitlist WHERE LOWER(email) = LOWER(:e)"), {"e": email})
+    user_id = find_or_create_user(conn, email)
+    token = create_magic_link(conn, user_id)
+    conn.commit()
+    try:
+        send_magic_link_email(email, token)
+    except Exception:
+        pass  # approval already persisted; a send hiccup shouldn't roll it back
+    return {"ok": True}
+
+
+@router.post("/admin/waitlist/dismiss")
+async def admin_waitlist_dismiss(body: dict, request: Request):
+    """Admin: remove an email from the waitlist without approving."""
+    real_user_id = getattr(request.state, 'real_user_id', request.state.user_id)
+    conn = _conn()
+    if not _is_admin(conn, real_user_id):
+        return {"ok": False, "error": "Not authorized"}
+    email = (body.get("email") or "").strip().lower()
+    if not email:
+        return {"ok": False, "error": "Email required"}
+    conn.execute(text("DELETE FROM waitlist WHERE LOWER(email) = LOWER(:e)"), {"e": email})
+    conn.commit()
+    return {"ok": True}
+
+
+@router.post("/admin/invite/cancel")
+async def admin_invite_cancel(body: dict, request: Request):
+    """Admin: delete a still-pending household invite by id."""
+    real_user_id = getattr(request.state, 'real_user_id', request.state.user_id)
+    conn = _conn()
+    if not _is_admin(conn, real_user_id):
+        return {"ok": False, "error": "Not authorized"}
+    invite_id = body.get("id")
+    if not invite_id:
+        return {"ok": False, "error": "Invite id required"}
+    conn.execute(text("DELETE FROM household_invites WHERE id = :id AND status = 'pending'"), {"id": invite_id})
+    conn.commit()
+    return {"ok": True}
+
+
+@router.post("/admin/user/revoke")
+async def admin_user_revoke(body: dict, request: Request):
+    """Admin: revoke access (soft) — drop from allowlist + force logout. Data kept; reversible by re-approving."""
+    real_user_id = getattr(request.state, 'real_user_id', request.state.user_id)
+    conn = _conn()
+    if not _is_admin(conn, real_user_id):
+        return {"ok": False, "error": "Not authorized"}
+    email = (body.get("email") or "").strip().lower()
+    if not email:
+        return {"ok": False, "error": "Email required"}
+    target_id = _resolve_user_id(conn, email)
+    if not target_id:
+        return {"ok": False, "error": "User not found"}
+    if target_id in (real_user_id, _admin_user_id(conn)):
+        return {"ok": False, "error": "Cannot revoke the owner account"}
+    conn.execute(text("DELETE FROM allowed_emails WHERE LOWER(email) = LOWER(:e)"), {"e": email})
+    conn.execute(text("DELETE FROM sessions WHERE user_id = :uid"), {"uid": target_id})
+    conn.commit()
+    return {"ok": True}
+
+
+@router.post("/admin/user/delete")
+async def admin_user_delete(body: dict, request: Request):
+    """Admin: hard-delete an account and all its data. Irreversible. Owner/self protected."""
+    real_user_id = getattr(request.state, 'real_user_id', request.state.user_id)
+    conn = _conn()
+    if not _is_admin(conn, real_user_id):
+        return {"ok": False, "error": "Not authorized"}
+    email = (body.get("email") or "").strip().lower()
+    if not email:
+        return {"ok": False, "error": "Email required"}
+    target_id = _resolve_user_id(conn, email)
+    if not target_id:
+        return {"ok": False, "error": "User not found"}
+    if target_id in (real_user_id, _admin_user_id(conn)):
+        return {"ok": False, "error": "Cannot delete the owner account"}
+    for sql in _USER_DELETE_SQL:
+        conn.execute(text(sql), {"uid": target_id, "email": email})
+    conn.commit()
+    return {"ok": True}
+
+
+@router.post("/account/delete")
+async def delete_own_account(request: Request):
+    """Self-serve account deletion — any signed-in user wipes their own account
+    and data, then is logged out. Not admin-gated. The app owner is blocked
+    (deleting the founding account would orphan the app and every household)."""
+    real_user_id = getattr(request.state, 'real_user_id', request.state.user_id)
+    conn = _conn()
+    row = conn.execute(text("SELECT email FROM users WHERE id = :id"), {"id": real_user_id}).fetchone()
+    if not row:
+        return {"ok": False, "error": "User not found"}
+    if real_user_id == _admin_user_id(conn):
+        return {"ok": False, "error": "The owner account can't be self-deleted. Contact support."}
+    email = row["email"]
+    for sql in _USER_DELETE_SQL:
+        conn.execute(text(sql), {"uid": real_user_id, "email": email})
+    conn.commit()
+    return {"ok": True}
 
 
 @router.get("/admin/unknown-brands")

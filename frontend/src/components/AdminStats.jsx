@@ -38,19 +38,42 @@ export default function AdminStats() {
 
   useEffect(() => { load() }, [])
 
+  const fetchDetail = async (key) => {
+    try {
+      const d = await api.getAdminDetail(key)
+      if (d?.error) { setDetailErr(d.error); return }
+      setDetails(prev => ({ ...prev, [key]: d.rows || [] }))
+    } catch (e) {
+      setDetailErr(e.message || 'Failed to load')
+    }
+  }
+
   const openDetail = async (key) => {
     if (open === key) { setOpen(null); return }
     setOpen(key)
     setDetailErr(null)
-    if (!details[key]) {
-      try {
-        const d = await api.getAdminDetail(key)
-        if (d?.error) { setDetailErr(d.error); return }
-        setDetails(prev => ({ ...prev, [key]: d.rows || [] }))
-      } catch (e) {
-        setDetailErr(e.message || 'Failed to load')
-      }
+    if (!details[key]) await fetchDetail(key)
+  }
+
+  // Run a management action, then refresh the affected list + the top-line counts.
+  const runAction = async (call, key) => {
+    setDetailErr(null)
+    try {
+      const res = await call()
+      if (res?.error) { setDetailErr(res.error); return }
+      await fetchDetail(key)
+      load()
+    } catch (e) {
+      setDetailErr(e.message || 'Action failed')
     }
+  }
+
+  const actions = {
+    approve: (email) => runAction(() => api.approveWaitlist(email), 'waitlist'),
+    dismiss: (email) => runAction(() => api.dismissWaitlist(email), 'waitlist'),
+    cancelInvite: (id) => runAction(() => api.cancelInvite(id), 'invites'),
+    revoke: (email) => runAction(() => api.revokeUser(email), 'users'),
+    del: (email) => runAction(() => api.deleteUserAdmin(email), 'users'),
   }
 
   if (error) return (
@@ -126,7 +149,7 @@ export default function AdminStats() {
             ))}
           </div>
           {g.tiles.some(t => t.detail === open) && (
-            <Detail keyName={open} rows={details[open]} error={detailErr} />
+            <Detail keyName={open} rows={details[open]} error={detailErr} actions={actions} />
           )}
         </div>
       ))}
@@ -137,7 +160,7 @@ export default function AdminStats() {
   )
 }
 
-function Detail({ keyName, rows, error }) {
+function Detail({ keyName, rows, error, actions }) {
   if (error) return <div className={styles.detail}><div className={styles.detailEmpty}>{error}</div></div>
   if (rows === undefined) return <div className={styles.detail}><div className={styles.detailEmpty}>Loading…</div></div>
   if (!rows.length) return <div className={styles.detail}><div className={styles.detailEmpty}>None.</div></div>
@@ -168,14 +191,43 @@ function Detail({ keyName, rows, error }) {
     return ''  // kroger: email only
   }
 
+  const buttonsFor = (r) => {
+    if (keyName === 'waitlist') return (
+      <>
+        <button className={styles.actBtn} onClick={() => actions.approve(r.email)}>Approve</button>
+        <button className={styles.actBtn} onClick={() => actions.dismiss(r.email)}>Dismiss</button>
+      </>
+    )
+    if (keyName === 'invites' && r.status === 'pending') return (
+      <button className={styles.actBtn} onClick={() => {
+        if (window.confirm(`Cancel the invite to ${r.email}?`)) actions.cancelInvite(r.id)
+      }}>Cancel</button>
+    )
+    if (keyName === 'users' && !r.protected) return (
+      <>
+        <button className={styles.actBtn} onClick={() => {
+          if (window.confirm(`Revoke access for ${r.email}? They'll be signed out and blocked from logging back in. Their data is kept and you can re-approve later.`)) actions.revoke(r.email)
+        }}>Revoke</button>
+        <button className={styles.actDanger} onClick={() => {
+          if (window.confirm(`Permanently delete ${r.email} and ALL their data? This cannot be undone.`)) actions.del(r.email)
+        }}>Delete</button>
+      </>
+    )
+    return null
+  }
+
   return (
     <div className={styles.detail}>
       {rows.map((r, i) => {
         const secondary = secondaryFor(r)
+        const btns = buttonsFor(r)
         return (
           <div key={(r.email || '') + i} className={styles.detailRow}>
             <span className={styles.detailPrimary}>{r.email}</span>
-            {secondary && <span className={styles.detailSecondary}>{secondary}</span>}
+            <span className={styles.detailRight}>
+              {secondary && <span className={styles.detailSecondary}>{secondary}</span>}
+              {btns}
+            </span>
           </div>
         )
       })}

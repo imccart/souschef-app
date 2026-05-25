@@ -368,6 +368,25 @@
   border-color: var(--brown);
 }
 
+.prefsDeleteAccount {
+  display: block;
+  width: 100%;
+  padding: 14px;
+  margin-top: 8px;
+  background: none;
+  border: 1px solid #fecaca;
+  border-radius: 10px;
+  font-family: 'DM Sans', sans-serif;
+  font-size: 14px;
+  color: #b91c1c;
+  cursor: pointer;
+  transition: background 0.15s;
+}
+
+.prefsDeleteAccount:hover {
+  background: #fef2f2;
+}
+
 .prefsTermsLinks {
   display: flex;
   justify-content: center;

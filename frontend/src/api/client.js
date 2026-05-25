@@ -319,6 +319,12 @@ export const api = {
   // Admin feedback
   getAdminMetrics: () => request('/admin/metrics'),
   getAdminDetail: (key) => request(`/admin/detail/${key}`),
+  approveWaitlist: (email) => request('/admin/waitlist/approve', { method: 'POST', body: JSON.stringify({ email }) }),
+  dismissWaitlist: (email) => request('/admin/waitlist/dismiss', { method: 'POST', body: JSON.stringify({ email }) }),
+  cancelInvite: (id) => request('/admin/invite/cancel', { method: 'POST', body: JSON.stringify({ id }) }),
+  revokeUser: (email) => request('/admin/user/revoke', { method: 'POST', body: JSON.stringify({ email }) }),
+  deleteUserAdmin: (email) => request('/admin/user/delete', { method: 'POST', body: JSON.stringify({ email }) }),
+  deleteAccount: () => request('/account/delete', { method: 'POST' }),
   getAllFeedback: () => request('/feedback/all'),
   respondToFeedback: (id, response) => request(`/feedback/${id}/respond`, {
     method: 'POST',
