@@ -33,7 +33,20 @@ Fernet symmetric encryption via `ENCRYPTION_KEY` env var.
 
 ## Admin
 
-Admin user = first registered user **or** `ADMIN_USER_ID` env var. Admin endpoints: feedback respond, unknown brands review, e2e simulators (gated behind `PLAYWRIGHT_TEST_SECRET`).
+Admin user = `ADMIN_USER_ID` env var (set in prod) **or**, if unset, the first-registered user. `_is_admin(conn, user_id)` in `api.py` is the server-side gate on every admin endpoint; `_admin_user_id(conn)` returns that same id for owner-protection checks. `/auth/me` also returns an **`is_admin`** flag (same resolution) so the frontend can gate the Account-sheet "Admin dashboard" link and the `#admin` route — but the link/route are convenience only; the **data and actions are gated server-side**, so a non-admin hitting the URL or calling an endpoint directly gets `Not authorized`.
+
+**Admin dashboard** (`#admin` → `AdminPanel`, Stats | Feedback tabs):
+- `GET /admin/metrics` — usage rollups (plain SELECTs; read scalars via RowMapping, see `database.md` / MEMORY). "Active" = users with a live session, not `last_login`.
+- `GET /admin/detail/{key}` — drill-down lists for `users` / `households` / `waitlist` / `invites` / `kroger` / `tips`. The `users` rows carry a `protected` flag (owner/self) so the UI hides revoke/delete on them.
+- Other admin endpoints: feedback respond, unknown-brands review, e2e simulators (gated behind `PLAYWRIGHT_TEST_SECRET`).
+
+**Account management endpoints** (all admin-gated except self-delete):
+- `POST /admin/waitlist/approve` (allowlist + magic link + clear waitlist) · `/admin/waitlist/dismiss`
+- `POST /admin/invite/cancel` (pending invites only)
+- `POST /admin/user/revoke` — **soft**: delete from `allowed_emails` + delete sessions. Reversible (re-approve), data kept.
+- `POST /admin/user/delete` — **hard**: `_USER_DELETE_SQL` wipes ~25 user-scoped tables child-first, then the `users` row. Irreversible.
+- `POST /account/delete` — **self-serve**, NOT admin-gated; acts on `request.state.real_user_id`, same `_USER_DELETE_SQL`. Wired to "Delete my account" in the Account sheet.
+- **Owner/self is blocked server-side** on revoke + both deletes (`target_id in (real_user_id, _admin_user_id(conn))`; self-delete blocks the app owner). `_USER_DELETE_SQL` is verified to cover every FK referencing `users` — if a new user-scoped table with an FK to `users` is added, add it to that list or the hard delete will FK-error.
 
 ## Public webhook paths
 
