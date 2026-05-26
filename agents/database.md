@@ -17,6 +17,8 @@ PostgreSQL-specific patterns, gotchas, and operational rules for MealRunner. Pos
 
 If `agents/local/database.md` is missing, repopulate it from Railway: dashboard → mealrunner → Postgres service → Variables → `DATABASE_URL` and `DATABASE_PRIVATE_URL`. The local doc is also the right place for any prod-specific operational notes (DNS fallback IPs, etc.) that would otherwise drift into a tracked file.
 
+**Local scripts must pass `sslmode=require`.** Connecting to the Railway *public* proxy (`*.proxy.rlwy.net`) from a local Python script with psycopg2's default `sslmode=prefer` intermittently fails the SSL handshake with `OperationalError: ... could not receive data from server: Software caused connection abort`. Raw TCP to the proxy port connects fine, so it's an SSL-negotiation quirk, not the proxy being down. Pass `create_engine(URL, connect_args={"sslmode": "require"})` (or `psycopg2.connect(URL, sslmode="require")`). The app itself is unaffected — it uses the private network, not this proxy.
+
 ### Standing read authorization
 
 Reading the prod DB for diagnostics is **pre-authorized** — don't ask before SELECT-only queries. Just run them. Asking burns time and frustrates the user since this is the well-established triage path.
@@ -36,6 +38,8 @@ The user does **not** have the Railway CLI installed. Don't suggest `railway run
 ## `timestamptz` columns — read AND write gotchas
 
 All `_at` / `_login` / `_picked` / `_seen` / `window_start` columns are `timestamptz` (migrated session 53 from TEXT). Column list: `_TIMESTAMP_COLUMNS` in `db.py`. Use `DateTime(timezone=True)` (`TS` alias in `database.py`) for new timestamp columns.
+
+**`meals.slot_date` is the exception — it's stored as TEXT** (ISO `YYYY-MM-DD`), not a date type. So `WHERE slot_date >= CURRENT_DATE` 500s with `operator does not exist: text >= date`. Compare against an ISO **string** (`slot_date >= :iso`) or cast explicitly (`slot_date::date >= CURRENT_DATE`). The ISO-string lexical sort matches date order, so plain text comparison is correct for ranges.
 
 Exception: `company_violations.most_recent_date` stays TEXT (YYYYMMDD label from FDA).
 
