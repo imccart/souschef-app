@@ -62,7 +62,12 @@ function BestDayInsight() {
           Not enough price data yet. Check back after a few more shopping cycles.
         </div>
       )}
-      {!loading && data && data.best_day && !data.thin && (
+      {!loading && data && data.basket_size > 0 && !data.thin && data.flat && (
+        <div className={styles.prefsInsightHint}>
+          Prices hold steady across the week, so there's no standout day to shop. We'll flag one if that changes.
+        </div>
+      )}
+      {!loading && data && data.best_day && !data.thin && !data.flat && (
         <>
           <div className={styles.prefsInsightHero}>
             {DOW_NAMES[data.best_day.dow]}

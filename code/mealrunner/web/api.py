@@ -4660,6 +4660,11 @@ async def best_day_of_week(request: Request, scope: str = "trip"):
 
     scope='trip' uses items currently on the active trip with a product UPC.
     scope='usuals' uses items the user has purchased (receipt-matched) in the last 12 weeks.
+
+    Prices are drawn from poll-source rows only (the systematic background poll),
+    so the day-of-week signal isn't contaminated by user-driven samples that cluster
+    on the days the app happens to get used. Returns thin=True when there's too little
+    data, flat=True when there's enough but no meaningful day-to-day spread (<1pp).
     """
     user_id = request.state.user_id
     conn = _conn()
@@ -4695,12 +4700,17 @@ async def best_day_of_week(request: Request, scope: str = "trip"):
 
     # For each (upc, dow), compute average price; then express each as % of that UPC's
     # overall mean to normalize across cheap/expensive items; then average across UPCs per dow.
+    # POLL-ONLY: restrict to the systematic background poll. The other sources
+    # (search/select/receipt/nearby) only fire when the user uses the app, so they
+    # cluster on app-usage weekdays and inject a collection-timing artifact, not a
+    # real price pattern. The poll runs server-side on a timer regardless of usage.
     rows = conn.execute(
         text(f"""WITH per_upc_dow AS (
                     SELECT upc, EXTRACT(DOW FROM fetched_at)::int AS dow,
                            AVG(price) AS avg_price, COUNT(*) AS n
                     FROM product_prices
                     WHERE upc IN ({placeholders}) AND price IS NOT NULL AND price > 0
+                          AND source = 'poll'
                     GROUP BY upc, dow
                  ),
                  per_upc_mean AS (
@@ -4725,13 +4735,23 @@ async def best_day_of_week(request: Request, scope: str = "trip"):
     ]
     best = min(by_day, key=lambda d: d["pct_vs_mean"]) if by_day else None
     total_samples = sum(d["samples"] for d in by_day)
+    spread = (max(d["pct_vs_mean"] for d in by_day)
+              - min(d["pct_vs_mean"] for d in by_day)) if by_day else 0.0
+    # Honesty gate: even with plenty of samples, a sub-1pp spread between the
+    # cheapest and priciest day is noise, not a day worth planning around. Report
+    # it as "flat" (prices hold steady across the week) rather than crowning a day.
+    thin = total_samples < 20 or len(by_day) < 4
+    MEANINGFUL_SPREAD = 1.0  # percentage points
+    flat = (not thin) and spread < MEANINGFUL_SPREAD
     return {
         "scope": scope,
         "basket_size": len(upcs),
         "by_day": by_day,
         "best_day": best,
         "total_samples": total_samples,
-        "thin": total_samples < 20 or len(by_day) < 4,
+        "spread": round(spread, 2),
+        "thin": thin,
+        "flat": flat,
     }
 
 
