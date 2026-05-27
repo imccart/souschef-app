@@ -151,7 +151,8 @@
 }
 .bannerSide { font-size: 11px; color: var(--text-muted); margin-top: 2px; }
 .bannerSide strong { color: var(--brown); font-weight: 600; }
-.bannerActions { display: flex; gap: 6px; flex-shrink: 0; }
+/* margin-right keeps ↻/✓ clear of the absolutely-positioned corner × */
+.bannerActions { display: flex; gap: 6px; flex-shrink: 0; margin-right: 16px; }
 .bannerReroll, .bannerAccept {
   width: 28px; height: 28px;
   border-radius: 6px;
@@ -211,11 +212,13 @@
   max-height: 46vh;
   overflow-y: auto;
   -webkit-overflow-scrolling: touch;
+  padding-right: 10px;
 }
 .scrollListShort {
   max-height: 160px;
   overflow-y: auto;
   -webkit-overflow-scrolling: touch;
+  padding-right: 10px;
   margin-bottom: 16px;
   -webkit-mask-image: linear-gradient(to bottom, #000 78%, transparent 100%);
   mask-image: linear-gradient(to bottom, #000 78%, transparent 100%);
