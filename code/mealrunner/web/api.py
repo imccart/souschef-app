@@ -160,17 +160,6 @@ async def get_past_meals(request: Request):
     return {"days": days}
 
 
-@router.post("/meals/{date}/swap")
-async def swap_meal(date: str, request: Request):
-    """Quick swap — replaces a meal, sets on_grocery=False."""
-    from mealrunner.planner import swap_meal as do_swap
-
-    user_id = request.state.user_id
-    conn = _conn()
-    do_swap(conn, user_id, date)
-    return await get_meals(request)
-
-
 @router.get("/meals/{date}/sides")
 async def get_sides(date: str, request: Request):
     """Return available side options for a date's meal."""
@@ -247,16 +236,6 @@ async def set_side(date: str, body: dict, request: Request):
     return await get_meals(request)
 
 
-@router.post("/meals/{date}/swap-side")
-async def swap_side(date: str, request: Request):
-    from mealrunner.planner import swap_meal_side
-
-    user_id = request.state.user_id
-    conn = _conn()
-    swap_meal_side(conn, user_id, date)
-    return await get_meals(request)
-
-
 @router.post("/meals/{date}/toggle-grocery")
 async def toggle_grocery(date: str, request: Request):
     from mealrunner.planner import toggle_grocery as do_toggle
@@ -293,19 +272,6 @@ async def set_meal(date: str, body: dict, request: Request):
     if recipe:
         sides = body.get("sides")  # list of {side_recipe_id, side_name} or None
         do_set(conn, user_id, date, recipe.name, sides=sides)
-    return await get_meals(request)
-
-
-@router.post("/meals/suggest")
-async def suggest_meals(request: Request):
-    from mealrunner.planner import fill_dates
-
-    user_id = request.state.user_id
-    conn = _conn()
-    from mealrunner.planner import load_rolling_week
-
-    mw = load_rolling_week(conn, user_id)
-    fill_dates(conn, user_id, mw.start_date, mw.end_date)
     return await get_meals(request)
 
 

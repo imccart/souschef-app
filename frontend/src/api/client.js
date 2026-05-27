@@ -56,7 +56,6 @@ export const api = {
   // Meals
   getMeals: () => request('/meals'),
   getPastMeals: () => request('/meals/past'),
-  swapMeal: (date) => request(`/meals/${date}/swap`, { method: 'POST' }),
   getSides: (date) => request(`/meals/${date}/sides`),
   setSide: (date, sides) => request(`/meals/${date}/set-side`, {
     method: 'POST',
@@ -73,7 +72,6 @@ export const api = {
   }),
   surprisePick: (date, cuisine, excludeIds) =>
     request(`/meals/${date}/surprise?cuisine=${encodeURIComponent(cuisine || 'all')}&exclude=${(excludeIds || []).join(',')}`),
-  suggestMeals: () => request('/meals/suggest', { method: 'POST' }),
   freshStart: () => request('/meals/fresh-start', { method: 'POST' }),
   allToGrocery: () => request('/meals/all-to-grocery', { method: 'POST' }),
   swapDays: (dateA, dateB) => request('/meals/swap-days', {
