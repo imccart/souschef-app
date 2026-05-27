@@ -187,14 +187,15 @@ test.describe("Grocery longitudinal", () => {
     expect(activeNamesLower(afterAll)).not.toContain(targetLower);
   });
 
-  test("regulars overlap: existing regular row gets meal attribution attached, no duplicate", async ({
+  test("regulars overlap: meal needing the same ingredient does not duplicate the regular row", async ({
     authedPage,
   }) => {
     // User has a regular for "X". Then they add a meal whose recipe
-    // contains "X". meal-sync's source!='meal' attach branch should
-    // attach meal context to the regular row WITHOUT inserting a separate
-    // meal-source sibling. Single row, source='regular', for_meals
-    // contains the meal name. State preserved.
+    // contains "X". Regulars are intentionally independent of meals:
+    // build_grocery_list filters staple/regular ingredients out of the
+    // meal-derived list, so the meal can't auto-flow a duplicate "X". The
+    // invariant that matters: still a single row, source='regular', and the
+    // meal does NOT attach its name to the regular row (for_meals stays empty).
     const libMeal = await pickLibraryMealWithIngredients(authedPage);
     await seedLibraryMeal(authedPage, libMeal);
     const ingredient = libMeal.ingredients[0];
@@ -223,10 +224,8 @@ test.describe("Grocery longitudinal", () => {
     );
     expect(overlappedRows).toHaveLength(1);
     expect(overlappedRows[0].source).toBe("regular");
-    // for_meals should now reference the meal (the recipe name).
-    expect(String(overlappedRows[0].for_meals || "").toLowerCase()).toContain(
-      libMeal.name.toLowerCase(),
-    );
+    // Regular stays independent — the overlapping meal does not tag it.
+    expect(String(overlappedRows[0].for_meals || "")).toBe("");
   });
 
   test("long-tail accumulation: many stale receipt-tagged rows do not pollute a fresh meal sync", async ({
