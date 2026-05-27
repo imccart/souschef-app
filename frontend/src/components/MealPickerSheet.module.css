@@ -81,9 +81,14 @@
   position: sticky;
   bottom: 0;
   margin-top: 16px;
-  padding-bottom: env(safe-area-inset-bottom);
+  padding: 10px 0 calc(8px + env(safe-area-inset-bottom));
+  background: white;
   text-align: center;
   z-index: 2;
+}
+
+.pickerSideActions :global(.btn) {
+  width: 100%;
 }
 
 /* Inline-sides block (appears under the meal pills once a meal is picked) */

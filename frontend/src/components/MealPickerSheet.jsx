@@ -146,6 +146,16 @@ export default function MealPickerSheet({ date, dayName, onSelect, onFreeform, o
           : "What's for dinner?"}
       </div>
 
+      {pickedRecipe && (
+        <button
+          type="button"
+          className={styles.pickerBack}
+          onClick={() => setPickedRecipe(null)}
+        >{'‹'} Choose a different meal</button>
+      )}
+
+      {!pickedRecipe && (
+        <>
       <input
         className={styles.pickerSearch}
         type="text"
@@ -210,6 +220,8 @@ export default function MealPickerSheet({ date, dayName, onSelect, onFreeform, o
               Eating Out
             </button>
           </div>
+        </>
+      )}
         </>
       )}
 
