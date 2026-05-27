@@ -320,7 +320,7 @@ export default function MealPickerSheet({ date, dayName, onSelect, onFreeform, o
                       <input
                         className={styles.customInline}
                         type="text"
-                        placeholder="Search or add a side…"
+                        placeholder="Search or add a new side"
                         value={sideSearch}
                         autoFocus
                         onChange={(e) => setSideSearch(e.target.value)}
