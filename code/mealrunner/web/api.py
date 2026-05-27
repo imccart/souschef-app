@@ -1062,6 +1062,18 @@ async def get_grocery(request: Request):
     now = datetime.now(timezone.utc)
     cutoff = now - timedelta(hours=24)
 
+    # Canonical names the user has already handled (bought / checked / have-it)
+    # on SOME row. Used to suppress 'not_fulfilled' leftovers of the same item
+    # below — a reconciliation mismatch (variant name, per-meal duplicate row)
+    # otherwise resurfaces an already-handled item as an active "grab elsewhere"
+    # row. See feedback #110.
+    from mealrunner.normalize import compare_key
+    handled_keys: set[str] = set()
+    for r in rows:
+        rs0 = (r["receipt_status"] or "") if "receipt_status" in r.keys() else ""
+        if r["checked"] or r.get("have_it") or rs0 in ("matched", "substituted"):
+            handled_keys.add(compare_key(r["name"]))
+
     for r in rows:
         group = r["shopping_group"] or "Other"
         for_meals_str = r["for_meals"]
@@ -1094,6 +1106,15 @@ async def get_grocery(request: Request):
             not r["checked"] and not r.get("have_it") and not r.get("removed")
             and rs not in ("matched", "substituted", "dismissed")
         )
+        # Suppress a 'not_fulfilled' leftover when the same item was already
+        # handled under a sibling row. Reconciliation can't always bind a
+        # receipt line to the exact planned row (variant names like "flour"
+        # vs "large" tortillas, or per-meal duplicate rows), so it demotes the
+        # planned row to 'not_fulfilled' and it pops back onto the list even
+        # though the user bought/checked it elsewhere. A genuinely undelivered
+        # item (no handled sibling) still shows. (feedback #110)
+        if is_active and rs == "not_fulfilled" and compare_key(r["name"]) in handled_keys:
+            is_active = False
         if is_active:
             items_by_group.setdefault(group, []).append({
                 "id": r["id"],

@@ -66,6 +66,7 @@ Thumbs up/down on reconciled receipt items. Ratings surface on the Order page (p
 - Submitted items that fail UPC match get a second pass through `diff_grocery_list` (smarter word-subset matching).
 - **Confirming a match** sets `checked=1, ordered=0`.
 - **Not-fulfilled** items reset to active so they can be re-ordered. `_not_fulfilled_sql` clears `ordered` / `submitted_at` / `product_*` **and** `receipt_item` / `receipt_upc` / `receipt_price` (session 77 — previously left the latter three populated, so demoted rows carried stale match evidence).
+- **`not_fulfilled` sibling suppression** (session 79, feedback #110): `get_grocery` hides a `not_fulfilled` row from the active list when another row with the same `compare_key` was already handled (checked / have-it / matched / substituted). Reconciliation can't always bind a receipt line to the exact planned row — variant names ("flour" vs "large" tortillas) or per-meal duplicate rows — so it demotes the planned row to `not_fulfilled` and it resurfaces as a "grab elsewhere" active item even though the user bought it under a sibling. A genuinely-undelivered item (no handled sibling) still shows. Read-side filter only; the rows are untouched in the DB.
 
 ## No match-side dedup on re-upload (session 77)
 
