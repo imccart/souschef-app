@@ -171,15 +171,17 @@ async def get_sides(date: str, request: Request):
         text("SELECT id FROM meals WHERE slot_date = :date AND user_id = :user_id"),
         {"date": date, "user_id": user_id},
     ).fetchone()
-    if not meal_row:
-        return {"sides": [], "current_ids": [], "fixed": False, "max_sides": 3}
-
-    # Get current sides for this meal
-    current_sides = conn.execute(
-        text("SELECT side_recipe_id FROM meal_sides WHERE meal_id = :mid ORDER BY position"),
-        {"mid": meal_row["id"]},
-    ).fetchall()
-    current_ids = [cs["side_recipe_id"] for cs in current_sides if cs["side_recipe_id"]]
+    # The side library (the user's side recipes) doesn't depend on a meal
+    # existing on this date — the new-meal picker loads sides *before* the meal
+    # is saved (the meal lands on Done). Only the "current" sides are
+    # meal-specific, so guard just that lookup on meal_row.
+    current_ids = []
+    if meal_row:
+        current_sides = conn.execute(
+            text("SELECT side_recipe_id FROM meal_sides WHERE meal_id = :mid ORDER BY position"),
+            {"mid": meal_row["id"]},
+        ).fetchall()
+        current_ids = [cs["side_recipe_id"] for cs in current_sides if cs["side_recipe_id"]]
 
     # Get user's side recipes
     side_recipes = conn.execute(
