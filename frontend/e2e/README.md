@@ -49,11 +49,15 @@ Available fixtures:
 
 ## CI
 
-`.github/workflows/e2e.yml` runs the suite on every push to `master` and `staging`. It's **advisory** — failures show up in the Actions tab but don't block merges. Flip to blocking later by making it a required status check.
+`.github/workflows/e2e.yml` runs the suite on every push to `master` and `staging`. A failed test turns the run **red** (visible in the Actions tab) but does **not** block pushes or deploys — it isn't a required status check. Make it required in branch protection if you want red to block. (Previously this job set `continue-on-error: true`, which reported the run green even when tests failed — removed so reds show as red.)
 
 Required GitHub secrets:
 - `STAGING_URL` — e.g. `https://staging.getmealrunner.app`
 - `PLAYWRIGHT_TEST_SECRET` — must match the value set on Railway staging
+
+## Known failures
+
+- **`magic-link-auth.spec.js` → "login → verify token → session cookie authenticates"** fails on **staging only**, at the test-only `POST /api/admin/e2e-magic-link-token` helper (returns not-ok); the same run's teardown also often times out on `POST /api/admin/e2e-cleanup` (30s). The **real** auth path is fine — `/api/auth/login` mints the token (email send is suppressed for the `.invalid` e2e domain) and the companion bad-token `verify` test passes. So this is the admin e2e *helper* endpoints struggling on staging (suspected 500/timeout, possibly tied to staging DB perf / OOM restarts), not an auth regression. It has failed since before the picker redesign. Staging vs production: these `/api/admin/e2e-*` endpoints are gated on `PLAYWRIGHT_TEST_SECRET`, which only staging sets — production 404s them by design, and the suite only runs against staging. To pin the cause, hit `/api/admin/e2e-magic-link-token` on staging with the secret, or add server-side logging.
 
 ## Deferred — Add Later
 
