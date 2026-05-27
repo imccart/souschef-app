@@ -9,6 +9,33 @@
   }
 }
 
+/* Cuisine selector in the recipe detail view */
+.cuisineEdit {
+  margin-bottom: 14px;
+}
+.cuisineEditRow {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+}
+.cuisineEditChip {
+  border: 1px solid var(--tan);
+  border-radius: 20px;
+  padding: 5px 12px;
+  font-size: 12px;
+  font-family: 'DM Sans', sans-serif;
+  color: var(--brown);
+  background: white;
+  cursor: pointer;
+  -webkit-tap-highlight-color: transparent;
+  transition: all 0.12s;
+}
+.cuisineEditChipOn {
+  background: var(--dark);
+  border-color: var(--dark);
+  color: var(--cream);
+}
+
 .kitchenTabs {
   display: flex;
   gap: 0;

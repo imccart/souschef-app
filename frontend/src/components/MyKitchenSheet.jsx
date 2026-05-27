@@ -18,9 +18,15 @@ function _getWeekLabel(dateStr) {
   } catch { return dateStr }
 }
 
+const CUISINE_OPTS = [
+  ['italian', 'Italian'], ['mexican', 'Mexican'], ['asian', 'Asian'],
+  ['american', 'American'], ['', 'Other'],
+]
+
 export default function MyKitchenSheet({ onClose }) {
   const [activeTab, setActiveTab] = useState('meals')
   const [detailRecipe, setDetailRecipe] = useState(null)
+  const [cuisineVal, setCuisineVal] = useState('')
   const [recipes, setRecipes] = useState(null)
   // staples is one list with `mode: 'every_trip' | 'keep_on_hand'` per row.
   // Replaces the old separate regulars + pantry state — same UX, one source.
@@ -68,6 +74,7 @@ export default function MyKitchenSheet({ onClose }) {
       setRenamed(null)
       setCookingNotes('')
       setStapleSuggestion(null)
+      setCuisineVal(detailRecipe.cuisine || '')
       api.getRecipeIngredients(detailRecipe.id)
         .then(data => {
           setDetailIngredients(data.ingredients)
@@ -244,6 +251,27 @@ export default function MyKitchenSheet({ onClose }) {
           <button className={styles.kitchenBack} onClick={() => setDetailRecipe(null)}>{'\u2190'}</button>
           <div className={styles.kitchenDetailTitle}>{detailRecipe.name}</div>
         </div>
+        {detailRecipe.recipe_type !== 'side' && (
+          <div className={styles.cuisineEdit}>
+            <div className={ls.sectionHint} style={{ marginBottom: 6 }}>Cuisine</div>
+            <div className={styles.cuisineEditRow}>
+              {CUISINE_OPTS.map(([val, label]) => {
+                const sel = ['italian', 'mexican', 'asian', 'american'].includes(cuisineVal) ? cuisineVal : ''
+                return (
+                  <button
+                    key={val || 'other'}
+                    className={`${styles.cuisineEditChip} ${sel === val ? styles.cuisineEditChipOn : ''}`}
+                    onClick={() => {
+                      setCuisineVal(val)
+                      api.setRecipeCuisine(detailRecipe.id, val).catch(() => {})
+                      setRecipes(prev => prev ? prev.map(r => r.id === detailRecipe.id ? { ...r, cuisine: val } : r) : prev)
+                    }}
+                  >{label}</button>
+                )
+              })}
+            </div>
+          </div>
+        )}
         {detailIngredients && (
           <div className={ls.sectionHint} style={{ marginBottom: 12 }}>
             {detailIngredients.length} ingredient{detailIngredients.length !== 1 ? 's' : ''}

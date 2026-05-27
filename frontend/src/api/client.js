@@ -196,6 +196,10 @@ export const api = {
 
   // Recipes
   getRecipes: () => request('/recipes'),
+  setRecipeCuisine: (id, cuisine) => request(`/recipes/${id}/cuisine`, {
+    method: 'POST',
+    body: JSON.stringify({ cuisine }),
+  }),
   addRecipe: (name, recipeType) => request('/recipes', {
     method: 'POST',
     body: JSON.stringify({ name, recipe_type: recipeType || 'meal' }),

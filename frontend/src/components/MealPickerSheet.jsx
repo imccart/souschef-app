@@ -8,7 +8,7 @@ const MAX_SIDES = 3
 
 const CUISINES = [
   ['all', 'All'], ['italian', 'Italian'], ['mexican', 'Mexican'],
-  ['asian', 'Asian'], ['american', 'American'], ['quick', 'Quick'],
+  ['asian', 'Asian'], ['american', 'American'],
 ]
 
 function relMade(dateStr) {
@@ -154,7 +154,6 @@ export default function MealPickerSheet({ date, dayName, onSelect, onFreeform, o
   const matchCuisine = (r) => {
     if (!r) return false
     if (cuisine === 'all') return true
-    if (cuisine === 'quick') return r.effort === 'easy'
     return r.cuisine === cuisine
   }
 

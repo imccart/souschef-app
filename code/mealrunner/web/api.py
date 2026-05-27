@@ -3619,6 +3619,26 @@ async def add_recipe(body: dict, request: Request):
     return {"ok": True, "id": recipe_id}
 
 
+VALID_CUISINES = {"italian", "mexican", "asian", "american", "comfort", "any", ""}
+
+
+@router.post("/recipes/{recipe_id}/cuisine")
+async def set_recipe_cuisine(recipe_id: int, body: dict, request: Request):
+    """Set a meal's cuisine. The only recipe attribute users can impose; the
+    cuisine filter in the picker keys off it."""
+    conn = _conn()
+    user_id = request.state.user_id
+    cuisine = (body.get("cuisine") or "").strip().lower()
+    if cuisine not in VALID_CUISINES:
+        return {"ok": False, "error": "invalid cuisine"}
+    conn.execute(
+        text("UPDATE recipes SET cuisine = :c WHERE id = :id AND user_id = :u"),
+        {"c": cuisine, "id": recipe_id, "u": user_id},
+    )
+    conn.commit()
+    return {"ok": True}
+
+
 @router.delete("/recipes/{recipe_id}")
 async def delete_recipe(recipe_id: int, request: Request):
     """Remove a recipe. Won't delete if it's currently on the meal plan."""
