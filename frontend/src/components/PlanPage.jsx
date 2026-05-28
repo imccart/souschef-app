@@ -445,12 +445,8 @@ export default function PlanPage({ showHeader = true, onLoad, onNavigate }) {
                     </div>
                   </button>
                   <div className="sheet-divider" />
-                  <button className="sheet-option" onClick={() => handleFreeform(actionDate, 'Nothing Planned')}>
-                    <div className="sheet-opt-icon">{'\u{1F44B}'}</div>
-                    <div>
-                      <div className="sheet-opt-title">Nothing planned</div>
-                      <div className="sheet-opt-desc">Eating out, leftovers, winging it</div>
-                    </div>
+                  <button className={styles.chefsNightOption} onClick={() => handleFreeform(actionDate, "Chef's Night Off")}>
+                    Chef's night off {'→'}
                   </button>
                   <button className="sheet-option sheet-option-destructive" onClick={() => handleClearDay(actionDate)}>
                     <div className="sheet-opt-icon">{'\u{1F5D1}'}</div>

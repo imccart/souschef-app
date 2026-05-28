@@ -278,6 +278,21 @@
 
 /* ── Plan Footer ──────────────────────── */
 
+.chefsNightOption {
+  display: block;
+  width: 100%;
+  text-align: left;
+  padding: 12px 4px;
+  border: none;
+  background: none;
+  font-family: 'Playfair Display', serif;
+  font-style: italic;
+  font-size: 14px;
+  color: var(--accent);
+  cursor: pointer;
+  -webkit-tap-highlight-color: transparent;
+}
+
 .planFooter {
   padding: 20px 0 16px;
   display: flex;
