@@ -35,6 +35,7 @@ export default function MealPickerSheet({ date, dayName, onSelect, onFreeform, o
   const [error, setError] = useState(false)
   const [search, setSearch] = useState('')
   const [cuisine, setCuisine] = useState('all')
+  const [cuisineOpen, setCuisineOpen] = useState(false)
   const [pickedRecipe, setPickedRecipe] = useState(null)
   const [sides, setSides] = useState(null)
   const [selectedSides, setSelectedSides] = useState([])
@@ -157,6 +158,9 @@ export default function MealPickerSheet({ date, dayName, onSelect, onFreeform, o
     if (cuisine === 'other') return !['italian', 'mexican', 'asian', 'american'].includes(r.cuisine)
     return r.cuisine === cuisine
   }
+  const cuisineLabel = cuisine === 'all'
+    ? 'All cuisines'
+    : (CUISINES.find(([v]) => v === cuisine)?.[1] || 'All cuisines')
 
   const searchResults = query ? meals.filter(r => r.name.toLowerCase().includes(query)) : []
 
@@ -254,16 +258,34 @@ export default function MealPickerSheet({ date, dayName, onSelect, onFreeform, o
             ) : (
               <>
                 <div className={styles.cuisineFilter}>
-                  <select
-                    className={styles.cuisineSelect}
-                    value={cuisine}
-                    onChange={(e) => setCuisine(e.target.value)}
+                  <button
+                    type="button"
+                    className={styles.cuisineButton}
+                    onClick={() => setCuisineOpen(o => !o)}
                     aria-label="Filter by cuisine"
+                    aria-haspopup="listbox"
+                    aria-expanded={cuisineOpen}
                   >
-                    {CUISINES.map(([val, label]) => (
-                      <option key={val} value={val}>{val === 'all' ? 'All cuisines' : label}</option>
-                    ))}
-                  </select>
+                    <span>{cuisineLabel}</span>
+                    <span className={styles.cuisineCaret}>{'▾'}</span>
+                  </button>
+                  {cuisineOpen && (
+                    <>
+                      <div className={styles.cuisineBackdrop} onClick={() => setCuisineOpen(false)} />
+                      <div className={styles.cuisineMenu} role="listbox">
+                        {CUISINES.map(([val, label]) => (
+                          <button
+                            key={val}
+                            type="button"
+                            role="option"
+                            aria-selected={cuisine === val}
+                            className={`${styles.cuisineOption} ${cuisine === val ? styles.cuisineOptionOn : ''}`}
+                            onClick={() => { setCuisine(val); setCuisineOpen(false) }}
+                          >{val === 'all' ? 'All cuisines' : label}</button>
+                        ))}
+                      </div>
+                    </>
+                  )}
                 </div>
 
                 {favorites.length > 0 && (

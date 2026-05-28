@@ -105,22 +105,60 @@
 
 /* Cuisine filter chips */
 .cuisineFilter {
+  position: relative;
   margin-bottom: 12px;
 }
-.cuisineSelect {
-  min-width: 150px;
-  max-width: 100%;
+.cuisineButton {
+  display: inline-flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 10px;
+  min-width: 160px;
   border: 1px solid var(--tan);
   border-radius: 8px;
-  padding: 7px 12px;
+  padding: 8px 12px;
   font-family: 'DM Sans', sans-serif;
   font-size: 13px;
   color: var(--dark);
   background: var(--warm-white);
   cursor: pointer;
-  outline: none;
+  -webkit-tap-highlight-color: transparent;
+  transition: border-color 0.12s;
 }
-.cuisineSelect:focus { border-color: var(--accent); background: white; }
+.cuisineButton:hover { border-color: var(--accent-light); }
+.cuisineCaret { color: var(--brown); font-size: 10px; line-height: 1; }
+
+/* Click-catcher so a tap anywhere else closes the menu */
+.cuisineBackdrop { position: fixed; inset: 0; z-index: 50; }
+.cuisineMenu {
+  position: absolute;
+  top: calc(100% + 4px);
+  left: 0;
+  z-index: 51;
+  min-width: 180px;
+  background: white;
+  border: 1px solid var(--tan);
+  border-radius: 10px;
+  box-shadow: 0 6px 20px rgba(44, 36, 32, 0.14);
+  padding: 4px;
+  display: flex;
+  flex-direction: column;
+}
+.cuisineOption {
+  text-align: left;
+  padding: 8px 12px;
+  border: none;
+  background: none;
+  border-radius: 6px;
+  font-family: 'DM Sans', sans-serif;
+  font-size: 13px;
+  color: var(--dark);
+  cursor: pointer;
+  -webkit-tap-highlight-color: transparent;
+}
+.cuisineOption:hover { background: var(--accent-bg); }
+.cuisineOptionOn,
+.cuisineOptionOn:hover { background: var(--accent); color: white; }
 
 /* Section labels (italic Playfair) */
 .sectionLabel {

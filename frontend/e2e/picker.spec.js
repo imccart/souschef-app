@@ -32,11 +32,13 @@ test.describe("Meal picker (redesign)", () => {
     ).toBeVisible();
     await expect(sheet.getByPlaceholder(/Search or add/)).toBeVisible();
 
-    // Cuisine filter is a dropdown; defaults to "all" and is selectable.
-    const cuisine = sheet.getByRole("combobox");
-    await expect(cuisine).toHaveValue("all");
-    await cuisine.selectOption("italian");
-    await expect(cuisine).toHaveValue("italian");
+    // Cuisine filter is a custom dropdown; defaults to "All cuisines",
+    // opens on tap, and reflects the chosen option.
+    const filterBtn = sheet.getByRole("button", { name: "Filter by cuisine" });
+    await expect(filterBtn).toContainText(/All cuisines/);
+    await filterBtn.click();
+    await sheet.getByRole("option", { name: "Italian" }).click();
+    await expect(filterBtn).toContainText("Italian");
   });
 
   test("pick a meal → Done with no sides → lands on Plan", async ({
