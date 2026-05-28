@@ -277,8 +277,6 @@ export const api = {
   }),
 
   // Learning
-  getLearningSuggestions: () => request('/learning/suggestions'),
-  dismissLearning: (name) => request(`/learning/dismiss/${encodeURIComponent(name)}`, { method: 'POST' }),
 
   // Household
   getHouseholdMembers: () => request('/household/members'),
