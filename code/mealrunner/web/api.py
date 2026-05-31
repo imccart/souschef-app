@@ -3065,12 +3065,22 @@ async def _process_receipt(receipt_type: str, content: str, request: Request):
                 # Prefer raw (the actual line text from the receipt) over item
                 # (which is the grocery name for matched image-parser items).
                 receipt_text = ri.get("raw") or ri.get("item", "")
+                # Scope to a single row by id so a historical row that
+                # happens to share the same `name` (the active+history
+                # conflation in grocery_items) doesn't get re-stamped by
+                # today's parse. Pick the most recently added eligible row.
                 conn.execute(
                     text("""UPDATE grocery_items SET
                            receipt_item = :receipt_item, receipt_price = :receipt_price,
                            receipt_upc = :receipt_upc, receipt_status = 'matched',
                            receipt_acknowledged = 0
-                       WHERE user_id = :user_id AND LOWER(name) = LOWER(:name)"""),
+                       WHERE id = (
+                           SELECT id FROM grocery_items
+                           WHERE user_id = :user_id AND LOWER(name) = LOWER(:name)
+                             AND COALESCE(receipt_status, '') IN ('', 'not_fulfilled')
+                             AND have_it = 0 AND removed = 0
+                           ORDER BY added_at DESC NULLS LAST LIMIT 1
+                       )"""),
                     {"receipt_item": receipt_text,
                      "receipt_price": ri.get("price"),
                      "receipt_upc": ri.get("upc", ""),
@@ -3103,11 +3113,19 @@ async def _process_receipt(receipt_type: str, content: str, request: Request):
             r = m["receipt"]
             # UPC match = exact product; name match = different UPC = substitution
             status = "matched" if m.get("match") == "upc" else "substituted"
+            # Same id-scoped UPDATE as the pre-match path above — keeps
+            # one historical row per name from getting re-stamped.
             conn.execute(
                 text("""UPDATE grocery_items SET
                        receipt_item = :receipt_item, receipt_price = :receipt_price, receipt_upc = :receipt_upc,
                        receipt_status = :status, receipt_acknowledged = 0
-                   WHERE user_id = :user_id AND LOWER(name) = LOWER(:name)"""),
+                   WHERE id = (
+                       SELECT id FROM grocery_items
+                       WHERE user_id = :user_id AND LOWER(name) = LOWER(:name)
+                         AND COALESCE(receipt_status, '') IN ('', 'not_fulfilled')
+                         AND have_it = 0 AND removed = 0
+                       ORDER BY added_at DESC NULLS LAST LIMIT 1
+                   )"""),
                 {"receipt_item": r.get("item", ""), "receipt_price": r.get("price"),
                  "receipt_upc": r.get("upc", ""),
                  "status": status,
@@ -3128,11 +3146,19 @@ async def _process_receipt(receipt_type: str, content: str, request: Request):
 
         for m in diff2["matched"]:
             r = m["receipt"]
+            # Id-scoped UPDATE — see pre-match path for context. Avoids
+            # the active+history collision in grocery_items.
             conn.execute(
                 text("""UPDATE grocery_items SET
                        receipt_item = :receipt_item, receipt_price = :receipt_price, receipt_upc = :receipt_upc,
                        receipt_status = 'matched', receipt_acknowledged = 0
-                   WHERE user_id = :user_id AND LOWER(name) = LOWER(:name)"""),
+                   WHERE id = (
+                       SELECT id FROM grocery_items
+                       WHERE user_id = :user_id AND LOWER(name) = LOWER(:name)
+                         AND COALESCE(receipt_status, '') IN ('', 'not_fulfilled')
+                         AND have_it = 0 AND removed = 0
+                       ORDER BY added_at DESC NULLS LAST LIMIT 1
+                   )"""),
                 {"receipt_item": r.get("item", ""), "receipt_price": r.get("price"),
                  "receipt_upc": r.get("upc", ""),
                  "user_id": user_id, "name": m["grocery_name"]},
