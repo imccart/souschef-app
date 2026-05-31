@@ -615,9 +615,11 @@ export default function GroceryPage({ sidebar = false }) {
           >{'×'}</button>
           <div className={styles.groceryPromptBody}>
             <div className={styles.groceryPromptTitle}>Add a bundle</div>
-            <div className={styles.groceryPromptDesc}>
-              Bundles are named sets of items you buy together — like ingredients for homemade dog food or a Sunday breakfast spread. Tap one to add its items to your list. You can create or edit bundles in My Kitchen.
-            </div>
+            {(!bundlesData || bundlesData.length === 0) && (
+              <div className={styles.groceryPromptDesc}>
+                Bundles are named sets of items you buy together — like ingredients for homemade dog food or a Sunday breakfast spread. Tap one to add its items to your list. You can create or edit bundles in My Kitchen.
+              </div>
+            )}
             {bundlesData && bundlesData.length > 0 ? (
               <div className={styles.groceryPromptChecklist}>
                 {bundlesData.map(b => (
