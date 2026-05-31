@@ -544,6 +544,11 @@ export default function GroceryPage({ sidebar = false }) {
     if (expanded) {
       return (
         <div className={styles.groceryPromptCard}>
+          <button
+            className={styles.groceryPromptClose}
+            onClick={() => { setChecked(new Set()); onExpand() }}
+            aria-label="Close"
+          >{'×'}</button>
           <div className={styles.groceryPromptBody}>
             <div className={styles.groceryPromptTitle}>{`${verb} ${noun}`}</div>
             <div className={styles.groceryPromptDesc}>
@@ -582,9 +587,6 @@ export default function GroceryPage({ sidebar = false }) {
               </div>
             )}
             <div className={styles.groceryPromptActions}>
-              <button className={styles.groceryPromptDismiss} onClick={() => { setChecked(new Set()); onExpand() }}>
-                Cancel
-              </button>
               <button className={styles.groceryPromptSubmit} onClick={onSubmit}>
                 Add to list {checkedSet.size > 0 ? `(${checkedSet.size})` : ''}
               </button>
@@ -606,6 +608,11 @@ export default function GroceryPage({ sidebar = false }) {
     if (bundlesExpanded) {
       return (
         <div className={styles.groceryPromptCard}>
+          <button
+            className={styles.groceryPromptClose}
+            onClick={handleBundlesExpand}
+            aria-label="Close"
+          >{'×'}</button>
           <div className={styles.groceryPromptBody}>
             <div className={styles.groceryPromptTitle}>Add a bundle</div>
             <div className={styles.groceryPromptDesc}>
@@ -631,11 +638,6 @@ export default function GroceryPage({ sidebar = false }) {
                 No bundles yet. Create one in My Kitchen.
               </div>
             )}
-            <div className={styles.groceryPromptActions}>
-              <button className={styles.groceryPromptDismiss} onClick={handleBundlesExpand}>
-                Cancel
-              </button>
-            </div>
           </div>
         </div>
       )
