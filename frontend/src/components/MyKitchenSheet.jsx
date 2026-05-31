@@ -538,7 +538,7 @@ export default function MyKitchenSheet({ onClose }) {
               onChange={setAddBundleItemText}
               onSubmit={(name) => addBundleItemNamed(name)}
               candidates={allIngredients || []}
-              exclude={detailBundle.items.map(i => i.name)}
+              exclude={new Set(detailBundle.items.map(i => compareKey(i.name)))}
               placeholder="Add an item..."
               inputClassName={ls.addInput}
             />
@@ -557,8 +557,8 @@ export default function MyKitchenSheet({ onClose }) {
             </div>
           )}
           <button
-            className="btn ghost"
-            style={{ marginTop: 24, color: 'var(--rust)' }}
+            className={ls.logout}
+            style={{ marginTop: 24 }}
             onClick={() => handleDeleteBundle(detailBundle.id)}
           >
             Delete bundle
