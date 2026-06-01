@@ -1,0 +1,18 @@
+name: Keep prod warm
+
+on:
+  schedule:
+    - cron: '*/10 * * * *'
+  workflow_dispatch:
+
+jobs:
+  ping:
+    runs-on: ubuntu-latest
+    timeout-minutes: 2
+    steps:
+      - name: Ping /health
+        run: |
+          code=$(curl -s -o /tmp/body -w "%{http_code}" --max-time 60 https://getmealrunner.app/health)
+          echo "status=$code"
+          cat /tmp/body
+          test "$code" = "200"
